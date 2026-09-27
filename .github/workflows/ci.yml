@@ -25,6 +25,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - uses: astral-sh/setup-uv@v6   # uvx runs Slither in the verify gate
       - run: pnpm install --frozen-lockfile
       - name: pnpm verify (forge build, forge test, drift checks, typecheck, vitest, next build)
         run: pnpm verify

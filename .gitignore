@@ -157,3 +157,6 @@ venv/
 *.egg-info/
 .ipynb_checkpoints/
 # <<< hackathon-skill: public-repo guard <<<
+
+# verify gate scratch
+.slither.log
