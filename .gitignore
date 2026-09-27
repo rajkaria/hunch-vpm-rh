@@ -53,5 +53,5 @@ scratch/
 **/CLAUDE.md
 **/AGENTS.md
 .claude/
-docs/*
-!docs/ARCHITECTURE.md
+docs/internal/
+docs/context/
