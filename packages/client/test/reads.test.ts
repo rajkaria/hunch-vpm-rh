@@ -215,7 +215,7 @@ describe('readPrices', () => {
       expect(r.oraclePaused).toBe(false);
       expect(r.ageSec).toBeGreaterThanOrEqual(0);
     }
-    expect(pre.rows.find((r) => r.ticker === 'COIN')!.pendingFlatRateCheck).toBe(true);
+    expect(pre.rows.find((r) => r.ticker === 'COIN')!.pendingFlatRateCheck).toBe(false); // passed measure-feeds on 2026-09-28
   });
 
   it('adds allow-list state once deployed', async () => {

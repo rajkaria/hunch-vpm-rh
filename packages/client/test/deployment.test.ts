@@ -35,7 +35,7 @@ describe('deployments/robinhood-mainnet.json', () => {
     expect(d.contracts.HunchVPM.address).toBe(ZERO_ADDRESS);
     expect(d.usdg).toBe(USDG_ADDRESS);
     expect(d.feeds.map((f) => f.ticker)).toEqual(['NVDA', 'TSLA', 'AAPL', 'COIN']);
-    expect(feedByTicker(d, 'coin')?.pendingFlatRateCheck).toBe(true);
+    expect(feedByTicker(d, 'coin')?.pendingFlatRateCheck).toBe(false); // passed measure-feeds on 2026-09-28 (DECISIONS.md)
     expect(feedByTicker(d, 'NVDA')?.feed).toBe('0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15');
     expect(feedByAddress(d, '0x379ec4f7c378f34a1b47e4f3cbebcbac3e8e9f15')?.ticker).toBe('NVDA');
     expect(d.feeds.every((f) => f.maxStrikeAge === 93_600 && f.maxFinalAge === 93_600)).toBe(true);
