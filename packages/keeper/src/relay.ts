@@ -17,7 +17,7 @@ import {
   type Deployment,
   type Outcome,
 } from '@hunch-rh/client';
-import { getAddress, isAddress, isHex, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
+import { BaseError, ContractFunctionRevertedError, getAddress, isAddress, isHex, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
 
 /**
  * The gasless-entry relayer (docs/spec/06 `relay`). A bettor signs USDG's EIP-3009
@@ -216,7 +216,15 @@ export function chainRelayReads(client: PublicClient, d: Deployment, relayer?: A
   };
 }
 
+/** One line for logs and API errors; names the custom error when a contract reverted. */
 export function shortError(error: unknown): string {
+  if (error instanceof BaseError) {
+    const revert = error.walk((e) => e instanceof ContractFunctionRevertedError);
+    if (revert instanceof ContractFunctionRevertedError) {
+      const name = revert.data?.errorName ?? revert.reason ?? revert.signature;
+      if (name !== undefined) return `reverted: ${name}`;
+    }
+  }
   const e = error as { shortMessage?: string; message?: string };
   return (e?.shortMessage ?? e?.message ?? String(error)).split('\n')[0]!.slice(0, 300);
 }

@@ -372,18 +372,20 @@ export async function runJob(job: JobName | 'all', ctx: RunContext): Promise<Job
 /** The refund drill: plan (read-only) or list it through the factory. */
 export async function runDrill(ctx: RunContext, options: { ticker?: string; plan?: boolean } = {}): Promise<JobReport> {
   const d = ctx.deployment;
-  const nowSec = ctx.nowSec ?? Math.floor(Date.now() / 1000);
   const planOnly = options.plan === true;
-  const report = newReport('drill', planOnly ? { ...ctx, dryRun: true } : ctx, nowSec, isDeployed(d));
+  const run: RunContext = planOnly ? { ...ctx, dryRun: true, walletClient: null } : ctx;
+  // Chain time when deployed (so a fork or a rehearsal plans against its own clock).
+  let state: KeeperState | null = null;
+  if (isDeployed(d)) {
+    const keeper = (ctx.walletClient?.account?.address as Address | undefined) ?? d.keeper;
+    state = await readKeeperState(ctx.publicClient, d, { ...(ctx.nowSec === undefined ? {} : { nowSec: ctx.nowSec }), keeper, withPositions: false });
+  }
+  const nowSec = state?.nowSec ?? ctx.nowSec ?? Math.floor(Date.now() / 1000);
+  const report = newReport('drill', run, nowSec, isDeployed(d));
   const feed = feedByTicker(d, options.ticker ?? 'NVDA');
   if (feed === undefined) {
     report.notes.push(`unknown ticker ${options.ticker}`);
     return report;
-  }
-  let state: KeeperState | null = null;
-  if (isDeployed(d)) {
-    const keeper = (ctx.walletClient?.account?.address as Address | undefined) ?? d.keeper;
-    state = await readKeeperState(ctx.publicClient, d, { nowSec, keeper, withPositions: false });
   }
   const plan = planRefundDrill({ nowSec, feed, params: deploymentParams(d), listings: state?.markets.map((m) => m.listing) ?? [] });
   if (!plan.ok) {
@@ -392,15 +394,15 @@ export async function runDrill(ctx: RunContext, options: { ticker?: string; plan
   }
   const p = plan.plan.params;
   report.notes.push(
-    `${plan.plan.question}`,
+    plan.plan.question,
     `feed ${p.feed} · strikeTime ${p.strikeTime} · finalTime ${p.finalTime} (${plan.saturdayUtc}) · maxStrikeAge ${p.maxStrikeAge} (feed default) · maxFinalAge ${p.maxFinalAge} · seed ${p.seedPerLeg}/leg · caps ${p.minEntry}..${p.maxEntry}`,
   );
-  if (!isDeployed(d)) {
+  if (state === null) {
     report.notes.push(NOT_DEPLOYED_NOTE);
     return report;
   }
   if (planOnly) return report;
-  await sendOpens(planOnly ? { ...ctx, dryRun: true } : ctx, report, state!, [plan.plan]);
+  await sendOpens(run, report, state, [plan.plan]);
   return report;
 }
 
