@@ -153,9 +153,16 @@ describe('T9 · relay validation', () => {
     const nonce = enterNonce({ hunchVpm: d.contracts.HunchVPM.address, marketId: 3n, outcome: UP, amount: 5_000_000n, salt: req.salt as Hex });
     expect(await validateRelayRequest(req, ctx({ chain: chain({ used: new Set([nonce]) }) }))).toMatchObject({ code: 'nonce-used', status: 409 });
     expect(await validateRelayRequest(await signed(), ctx({ chain: chain({ usdgBalance: async () => 4_999_999n }) }))).toMatchObject({ code: 'insufficient-balance' });
-    expect(await validateRelayRequest(await signed(), ctx({ chain: chain({ simulate: async () => ({ ok: false, reason: 'AddressFrozen' }) }) }))).toMatchObject({
+    expect(await validateRelayRequest(await signed(), ctx({ chain: chain({ simulate: async () => ({ ok: false, reason: 'reverted: AddressFrozen' }) }) }))).toMatchObject({
       code: 'simulation-failed',
       status: 422,
+      message: 'USDG has frozen this wallet, so it cannot bet.',
+    });
+    expect(await validateRelayRequest(await signed(), ctx({ chain: chain({ simulate: async () => ({ ok: false, reason: 'reverted: VintageFull' }) }) }))).toMatchObject({
+      message: 'Many bets landed in the last few seconds. Try again in a moment.',
+    });
+    expect(await validateRelayRequest(await signed(), ctx({ chain: chain({ simulate: async () => ({ ok: false, reason: 'execution reverted' }) }) }))).toMatchObject({
+      message: 'The bet would fail on chain: execution reverted',
     });
   });
 

@@ -217,6 +217,28 @@ export function chainRelayReads(client: PublicClient, d: Deployment, relayer?: A
 }
 
 /** One line for logs and API errors; names the custom error when a contract reverted. */
+/** Plain words for the reverts a bettor can hit (HunchVPM and USDG custom errors). */
+const REVERT_WORDS: Record<string, string> = {
+  VintageFull: 'Many bets landed in the last few seconds. Try again in a moment.',
+  Frozen: 'This market is no longer taking bets.',
+  NotOpen: 'This market is no longer taking bets.',
+  EntriesArePaused: 'New bets are paused right now. Claims and payouts are not affected.',
+  EntryTooSmall: 'This bet is below the market minimum.',
+  EntryTooLarge: 'This bet is above the market maximum.',
+  InvalidSignature: 'The signature does not match this wallet, market, side and amount.',
+  AddressFrozen: 'USDG has frozen this wallet, so it cannot bet.',
+  AuthorizationExpired: 'This authorization has expired. Sign again.',
+  AuthorizationNotYetValid: 'This authorization is not valid yet. Check your device clock and sign again.',
+  AuthorizationAlreadyUsed: 'This authorization was already used. Sign a new bet.',
+  InsufficientBalance: 'Not enough USDG in this wallet on Robinhood Chain.',
+};
+
+/** A bettor-facing sentence for a simulation failure (falls back to the raw reason). */
+export function revertInWords(reason: string): string {
+  const name = /reverted: (\w+)/.exec(reason)?.[1];
+  return (name !== undefined ? REVERT_WORDS[name] : undefined) ?? `The bet would fail on chain: ${reason}`;
+}
+
 export function shortError(error: unknown): string {
   if (error instanceof BaseError) {
     const revert = error.walk((e) => e instanceof ContractFunctionRevertedError);
@@ -344,7 +366,7 @@ export async function validateRelayRequest(body: unknown, ctx: RelayContext): Pr
   if (await ctx.chain.authorizationUsed(r.from, nonce)) return fail('nonce-used', 'This authorization was already used. Sign a new bet.');
   if ((await ctx.chain.usdgBalance(r.from)) < r.amount) return fail('insufficient-balance', 'Not enough USDG in this wallet on Robinhood Chain.');
   const sim = await ctx.chain.simulate(r);
-  if (!sim.ok) return fail('simulation-failed', `The bet would fail on chain: ${sim.reason}`);
+  if (!sim.ok) return fail('simulation-failed', revertInWords(sim.reason));
   return { ok: true, request: r, nonce };
 }
 
