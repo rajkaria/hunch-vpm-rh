@@ -11,20 +11,20 @@ The vendored reference settler's own measurements are in `GAS-REFERENCE.md` (tes
 
 | call | gas | budget | | reference |
 |---|---:|---:|---|---|
-| `openUpDown` (pull seed, create, register spec, hand over both legs, list) | 1091041 | 900000 | OVER | create 639,707 |
-| `enter`, first entry after creation (opens a vintage, nothing to finalize) | 166989 | - |  | 169,548 |
-| `enter`, first in a new block (finalizes the previous 1-entry vintage, opens one) | 227431 | 240000 | within | 212,890 |
-| `enter`, joining the open vintage, worst case (its id opens a new slot of the market's id list) | 164019 | 150000 | OVER | 129,628 |
-| `enter`, joining the open vintage, typical (id packs into an existing slot) | 124269 | 150000 | within | 129,628 |
-| `enterWithAuthorization`, first in a new block (finalizes the previous 1-entry vintage) | 255457 | 300000 | within | - |
-| `enterWithAuthorization`, joining the open vintage | 192048 | 300000 | within | - |
-| `finalizeVintage` of a 2-entry vintage | 117452 | - |  | 1 entry 81,413 |
-| `StockRoundResolver.resolve` (4 round reads, oraclePaused, settler.resolve finalizing a 1-entry vintage) | 157340 | 200000 | within | settler resolve 87,571 |
-| `claimFor`, winning position, first fee ever accrued in this token (zero to non-zero slot) | 93674 | 90000 | OVER | claim 62,473 |
-| `claimFor`, winning position, typical (fee balance already non-zero) | 53869 | 90000 | within | claim 62,473 |
-| `claimFor`, losing position | 22794 | - |  | - |
-| `sweepFees` to the treasury | 44793 | - |  | - |
-| `StockRoundResolver.resolve`, FLAT (equal answers: voids the market) | 85219 | - |  | - |
+| `openUpDown` (pull seed, create, register spec, hand over both legs, list) | 1091085 | 900000 | OVER | create 639,707 |
+| `enter`, first entry after creation (opens a vintage, nothing to finalize) | 167051 | - |  | 169,548 |
+| `enter`, first in a new block (finalizes the previous 1-entry vintage, opens one) | 227493 | 240000 | within | 212,890 |
+| `enter`, joining the open vintage, worst case (its id opens a new slot of the market's id list) | 164081 | 150000 | OVER | 129,628 |
+| `enter`, joining the open vintage, typical (id packs into an existing slot) | 124331 | 150000 | within | 129,628 |
+| `enterWithAuthorization`, first in a new block (finalizes the previous 1-entry vintage) | 255608 | 300000 | within | - |
+| `enterWithAuthorization`, joining the open vintage | 192199 | 300000 | within | - |
+| `finalizeVintage` of a 2-entry vintage | 117364 | - |  | 1 entry 81,413 |
+| `StockRoundResolver.resolve` (4 round reads, oraclePaused, settler.resolve finalizing a 1-entry vintage) | 157362 | 200000 | within | settler resolve 87,571 |
+| `claimFor`, winning position, first fee ever accrued in this token (zero to non-zero slot) | 93696 | 90000 | OVER | claim 62,473 |
+| `claimFor`, winning position, typical (fee balance already non-zero) | 53891 | 90000 | within | claim 62,473 |
+| `claimFor`, losing position | 22816 | - |  | - |
+| `sweepFees` to the treasury | 44815 | - |  | - |
+| `StockRoundResolver.resolve`, FLAT (equal answers: voids the market) | 85241 | - |  | - |
 
 ### Reading the table
 

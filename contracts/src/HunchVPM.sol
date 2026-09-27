@@ -10,7 +10,7 @@ interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
-/// @title  HunchVPM — the reference Vested Parimutuel plus diffs D1–D8 and nothing else
+/// @title  HunchVPM — the reference Vested Parimutuel plus diffs D1–D9 and nothing else
 /// @notice One contract, many markets. Implements the mechanism of the paper
 ///         "The Vested Parimutuel" exactly as its reference settler does:
 ///           * Rule 1 (flow vesting) and Rule 2 (capacity matching), §4.1;
@@ -24,12 +24,15 @@ interface IERC20 {
 ///         winners' gains, D2 claims deliverable by anyone (to the owner only), D3 per-market
 ///         entry bounds, D4 a guardian switch that pauses new entries and nothing else, D5
 ///         gasless entry through a signed USDG transfer (EIP-3009), D6 views, D7 events, and
-///         D8 one safety fix: `resolve` / `voidMarket` finalize the last vintage even when
+///         two safety fixes. D8: `resolve` / `voidMarket` finalize the last vintage even when
 ///         `block.number` has not advanced. On Robinhood Chain `block.number` is the L1 block
 ///         (~12 s) while timestamps are L2, so a market can settle in the same "block" as its
 ///         last entry; the reference would then leave that vintage pending, pay its entries
 ///         back as refunds, and let a later `finalizeVintage` vest the same stake into the
 ///         winners again, which drains other markets' escrow (test/SameBlockSettlement.t.sol).
+///         D9: a vintage holds at most MAX_VINTAGE_ENTRIES entries. Finalizing is linear in a
+///         vintage's entries and every path out of a market finalizes first, so an unbounded
+///         vintage could be stuffed past the block gas limit and lock the market for good.
 /// @dev    Block vintages are applied lazily (design "A" in the README): entries of
 ///         the current block are buffered with their OFFERED amount; the vintage is
 ///         finalized — rationed (§4.4 iii), vested against the vintage-start books
@@ -40,7 +43,7 @@ interface IERC20 {
 ///         in the entry transaction; §6 (c)'s "same-transaction refund" holds only when
 ///         acceptance is knowable in that transaction, which under the §4.4 batching
 ///         rule is never the case for an entry that is not the last of its block.
-///         D1–D8: every line changed relative to src/reference/VestedParimutuel.sol carries
+///         D1–D9: every line changed relative to src/reference/VestedParimutuel.sol carries
 ///         its diff tag; scripts/diff-reference.sh (contracts/DIFF.md) rejects untagged hunks.
 contract HunchVPM {
     // ------------------------------------------------------------------ constants
@@ -57,6 +60,9 @@ contract HunchVPM {
     ///         one market, one side and one amount.
     bytes32 public constant ENTER_TYPEHASH =
         keccak256("HunchEnter(uint256 marketId,uint8 outcome,uint256 amount,bytes32 salt)");
+    /// @notice D9: the most entries one vintage (one L1 block, ~12 s) may hold, so finalizing a
+    ///         vintage always fits in a block (~34,000 gas per entry, under 7.5M gas here).
+    uint256 public constant MAX_VINTAGE_ENTRIES = 200;
 
     // ------------------------------------------------------------------ types
     enum Status {
@@ -171,6 +177,7 @@ contract HunchVPM {
     error EntriesArePaused();     // D4: the guardian has paused new entries
     error NotGuardian();          // D4
     error ZeroAddress();          // D1, D4, D5
+    error VintageFull();          // D9: this block's vintage already holds MAX_VINTAGE_ENTRIES
 
     modifier nonReentrant() {
         if (locked != 1) revert Reentrancy();
@@ -406,6 +413,7 @@ contract HunchVPM {
             m.vintageOpen = true;
             m.vintageBlock = uint64(block.number);
         }
+        if (m.pending.length >= MAX_VINTAGE_ENTRIES) revert VintageFull(); // D9: try the next block
 
         positionId = positions.length;
         positions.push(
