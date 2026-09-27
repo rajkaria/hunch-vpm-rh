@@ -149,6 +149,7 @@ contract HunchGasTest is Test {
         uint80 r4 = _measureResolve();
         _measureClaims();
         _measureFlat(r4);
+        _measureFullVintages();
         md = string.concat(
             md,
             "\n### Reading the table\n\n",
@@ -156,10 +157,29 @@ contract HunchGasTest is Test {
             "- **`openUpDown` is over its 900,000 budget** because it does more than the budget assumed: after `create` (about 695,000 here, including two D6 position ids) it registers the spec (about 130,000: five slots plus `specIdOf`) and, per the on-chain enumeration decision, appends a 12-field listing (six slots) plus `listingIndexOf` and the array length (about 180,000 with the `MarketOpened` event). At the 0.02 gwei observed on chain 4663 that is about 0.00002 ETH per market. Keeping the listing on chain is what lets the web enumerate markets with view calls only.\n",
             "- **`enter` joining a vintage** exceeds 150,000 only in the worst case, when its id starts a new slot of the market's id list (one entry in four); the typical join and the first-in-block entry are within budget.\n",
             "- **`claimFor` winning** exceeds 90,000 only for the first fee the settler ever accrues in a token (a zero to non-zero slot); afterwards it is within budget.\n",
-            "\n`enter` carries three things the reference's does not: the entries-pause check (D4, one cold slot), the entry bounds (D3, packed into slots `enter` already reads) and the per-market position index (D6, `uint64` ids packed four to a slot, so three entries in four write a slot that is already non-zero).\n"
+            "- **Full vintages (D9).** Every way out of a market finalizes its pending vintage first, so the fullest vintage the caps allow must finalize well inside Robinhood Chain's 32M gas per transaction. A vintage holds at most 200 entries and at most 12,800 entry-outcome pairs; the costliest layout is 64 outcomes with every book rationed (a cap computed for every pair, every book written). `test/VintageStuffing.t.sol` measures every creatable outcome count (up to about 140 inside 32M gas) and pins the worst under 25M.\n",
+            "\n`enter` carries four things the reference's does not: the entries-pause check (D4, one cold slot), the entry bounds (D3, packed into slots `enter` already reads), the per-market position index (D6, `uint64` ids packed four to a slot, so three entries in four write a slot that is already non-zero) and the payment check (D5: the settler's USDG balance read before and after the pull, about 2,200 gas here). `enterWithAuthorization` also reads USDG's `authorizationState` first (D5: USDG returns without paying for a used or cancelled nonce), about 3,300 gas with the balance check.\n"
         );
-        vm.writeFile("./GAS.md", md);
+        vm.writeFile("./GAS.md", string.concat(md, _forkSection()));
         console.log(md);
+    }
+
+    /// @dev test/fork/ForkGas.t.sol appends a fork section after its marker line; keep it.
+    function _forkSection() internal view returns (string memory) {
+        string memory marker = "<!-- fork-gas:";
+        string memory existing;
+        try vm.readFile("./GAS.md") returns (string memory text) {
+            existing = text;
+        } catch {
+            return "";
+        }
+        string[] memory parts = vm.split(existing, marker);
+        if (parts.length < 2) return "";
+        string memory rest = parts[1];
+        for (uint256 i = 2; i < parts.length; i++) {
+            rest = string.concat(rest, marker, parts[i]);
+        }
+        return string.concat(marker, rest);
     }
 
     uint256 internal id;
@@ -230,7 +250,7 @@ contract HunchGasTest is Test {
         uint256 g = gasleft();
         resolver.resolve(specId, r1, r3);
         _row(
-            "`StockRoundResolver.resolve` (4 round reads, oraclePaused, settler.resolve finalizing a 1-entry vintage)",
+            "`StockRoundResolver.resolve` (5 feed reads: the latest round, then each round and its successor; oraclePaused; settler.resolve finalizing a 1-entry vintage)",
             g - gasleft(),
             200_000,
             "settler resolve 87,571"
@@ -276,6 +296,46 @@ contract HunchGasTest is Test {
         uint256 g = gasleft();
         resolver.resolve(flatSpec, r4, last);
         _row("`StockRoundResolver.resolve`, FLAT (equal answers: voids the market)", g - gasleft(), 0, "-");
+    }
+
+    /// @dev D9: the fullest vintages the caps allow, finalized cold as their own transaction.
+    function _measureFullVintages() internal {
+        usdg.mint(address(this), 1_000e6);
+        usdg.approve(address(vpm), type(uint256).max);
+        uint256[] memory seed = new uint256[](2);
+        seed[0] = 10e6;
+        seed[1] = 10e6;
+        uint256 binary = vpm.create(IERC20(address(usdg)), seed, 30, F + 2 days, 72 hours, safe, safe, 200, 0, 0);
+        _row(
+            "`finalizeVintage`, a full binary vintage (200 one-unit entries, D9 cap)",
+            _fillAndFinalize(binary, 2, 1),
+            0,
+            "-"
+        );
+        seed = new uint256[](64);
+        for (uint256 i = 0; i < 64; i++) {
+            seed[i] = 1e6;
+        }
+        uint256 wide = vpm.create(IERC20(address(usdg)), seed, 65, F + 2 days, 72 hours, safe, safe, 200, 0, 0);
+        uint256 worst = _fillAndFinalize(wide, 64, 10e6);
+        _row(
+            "`finalizeVintage`, D9 worst case (64 outcomes x 200 entries, every book rationed)", worst, 25_000_000, "-"
+        );
+        assertLt(worst, 25_000_000, "D9 worst case");
+    }
+
+    function _fillAndFinalize(uint256 marketId, uint256 n, uint256 stake) internal returns (uint256 gas) {
+        vm.roll(block.number + 1);
+        vm.startPrank(bettor);
+        for (uint256 i = 0; i < vpm.MAX_VINTAGE_ENTRIES(); i++) {
+            vpm.enter(marketId, uint8(i % n), stake);
+        }
+        vm.stopPrank();
+        vm.roll(block.number + 1);
+        _cold();
+        uint256 g = gasleft();
+        vpm.finalizeVintage(marketId);
+        gas = g - gasleft();
     }
 
     function _openAt(uint64 finalTime) internal returns (uint256 marketId, bytes32 spec, uint256 gas) {

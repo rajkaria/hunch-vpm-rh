@@ -358,7 +358,7 @@ contract StockRoundResolver {
         uint256 current = latest >> 64;
         if (phase > current) return (Proof.BadProof, answer, at); // incl. an unreadable latest round
         if (current - phase > MAX_PHASE_SPAN) return (Proof.PhaseBoundary, answer, at);
-        bool laterPrinted;
+        bool laterPrinted = false;
         for (uint256 q = phase + 1; q <= current; q++) {
             // forge-lint: disable-next-line(unsafe-typecast)
             (bool firstPresent,, uint256 firstAt) = _round(feed, uint80((q << 64) | 1));
