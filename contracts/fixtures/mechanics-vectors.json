@@ -1,0 +1,2538 @@
+{
+  "suite": "hunch-mechanics",
+  "version": "1",
+  "source": "contracts/test/MechanicsVectors.t.sol on HunchVPM (every number read from the contract)",
+  "scenarios": [
+    {
+      "name": "worked-example",
+      "kappa": "30",
+      "feeBps": "0",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "20000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "30000000"
+        },
+        {
+          "block": "3",
+          "outcome": "1",
+          "amount": "40000000"
+        },
+        {
+          "block": "4",
+          "outcome": "0",
+          "amount": "50000000"
+        },
+        {
+          "block": "5",
+          "outcome": "1",
+          "amount": "10000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "170000000",
+      "residue": "1",
+      "feesTotal": "0",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "44583333",
+          "payoutGross": "44583333",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "44583333"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "46250000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "20000000",
+          "accepted": "20000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "69166666",
+          "payoutGross": "69166666",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "69166666"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "30000000",
+          "accepted": "30000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "48750000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "40000000",
+          "accepted": "40000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "65000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "5",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "50000000",
+          "accepted": "50000000",
+          "entryAcc": "3333333333333333333",
+          "accruedBeforeSettle": "56250000",
+          "payoutGross": "56250000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "56250000"
+        },
+        {
+          "id": "6",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "3625000000000000000",
+          "accruedBeforeSettle": "10000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "80000000",
+          "acc": "3458333333333333333",
+          "capacity": "2400000000",
+          "vested": "90000000"
+        },
+        {
+          "principal": "90000000",
+          "acc": "3625000000000000000",
+          "capacity": "2700000000",
+          "vested": "80000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "worked-example-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "20000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "30000000"
+        },
+        {
+          "block": "3",
+          "outcome": "1",
+          "amount": "40000000"
+        },
+        {
+          "block": "4",
+          "outcome": "0",
+          "amount": "50000000"
+        },
+        {
+          "block": "5",
+          "outcome": "1",
+          "amount": "10000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "170000000",
+      "residue": "1",
+      "feesTotal": "1799999",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "44583333",
+          "payoutGross": "44583333",
+          "fee": "691666",
+          "refund": "0",
+          "netToOwner": "43891667"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "46250000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "20000000",
+          "accepted": "20000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "69166666",
+          "payoutGross": "69166666",
+          "fee": "983333",
+          "refund": "0",
+          "netToOwner": "68183333"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "30000000",
+          "accepted": "30000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "48750000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "40000000",
+          "accepted": "40000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "65000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "5",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "50000000",
+          "accepted": "50000000",
+          "entryAcc": "3333333333333333333",
+          "accruedBeforeSettle": "56250000",
+          "payoutGross": "56250000",
+          "fee": "125000",
+          "refund": "0",
+          "netToOwner": "56125000"
+        },
+        {
+          "id": "6",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "3625000000000000000",
+          "accruedBeforeSettle": "10000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "80000000",
+          "acc": "3458333333333333333",
+          "capacity": "2400000000",
+          "vested": "90000000"
+        },
+        {
+          "principal": "90000000",
+          "acc": "3625000000000000000",
+          "capacity": "2700000000",
+          "vested": "80000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "worked-example-down-wins-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "20000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "30000000"
+        },
+        {
+          "block": "3",
+          "outcome": "1",
+          "amount": "40000000"
+        },
+        {
+          "block": "4",
+          "outcome": "0",
+          "amount": "50000000"
+        },
+        {
+          "block": "5",
+          "outcome": "1",
+          "amount": "10000000"
+        }
+      ],
+      "result": "DOWN",
+      "acceptedPool": "170000000",
+      "residue": "0",
+      "feesTotal": "1600000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "44583333",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "46250000",
+          "payoutGross": "46250000",
+          "fee": "725000",
+          "refund": "0",
+          "netToOwner": "45525000"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "20000000",
+          "accepted": "20000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "69166666",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "30000000",
+          "accepted": "30000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "48750000",
+          "payoutGross": "48750000",
+          "fee": "375000",
+          "refund": "0",
+          "netToOwner": "48375000"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "40000000",
+          "accepted": "40000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "65000000",
+          "payoutGross": "65000000",
+          "fee": "500000",
+          "refund": "0",
+          "netToOwner": "64500000"
+        },
+        {
+          "id": "5",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "50000000",
+          "accepted": "50000000",
+          "entryAcc": "3333333333333333333",
+          "accruedBeforeSettle": "56250000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "6",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "3625000000000000000",
+          "accruedBeforeSettle": "10000000",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "10000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "80000000",
+          "acc": "3458333333333333333",
+          "capacity": "2400000000",
+          "vested": "90000000"
+        },
+        {
+          "principal": "90000000",
+          "acc": "3625000000000000000",
+          "capacity": "2700000000",
+          "vested": "80000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "worked-example-void-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "20000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "30000000"
+        },
+        {
+          "block": "3",
+          "outcome": "1",
+          "amount": "40000000"
+        },
+        {
+          "block": "4",
+          "outcome": "0",
+          "amount": "50000000"
+        },
+        {
+          "block": "5",
+          "outcome": "1",
+          "amount": "10000000"
+        }
+      ],
+      "result": "VOID",
+      "acceptedPool": "170000000",
+      "residue": "0",
+      "feesTotal": "0",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "44583333",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "10000000"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "46250000",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "10000000"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "20000000",
+          "accepted": "20000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "69166666",
+          "payoutGross": "20000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "20000000"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "30000000",
+          "accepted": "30000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "48750000",
+          "payoutGross": "30000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "30000000"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "40000000",
+          "accepted": "40000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "65000000",
+          "payoutGross": "40000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "40000000"
+        },
+        {
+          "id": "5",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "50000000",
+          "accepted": "50000000",
+          "entryAcc": "3333333333333333333",
+          "accruedBeforeSettle": "56250000",
+          "payoutGross": "50000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "50000000"
+        },
+        {
+          "id": "6",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "3625000000000000000",
+          "accruedBeforeSettle": "10000000",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "10000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "80000000",
+          "acc": "3458333333333333333",
+          "capacity": "2400000000",
+          "vested": "90000000"
+        },
+        {
+          "principal": "90000000",
+          "acc": "3625000000000000000",
+          "capacity": "2700000000",
+          "vested": "80000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "seed-only-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [],
+      "result": "UP",
+      "acceptedPool": "20000000",
+      "residue": "0",
+      "feesTotal": "200000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "20000000",
+          "payoutGross": "20000000",
+          "fee": "200000",
+          "refund": "0",
+          "netToOwner": "19800000"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "20000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "10000000",
+          "acc": "1000000000000000000",
+          "capacity": "300000000",
+          "vested": "10000000"
+        },
+        {
+          "principal": "10000000",
+          "acc": "1000000000000000000",
+          "capacity": "300000000",
+          "vested": "10000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "single-buzzer-entry-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "100000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "120000000",
+      "residue": "0",
+      "feesTotal": "200000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "20000000",
+          "payoutGross": "20000000",
+          "fee": "200000",
+          "refund": "0",
+          "netToOwner": "19800000"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "120000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "100000000",
+          "payoutGross": "100000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "100000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "110000000",
+          "acc": "1000000000000000000",
+          "capacity": "3300000000",
+          "vested": "10000000"
+        },
+        {
+          "principal": "10000000",
+          "acc": "11000000000000000000",
+          "capacity": "300000000",
+          "vested": "110000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "partial-fill-kappa-2",
+      "kappa": "2",
+      "feeBps": "0",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "30000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "5000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "35000000",
+      "residue": "0",
+      "feesTotal": "0",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "22500000",
+          "payoutGross": "22500000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "22500000"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "30000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "30000000",
+          "accepted": "10000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "12500000",
+          "payoutGross": "12500000",
+          "fee": "0",
+          "refund": "20000000",
+          "netToOwner": "32500000"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "5000000",
+          "accepted": "5000000",
+          "entryAcc": "2000000000000000000",
+          "accruedBeforeSettle": "5000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "20000000",
+          "acc": "1250000000000000000",
+          "capacity": "40000000",
+          "vested": "15000000"
+        },
+        {
+          "principal": "15000000",
+          "acc": "2000000000000000000",
+          "capacity": "30000000",
+          "vested": "20000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "kappa-1-everything-refused-fee-500",
+      "kappa": "1",
+      "feeBps": "500",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "5000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "5000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "20000000",
+      "residue": "0",
+      "feesTotal": "500000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "20000000",
+          "payoutGross": "20000000",
+          "fee": "500000",
+          "refund": "0",
+          "netToOwner": "19500000"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "20000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "5000000",
+          "accepted": "0",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "0",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "5000000",
+          "netToOwner": "5000000"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "5000000",
+          "accepted": "0",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "0",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "5000000",
+          "netToOwner": "5000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "10000000",
+          "acc": "1000000000000000000",
+          "capacity": "10000000",
+          "vested": "10000000"
+        },
+        {
+          "principal": "10000000",
+          "acc": "1000000000000000000",
+          "capacity": "10000000",
+          "vested": "10000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "same-vintage-pair-same-side-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "40000000"
+        },
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "60000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "50000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "170000000",
+      "residue": "1",
+      "feesTotal": "1199999",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "24545454",
+          "payoutGross": "24545454",
+          "fee": "290909",
+          "refund": "0",
+          "netToOwner": "24254545"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "120000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "40000000",
+          "accepted": "40000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "58181818",
+          "payoutGross": "58181818",
+          "fee": "363636",
+          "refund": "0",
+          "netToOwner": "57818182"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "60000000",
+          "accepted": "60000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "87272727",
+          "payoutGross": "87272727",
+          "fee": "545454",
+          "refund": "0",
+          "netToOwner": "86727273"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "50000000",
+          "accepted": "50000000",
+          "entryAcc": "11000000000000000000",
+          "accruedBeforeSettle": "50000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "110000000",
+          "acc": "1454545454545454545",
+          "capacity": "3300000000",
+          "vested": "60000000"
+        },
+        {
+          "principal": "60000000",
+          "acc": "11000000000000000000",
+          "capacity": "1800000000",
+          "vested": "110000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "same-vintage-opposing-pair-fee-150",
+      "kappa": "30",
+      "feeBps": "150",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "30000000"
+        },
+        {
+          "block": "1",
+          "outcome": "1",
+          "amount": "30000000"
+        },
+        {
+          "block": "2",
+          "outcome": "0",
+          "amount": "10000000"
+        }
+      ],
+      "result": "DOWN",
+      "acceptedPool": "90000000",
+      "residue": "0",
+      "feesTotal": "750000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "50000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "52500000",
+          "payoutGross": "52500000",
+          "fee": "637500",
+          "refund": "0",
+          "netToOwner": "51862500"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "30000000",
+          "accepted": "30000000",
+          "entryAcc": "4000000000000000000",
+          "accruedBeforeSettle": "30000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "30000000",
+          "accepted": "30000000",
+          "entryAcc": "4000000000000000000",
+          "accruedBeforeSettle": "37500000",
+          "payoutGross": "37500000",
+          "fee": "112500",
+          "refund": "0",
+          "netToOwner": "37387500"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "4000000000000000000",
+          "accruedBeforeSettle": "10000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "50000000",
+          "acc": "4000000000000000000",
+          "capacity": "1500000000",
+          "vested": "40000000"
+        },
+        {
+          "principal": "40000000",
+          "acc": "4250000000000000000",
+          "capacity": "1200000000",
+          "vested": "50000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "rationed-vintage-kappa-3",
+      "kappa": "3",
+      "feeBps": "0",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "30000000"
+        },
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "10000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "25000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "65000000",
+      "residue": "2",
+      "feesTotal": "0",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "28333333",
+          "payoutGross": "28333333",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "28333333"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "40000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "30000000",
+          "accepted": "15000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "27499999",
+          "payoutGross": "27499999",
+          "fee": "0",
+          "refund": "15000000",
+          "netToOwner": "42499999"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "5000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "9166666",
+          "payoutGross": "9166666",
+          "fee": "0",
+          "refund": "5000000",
+          "netToOwner": "14166666"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "25000000",
+          "accepted": "25000000",
+          "entryAcc": "3000000000000000000",
+          "accruedBeforeSettle": "25000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "30000000",
+          "acc": "1833333333333333333",
+          "capacity": "90000000",
+          "vested": "35000000"
+        },
+        {
+          "principal": "35000000",
+          "acc": "3000000000000000000",
+          "capacity": "105000000",
+          "vested": "30000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "asymmetric-seed-clamp-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "1000000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "50000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "20000000"
+        }
+      ],
+      "result": "DOWN",
+      "acceptedPool": "380000000",
+      "residue": "1",
+      "feesTotal": "1199999",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "313333333",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "1000000000",
+          "accepted": "300000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "359999999",
+          "payoutGross": "359999999",
+          "fee": "1199999",
+          "refund": "0",
+          "netToOwner": "358800000"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "50000000",
+          "accepted": "50000000",
+          "entryAcc": "30000000000000000000",
+          "accruedBeforeSettle": "66666666",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "20000000",
+          "accepted": "20000000",
+          "entryAcc": "199999999999999999",
+          "accruedBeforeSettle": "20000000",
+          "payoutGross": "20000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "20000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "60000000",
+          "acc": "30333333333333333333",
+          "capacity": "1800000000",
+          "vested": "320000000"
+        },
+        {
+          "principal": "320000000",
+          "acc": "199999999999999999",
+          "capacity": "9600000000",
+          "vested": "60000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "late-whale-exactly-1x-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "1",
+          "amount": "100000000"
+        },
+        {
+          "block": "2",
+          "outcome": "0",
+          "amount": "100000000"
+        },
+        {
+          "block": "3",
+          "outcome": "0",
+          "amount": "100000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "320000000",
+      "residue": "0",
+      "feesTotal": "2200000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "120000000",
+          "payoutGross": "120000000",
+          "fee": "2200000",
+          "refund": "0",
+          "netToOwner": "117800000"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "38181818",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "281818181",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "11000000000000000000",
+          "accruedBeforeSettle": "100000000",
+          "payoutGross": "100000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "100000000"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "11000000000000000000",
+          "accruedBeforeSettle": "100000000",
+          "payoutGross": "100000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "100000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "210000000",
+          "acc": "11000000000000000000",
+          "capacity": "6300000000",
+          "vested": "110000000"
+        },
+        {
+          "principal": "110000000",
+          "acc": "2818181818181818180",
+          "capacity": "3300000000",
+          "vested": "210000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "dust-fee-floors-to-zero-fee-500",
+      "kappa": "30",
+      "feeBps": "500",
+      "seed": [
+        "1",
+        "1"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "1"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "1"
+        },
+        {
+          "block": "3",
+          "outcome": "0",
+          "amount": "2"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "6",
+      "residue": "1",
+      "feesTotal": "0",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "1",
+          "accepted": "1",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "2",
+          "payoutGross": "2",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "2"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "1",
+          "accepted": "1",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "4",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "1",
+          "accepted": "1",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "1",
+          "payoutGross": "1",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "1"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "1",
+          "accepted": "1",
+          "entryAcc": "2000000000000000000",
+          "accruedBeforeSettle": "2",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "2",
+          "accepted": "2",
+          "entryAcc": "1500000000000000000",
+          "accruedBeforeSettle": "2",
+          "payoutGross": "2",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "2"
+        }
+      ],
+      "books": [
+        {
+          "principal": "4",
+          "acc": "1500000000000000000",
+          "capacity": "120",
+          "vested": "2"
+        },
+        {
+          "principal": "2",
+          "acc": "3000000000000000000",
+          "capacity": "60",
+          "vested": "4"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "large-amounts-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "1000000000000",
+        "1000000000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "5000000000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "7000000000000"
+        },
+        {
+          "block": "3",
+          "outcome": "0",
+          "amount": "300000000000"
+        }
+      ],
+      "result": "DOWN",
+      "acceptedPool": "14300000000000",
+      "residue": "0",
+      "feesTotal": "126000000000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "1000000000000",
+          "accepted": "1000000000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "3166666666666",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "1000000000000",
+          "accepted": "1000000000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "7037500000000",
+          "payoutGross": "7037500000000",
+          "fee": "120750000000",
+          "refund": "0",
+          "netToOwner": "6916750000000"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "5000000000000",
+          "accepted": "5000000000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "10833333333333",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "7000000000000",
+          "accepted": "7000000000000",
+          "entryAcc": "6000000000000000000",
+          "accruedBeforeSettle": "7262500000000",
+          "payoutGross": "7262500000000",
+          "fee": "5250000000",
+          "refund": "0",
+          "netToOwner": "7257250000000"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "300000000000",
+          "accepted": "300000000000",
+          "entryAcc": "2166666666666666666",
+          "accruedBeforeSettle": "300000000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "6300000000000",
+          "acc": "2166666666666666666",
+          "capacity": "189000000000000",
+          "vested": "8000000000000"
+        },
+        {
+          "principal": "8000000000000",
+          "acc": "6037500000000000000",
+          "capacity": "240000000000000",
+          "vested": "6300000000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "ten-alternating-entries-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "1",
+          "amount": "10000000"
+        },
+        {
+          "block": "2",
+          "outcome": "0",
+          "amount": "17000000"
+        },
+        {
+          "block": "3",
+          "outcome": "1",
+          "amount": "24000000"
+        },
+        {
+          "block": "4",
+          "outcome": "0",
+          "amount": "31000000"
+        },
+        {
+          "block": "5",
+          "outcome": "1",
+          "amount": "38000000"
+        },
+        {
+          "block": "6",
+          "outcome": "0",
+          "amount": "45000000"
+        },
+        {
+          "block": "7",
+          "outcome": "1",
+          "amount": "52000000"
+        },
+        {
+          "block": "8",
+          "outcome": "0",
+          "amount": "59000000"
+        },
+        {
+          "block": "9",
+          "outcome": "1",
+          "amount": "66000000"
+        },
+        {
+          "block": "10",
+          "outcome": "0",
+          "amount": "73000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "435000000",
+      "residue": "3",
+      "feesTotal": "3999997",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "54563230",
+          "payoutGross": "54563230",
+          "fee": "891264",
+          "refund": "0",
+          "netToOwner": "53671966"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "49086244",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "39086244",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "17000000",
+          "accepted": "17000000",
+          "entryAcc": "2000000000000000000",
+          "accruedBeforeSettle": "58757492",
+          "payoutGross": "58757492",
+          "fee": "835149",
+          "refund": "0",
+          "netToOwner": "57922343"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "24000000",
+          "accepted": "24000000",
+          "entryAcc": "1850000000000000000",
+          "accruedBeforeSettle": "73406986",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "5",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "31000000",
+          "accepted": "31000000",
+          "entryAcc": "2888888888888888888",
+          "accruedBeforeSettle": "79590459",
+          "payoutGross": "79590459",
+          "fee": "971809",
+          "refund": "0",
+          "netToOwner": "78618650"
+        },
+        {
+          "id": "6",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "38000000",
+          "accepted": "38000000",
+          "entryAcc": "2554545454545454545",
+          "accruedBeforeSettle": "89455001",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "7",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "45000000",
+          "accepted": "45000000",
+          "entryAcc": "3544061302681992336",
+          "accruedBeforeSettle": "86051779",
+          "payoutGross": "86051779",
+          "fee": "821035",
+          "refund": "0",
+          "netToOwner": "85230744"
+        },
+        {
+          "id": "8",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "52000000",
+          "accepted": "52000000",
+          "entryAcc": "3103325942350332593",
+          "accruedBeforeSettle": "93875522",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "9",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "59000000",
+          "accepted": "59000000",
+          "entryAcc": "4048915671614031170",
+          "accruedBeforeSettle": "83037037",
+          "payoutGross": "83037037",
+          "fee": "480740",
+          "refund": "0",
+          "netToOwner": "82556297"
+        },
+        {
+          "id": "10",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "66000000",
+          "accepted": "66000000",
+          "entryAcc": "3543624449813019160",
+          "accruedBeforeSettle": "90090000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "11",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "73000000",
+          "accepted": "73000000",
+          "entryAcc": "4456323079021438577",
+          "accruedBeforeSettle": "73000000",
+          "payoutGross": "73000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "73000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "235000000",
+          "acc": "4456323079021438577",
+          "capacity": "7050000000",
+          "vested": "200000000"
+        },
+        {
+          "principal": "200000000",
+          "acc": "3908624449813019160",
+          "capacity": "6000000000",
+          "vested": "235000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "void-with-partial-fills-kappa-2-fee-200",
+      "kappa": "2",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "30000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "50000000"
+        }
+      ],
+      "result": "VOID",
+      "acceptedPool": "60000000",
+      "residue": "0",
+      "feesTotal": "0",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "35000000",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "10000000"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "30000000",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "10000000"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "30000000",
+          "accepted": "10000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "25000000",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "20000000",
+          "netToOwner": "30000000"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "50000000",
+          "accepted": "30000000",
+          "entryAcc": "2000000000000000000",
+          "accruedBeforeSettle": "30000000",
+          "payoutGross": "30000000",
+          "fee": "0",
+          "refund": "20000000",
+          "netToOwner": "50000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "20000000",
+          "acc": "2500000000000000000",
+          "capacity": "40000000",
+          "vested": "40000000"
+        },
+        {
+          "principal": "40000000",
+          "acc": "2000000000000000000",
+          "capacity": "80000000",
+          "vested": "20000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "bursts-fee-200",
+      "kappa": "30",
+      "feeBps": "200",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "100000000"
+        },
+        {
+          "block": "1",
+          "outcome": "1",
+          "amount": "100000000"
+        },
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "50000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "100000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "20000000"
+        },
+        {
+          "block": "3",
+          "outcome": "0",
+          "amount": "100000000"
+        },
+        {
+          "block": "3",
+          "outcome": "1",
+          "amount": "1000000"
+        }
+      ],
+      "result": "DOWN",
+      "acceptedPool": "491000000",
+      "residue": "2",
+      "feesTotal": "5199999",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "127562500",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "174347826",
+          "payoutGross": "174347826",
+          "fee": "3286956",
+          "refund": "0",
+          "netToOwner": "171060870"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "11000000000000000000",
+          "accruedBeforeSettle": "175625000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "16000000000000000000",
+          "accruedBeforeSettle": "143478260",
+          "payoutGross": "143478260",
+          "fee": "869565",
+          "refund": "0",
+          "netToOwner": "142608695"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "50000000",
+          "accepted": "50000000",
+          "entryAcc": "11000000000000000000",
+          "accruedBeforeSettle": "87812500",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "5",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "16000000000000000000",
+          "accruedBeforeSettle": "143478260",
+          "payoutGross": "143478260",
+          "fee": "869565",
+          "refund": "0",
+          "netToOwner": "142608695"
+        },
+        {
+          "id": "6",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "20000000",
+          "accepted": "20000000",
+          "entryAcc": "16000000000000000000",
+          "accruedBeforeSettle": "28695652",
+          "payoutGross": "28695652",
+          "fee": "173913",
+          "refund": "0",
+          "netToOwner": "28521739"
+        },
+        {
+          "id": "7",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "100000000",
+          "accepted": "100000000",
+          "entryAcc": "11756250000000000000",
+          "accruedBeforeSettle": "100000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "8",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "1000000",
+          "accepted": "1000000",
+          "entryAcc": "16434782608695652173",
+          "accruedBeforeSettle": "1000000",
+          "payoutGross": "1000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "1000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "260000000",
+          "acc": "11756250000000000000",
+          "capacity": "7800000000",
+          "vested": "231000000"
+        },
+        {
+          "principal": "231000000",
+          "acc": "16434782608695652173",
+          "capacity": "6930000000",
+          "vested": "260000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "down-wins-partial-fills-kappa-2-fee-150",
+      "kappa": "2",
+      "feeBps": "150",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "1",
+          "amount": "40000000"
+        },
+        {
+          "block": "2",
+          "outcome": "0",
+          "amount": "15000000"
+        },
+        {
+          "block": "3",
+          "outcome": "1",
+          "amount": "10000000"
+        }
+      ],
+      "result": "DOWN",
+      "acceptedPool": "55000000",
+      "residue": "0",
+      "feesTotal": "375000",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "34000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "27500000",
+          "payoutGross": "27500000",
+          "fee": "262500",
+          "refund": "0",
+          "netToOwner": "27237500"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "40000000",
+          "accepted": "10000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "17500000",
+          "payoutGross": "17500000",
+          "fee": "112500",
+          "refund": "30000000",
+          "netToOwner": "47387500"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "15000000",
+          "accepted": "15000000",
+          "entryAcc": "2000000000000000000",
+          "accruedBeforeSettle": "21000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "1750000000000000000",
+          "accruedBeforeSettle": "10000000",
+          "payoutGross": "10000000",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "10000000"
+        }
+      ],
+      "books": [
+        {
+          "principal": "25000000",
+          "acc": "2400000000000000000",
+          "capacity": "50000000",
+          "vested": "30000000"
+        },
+        {
+          "principal": "30000000",
+          "acc": "1750000000000000000",
+          "capacity": "60000000",
+          "vested": "25000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "rounding-residue-fee-333",
+      "kappa": "30",
+      "feeBps": "333",
+      "seed": [
+        "3000000",
+        "7000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "10000001"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "3333333"
+        },
+        {
+          "block": "3",
+          "outcome": "0",
+          "amount": "7777777"
+        },
+        {
+          "block": "4",
+          "outcome": "1",
+          "amount": "1"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "31111112",
+      "residue": "2",
+      "feesTotal": "344099",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "3000000",
+          "accepted": "3000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "10769230",
+          "payoutGross": "10769230",
+          "fee": "258715",
+          "refund": "0",
+          "netToOwner": "10510515"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "7000000",
+          "accepted": "7000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "25268817",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "10000001",
+          "accepted": "10000001",
+          "entryAcc": "2333333333333333333",
+          "accruedBeforeSettle": "12564103",
+          "payoutGross": "12564103",
+          "fee": "85384",
+          "refund": "0",
+          "netToOwner": "12478719"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "3333333",
+          "accepted": "3333333",
+          "entryAcc": "1857142999999999999",
+          "accruedBeforeSettle": "5842293",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "4",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "7777777",
+          "accepted": "7777777",
+          "entryAcc": "2589743544378701714",
+          "accruedBeforeSettle": "7777777",
+          "payoutGross": "7777777",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "7777777"
+        },
+        {
+          "id": "5",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "1",
+          "accepted": "1",
+          "entryAcc": "2609831121054455516",
+          "accruedBeforeSettle": "1",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "20777778",
+          "acc": "2589743592507043445",
+          "capacity": "623333340",
+          "vested": "10333334"
+        },
+        {
+          "principal": "10333334",
+          "acc": "2609831121054455516",
+          "capacity": "310000020",
+          "vested": "20777778"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    },
+    {
+      "name": "kappa-unbounded",
+      "kappa": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "feeBps": "0",
+      "seed": [
+        "10000000",
+        "10000000"
+      ],
+      "entries": [
+        {
+          "block": "1",
+          "outcome": "0",
+          "amount": "1000000000"
+        },
+        {
+          "block": "2",
+          "outcome": "1",
+          "amount": "5000000"
+        }
+      ],
+      "result": "UP",
+      "acceptedPool": "1025000000",
+      "residue": "1",
+      "feesTotal": "0",
+      "positions": [
+        {
+          "id": "0",
+          "isSeed": true,
+          "outcome": "0",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "20049504",
+          "payoutGross": "20049504",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "20049504"
+        },
+        {
+          "id": "1",
+          "isSeed": true,
+          "outcome": "1",
+          "offered": "10000000",
+          "accepted": "10000000",
+          "entryAcc": "0",
+          "accruedBeforeSettle": "1020000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        },
+        {
+          "id": "2",
+          "isSeed": false,
+          "outcome": "0",
+          "offered": "1000000000",
+          "accepted": "1000000000",
+          "entryAcc": "1000000000000000000",
+          "accruedBeforeSettle": "1004950495",
+          "payoutGross": "1004950495",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "1004950495"
+        },
+        {
+          "id": "3",
+          "isSeed": false,
+          "outcome": "1",
+          "offered": "5000000",
+          "accepted": "5000000",
+          "entryAcc": "101000000000000000000",
+          "accruedBeforeSettle": "5000000",
+          "payoutGross": "0",
+          "fee": "0",
+          "refund": "0",
+          "netToOwner": "0"
+        }
+      ],
+      "books": [
+        {
+          "principal": "1010000000",
+          "acc": "1004950495049504950",
+          "capacity": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "vested": "15000000"
+        },
+        {
+          "principal": "15000000",
+          "acc": "101000000000000000000",
+          "capacity": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "vested": "1010000000"
+        }
+      ],
+      "note": "books and accruedBeforeSettle: after the last vintage is finalized, before settlement"
+    }
+  ]
+}
