@@ -22,15 +22,24 @@ import {IHunchSettler} from "./interfaces/IHunchSettler.sol";
 ///
 ///         There is no owner, no admin and no price input. A spec is immutable once
 ///         registered (its id is its hash), and only a market's creator can register it.
+///
+///         When Chainlink moves a feed to a new aggregator, the old and the new one report in
+///         parallel for a while and the proxy then serves both histories, as phase p and
+///         phase p + 1. "The last round at or before T" is therefore taken in the HIGHEST phase
+///         that has any round at or before T (the newest aggregator that had reported by T),
+///         so exactly one pair of rounds proves at any moment, however the phases overlap.
 /// @dev    Round ids are proxy ids, `(phaseId << 64) | aggregatorRoundId`; "the next round" of
 ///         x is x + 1 in the same phase. Every feed read is a `staticcall` whose failure, short
 ///         return data, mismatched id or `updatedAt == 0` means "absent", so a feed that
 ///         reverts "No data present" and one that returns zeros are handled alike, and
 ///         `preview` never reverts. Soundness assumes what Chainlink guarantees: within a
-///         phase, round ids are consecutive and `updatedAt` is non-decreasing, and a round's
-///         `updatedAt` is the time it was written on this chain. Resolution requires
+///         phase, round ids are consecutive from 1 and `updatedAt` is non-decreasing, and a
+///         round's `updatedAt` is the time it was written on this chain. Resolution requires
 ///         `block.timestamp > finalTime` (strictly), so no round written after the call can
-///         carry `updatedAt ≤ finalTime`.
+///         carry `updatedAt ≤ finalTime`. The one exception is an aggregator confirmed behind
+///         the proxy after the bell that had already reported before it: from its confirmation
+///         on, its rounds are the ones in effect (the rule above), so the pair that proves can
+///         change at that moment; the first settlement is final.
 contract StockRoundResolver {
     // ------------------------------------------------------------------ types
 
@@ -91,6 +100,13 @@ contract StockRoundResolver {
     /// @notice How long after the final time an oracle pause must persist before anyone may
     ///         void the market with `voidPaused`.
     uint256 public constant PAUSE_GRACE = 24 hours;
+
+    /// @notice The most feed phases a proof looks above its round's phase. Proving round x of
+    ///         phase p reads the first round of every phase from p + 1 to the proxy's current
+    ///         phase; a round more than this many phases below the current one is refused
+    ///         (`PhaseBoundary`), which bounds the reads. Chainlink adds a phase only when it
+    ///         moves a feed to a new aggregator, so this never binds in practice.
+    uint256 public constant MAX_PHASE_SPAN = 8;
 
     // ------------------------------------------------------------------ state
 
@@ -189,8 +205,9 @@ contract StockRoundResolver {
     // ================================================================== settlement
 
     /// @notice Settle a market from two proven rounds. Anyone may call it, strictly after
-    ///         `finalTime`, once. `strikeRound` must be the last round with updatedAt ≤
-    ///         strikeTime and `finalRound` the last with updatedAt ≤ finalTime (else
+    ///         `finalTime`, once. `strikeRound` must be the round in effect at strikeTime and
+    ///         `finalRound` the one in effect at finalTime: the last round with updatedAt ≤ T
+    ///         of the highest feed phase that has any round with updatedAt ≤ T (else
     ///         `BadProof`, `BadAnswer` or `PhaseBoundary`). Reverts `OraclePaused` while the
     ///         Stock Token's oracle is paused and `Stale` if a reading exceeds its age bound
     ///         (use `voidStale`). Otherwise resolves UP or DOWN, or voids on FLAT. The caller
@@ -243,8 +260,9 @@ contract StockRoundResolver {
 
     /// @notice What `resolve(specId, strikeRound, finalRound)` would do now, without reverting:
     ///         0 not ready (at or before finalTime), 1 UP, 2 DOWN, 3 FLAT (void), 4 STALE (use
-    ///         `voidStale`), 5 BADPROOF (a round is not the last at or before its time, an
-    ///         answer is out of band, a phase boundary, or an unknown spec), 6 PAUSED. The
+    ///         `voidStale`), 5 BADPROOF (a round is not the one in effect at its time, an
+    ///         answer is out of band, a later phase has a round at or before the time (phase
+    ///         boundary), or an unknown spec), 6 PAUSED. The
     ///         readings are returned whenever both rounds could be read. Anyone may call it;
     ///         it ignores `settled` (read that separately).
     function preview(bytes32 specId, uint80 strikeRound, uint80 finalRound)
@@ -257,8 +275,9 @@ contract StockRoundResolver {
         if (block.timestamp <= s.finalTime) return (STATUS_NOT_READY, 0, 0, 0, 0);
         Proof p1;
         Proof p2;
-        (p1, strikeAnswer, strikeAt) = _prove(s.feed, strikeRound, s.strikeTime);
-        (p2, finalAnswer, finalAt) = _prove(s.feed, finalRound, s.finalTime);
+        uint256 latest = _latestRoundId(s.feed);
+        (p1, strikeAnswer, strikeAt) = _prove(s.feed, strikeRound, s.strikeTime, latest);
+        (p2, finalAnswer, finalAt) = _prove(s.feed, finalRound, s.finalTime, latest);
         if (p1 != Proof.Ok || p2 != Proof.Ok || finalRound < strikeRound) {
             return (STATUS_BAD_PROOF, strikeAnswer, strikeAt, finalAnswer, finalAt);
         }
@@ -294,10 +313,11 @@ contract StockRoundResolver {
         returns (Reading memory strike, Reading memory fin)
     {
         if (finalRound < strikeRound) revert BadProof();
+        uint256 latest = _latestRoundId(s.feed); // one read serves both proofs
         Proof p;
-        (p, strike.answer, strike.at) = _prove(s.feed, strikeRound, s.strikeTime);
+        (p, strike.answer, strike.at) = _prove(s.feed, strikeRound, s.strikeTime, latest);
         _requireProof(p);
-        (p, fin.answer, fin.at) = _prove(s.feed, finalRound, s.finalTime);
+        (p, fin.answer, fin.at) = _prove(s.feed, finalRound, s.finalTime, latest);
         _requireProof(p);
     }
 
@@ -307,18 +327,46 @@ contract StockRoundResolver {
         if (p == Proof.PhaseBoundary) revert PhaseBoundary();
     }
 
-    /// @dev Is round `x` of `feed` the last round with updatedAt ≤ `t`?
-    ///      (1) x exists and updatedAt(x) ≤ t, with 0 < answer(x) < MAX_ANSWER;
-    ///      (2) and either x + 1 (same phase) exists with updatedAt > t,
-    ///          or x + 1 is absent and x is the proxy's latest round,
-    ///          or x + 1 is absent and the next phase's first round exists with updatedAt > t
-    ///             (a first round at or before t is a `PhaseBoundary`: the proof would have to
-    ///             cross phases, which this contract refuses to do).
-    function _prove(address feed, uint80 x, uint256 t) internal view returns (Proof, int256 answer, uint256 at) {
+    /// @dev Is round `x` of `feed` the round in effect at `t`: the last round with updatedAt ≤ t
+    ///      of the HIGHEST phase that has any round with updatedAt ≤ t? `latest` is the proxy's
+    ///      latest round id (0 if unreadable), read once by the caller for both proofs.
+    ///      (1) x exists, updatedAt(x) ≤ t, and 0 < answer(x) < MAX_ANSWER;
+    ///      (2) x's phase p is at most the proxy's current phase P (the phase of `latest`; an
+    ///          unreadable latest round proves nothing), and no phase from p + 1 to P has a round
+    ///          at or before t: each one's first round is absent or after t (else
+    ///          `PhaseBoundary`, as when P is more than MAX_PHASE_SPAN phases above p);
+    ///      (3) and x is the last round at or before t of phase p: x + 1 exists with
+    ///          updatedAt > t, or x + 1 is absent and x is the proxy's latest round, or x + 1
+    ///          is absent, p is an earlier phase and a later phase has printed (its first
+    ///          round, after t by (2)). A later phase that has not printed yet leaves the proof
+    ///          pending (`BadProof`) until it does.
+    ///      Unique: were x (phase p) and y (phase q > p) both accepted, y ≤ t would make the
+    ///      first round of phase q at or before t, which (2) refuses for x; within one phase,
+    ///      (3) admits only the last round at or before t.
+    function _prove(address feed, uint80 x, uint256 t, uint256 latest)
+        internal
+        view
+        returns (Proof, int256 answer, uint256 at)
+    {
         bool present;
         (present, answer, at) = _round(feed, x);
         if (!present || at > t) return (Proof.BadProof, answer, at);
         if (answer <= 0 || answer >= MAX_ANSWER) return (Proof.BadAnswer, answer, at);
+
+        // the top 16 bits of a uint80 proxy id are the phase; `latest` is at most a uint80
+        uint256 phase = x >> 64;
+        uint256 current = latest >> 64;
+        if (phase > current) return (Proof.BadProof, answer, at); // incl. an unreadable latest round
+        if (current - phase > MAX_PHASE_SPAN) return (Proof.PhaseBoundary, answer, at);
+        bool laterPrinted;
+        for (uint256 q = phase + 1; q <= current; q++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            (bool firstPresent,, uint256 firstAt) = _round(feed, uint80((q << 64) | 1));
+            if (firstPresent) {
+                if (firstAt <= t) return (Proof.PhaseBoundary, answer, at); // t belongs to phase q
+                laterPrinted = true;
+            }
+        }
 
         // the low 64 bits are the aggregator round; its last value has no successor in-phase
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -326,15 +374,7 @@ contract StockRoundResolver {
             (bool nextPresent,, uint256 nextAt) = _round(feed, x + 1);
             if (nextPresent) return (nextAt > t ? Proof.Ok : Proof.BadProof, answer, at);
         }
-        if (_latestRoundId(feed) == x) return (Proof.Ok, answer, at);
-
-        // the top 16 bits of a uint80 proxy id are the phase: the cast keeps exactly them
-        // forge-lint: disable-next-line(unsafe-typecast)
-        uint16 phase = uint16(x >> 64);
-        if (phase != type(uint16).max) {
-            (bool firstPresent,, uint256 firstAt) = _round(feed, (uint80(phase + 1) << 64) | 1);
-            if (firstPresent) return (firstAt > t ? Proof.Ok : Proof.PhaseBoundary, answer, at);
-        }
+        if (x == latest || laterPrinted) return (Proof.Ok, answer, at);
         return (Proof.BadProof, answer, at);
     }
 
@@ -349,11 +389,13 @@ contract StockRoundResolver {
         present = true;
     }
 
-    /// @dev The proxy's latest round id, or 0 if it cannot be read (0 is never a valid round).
+    /// @dev The proxy's latest round id, or 0 if it cannot be read or is not a uint80 proxy id
+    ///      (0 is never a valid round).
     function _latestRoundId(address feed) internal view returns (uint256 id) {
         (bool ok, bytes memory ret) = feed.staticcall(abi.encodeCall(AggregatorV3Interface.latestRoundData, ()));
         if (!ok || ret.length < 160) return 0;
         id = abi.decode(ret, (uint256));
+        if (id > type(uint80).max) return 0;
     }
 
     /// @dev Robinhood's corporate-action flag. If it cannot be read it counts as paused, so a

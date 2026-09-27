@@ -535,14 +535,24 @@ contract RevertingFeed {
 ///         change, OCR1- or OCR2-style missing rounds) and random bells, a brute-force scan
 ///         finds the last round at or before each bell. `resolve` must succeed with exactly
 ///         that pair and revert with every other candidate: every existing round, the next
-///         nonexistent id, and the first id of the next phase.
+///         nonexistent id, and the first id of the next phase. The second property does the
+///         same on OVERLAPPING phases (M-1), where the brute force is the resolver's rule: the
+///         last round at or before T of the highest phase that has any round at or before T.
 contract ResolverPropertyTest is ResolverBase {
     struct R {
         uint80 id;
         uint256 at;
     }
 
+    /// @dev a round of the multi-phase tape: its id, updatedAt and phase
+    struct PR {
+        uint80 id;
+        uint256 at;
+        uint256 phase;
+    }
+
     R[] internal tape;
+    PR[] internal multi;
 
     function testFuzz_OnlyTheBruteForcePairResolves(uint256 entropy) public {
         uint256 e = entropy;
@@ -584,6 +594,119 @@ contract ResolverPropertyTest is ResolverBase {
                 }
             }
         }
+    }
+
+    /// @notice Up to four phases, each an aggregator with its own tape that starts anywhere in
+    ///         a 30 h window, so phases overlap in time in any order (a later phase may have
+    ///         printed before an earlier one), and any phase may have no rounds at all (an
+    ///         aggregator the proxy skipped over, or one that has not printed yet). When the
+    ///         current phase has printed, the canonical pair resolves and every other candidate
+    ///         reverts, including each older phase's own "last round at or before" pair (the
+    ///         M-1 attack). When it has not, nothing resolves yet.
+    function testFuzz_OnlyTheCanonicalPairResolvesOnOverlappingPhases(uint256 entropy) public {
+        feed.setZeroForMissing(_draw(entropy, 1, 2) == 0);
+        uint256 phases = 1 + _draw(entropy, 2, 4);
+        (uint256 lo, uint256 hi) = _multiTape(entropy, phases);
+        uint256 span = hi - lo + 4 hours;
+        uint64 strike = uint64(lo - 1 hours + _draw(entropy, 5, span));
+        uint64 fin = uint64(strike + 1 + _draw(entropy, 6, span));
+        settler.setMarket(MARKET, address(this), address(resolver), fin, 2);
+        StockRoundResolver.Spec memory s = _spec(type(uint32).max, type(uint32).max);
+        s.strikeTime = strike;
+        s.finalTime = fin;
+        bytes32 id = resolver.register(s);
+        vm.warp((fin > hi ? fin : hi) + 1);
+        _checkMulti(id, phases, strike, fin);
+    }
+
+    /// @dev Phase p's aggregator: 0..8 rounds (0 = it never printed) from a random start.
+    function _multiTape(uint256 e, uint256 phases) internal returns (uint256 lo, uint256 hi) {
+        lo = S - 1 days;
+        hi = lo;
+        for (uint256 p = 1; p <= phases; p++) {
+            if (p > 1) feed.startPhase();
+            uint256 last = _phaseTape(e, p, lo + _draw(e, 20 + p, 30 hours));
+            if (last > hi) hi = last;
+        }
+    }
+
+    function _phaseTape(uint256 e, uint256 p, uint256 t) internal returns (uint256) {
+        uint256 n = _draw(e, 10 + p, 9);
+        for (uint256 i = 0; i < n; i++) {
+            uint256 salt = 100 * p + i;
+            t += _draw(e, 1_000 + salt, 4) == 0 ? 0 : _draw(e, 2_000 + salt, 3 hours);
+            multi.push(PR(feed.addRound(int256(100e8 + _draw(e, 3_000 + salt, 50e8)), t), t, p));
+        }
+        return t;
+    }
+
+    function _checkMulti(bytes32 id, uint256 phases, uint64 strike, uint64 fin) internal {
+        (bool hasS, uint80 bs) = _canonical(strike);
+        (bool hasF, uint80 bf) = _canonical(fin);
+        uint80[] memory cands = _multiCandidates(phases);
+        if (!(hasS && hasF)) {
+            for (uint256 i = 0; i < cands.length; i++) {
+                for (uint256 j = 0; j < cands.length; j++) {
+                    assertFalse(_resolves(id, cands[i], cands[j]), "resolved without a round in effect");
+                }
+            }
+            return;
+        }
+        bool printed = feed.phaseRounds(uint16(phases)) > 0; // the proxy's current phase
+        assertEq(_resolves(id, bs, bf), printed, "the canonical pair resolves once the current phase printed");
+        for (uint256 i = 0; i < cands.length; i++) {
+            if (cands[i] != bs) assertFalse(_resolves(id, cands[i], bf), "a wrong strike round resolved");
+            if (cands[i] != bf) assertFalse(_resolves(id, bs, cands[i]), "a wrong final round resolved");
+        }
+        _checkPhasePairs(id, phases, strike, fin, bs, bf);
+    }
+
+    /// @dev Each phase's own "last round at or before" pair: what an overlap used to let a
+    ///      caller pick. Only the canonical one may resolve.
+    function _checkPhasePairs(bytes32 id, uint256 phases, uint64 strike, uint64 fin, uint80 bs, uint80 bf) internal {
+        for (uint256 q = 1; q <= phases; q++) {
+            (bool okS, uint80 qs) = _lastInPhase(q, strike);
+            (bool okF, uint80 qf) = _lastInPhase(q, fin);
+            if (okS && okF && (qs != bs || qf != bf)) {
+                assertFalse(_resolves(id, qs, qf), "an older phase's pair resolved");
+            }
+        }
+    }
+
+    /// @dev The resolver's rule by brute force: among rounds with updatedAt ≤ t, the highest
+    ///      phase; within it, the last round (id order is time order inside a phase).
+    function _canonical(uint256 t) internal view returns (bool found, uint80 id) {
+        uint256 best;
+        for (uint256 i = 0; i < multi.length; i++) {
+            if (multi[i].at <= t && (multi[i].phase > best || (multi[i].phase == best && multi[i].id > id))) {
+                found = true;
+                best = multi[i].phase;
+                id = multi[i].id;
+            }
+        }
+    }
+
+    function _lastInPhase(uint256 phase, uint256 t) internal view returns (bool found, uint80 id) {
+        for (uint256 i = 0; i < multi.length; i++) {
+            if (multi[i].phase == phase && multi[i].at <= t && multi[i].id > id) {
+                found = true;
+                id = multi[i].id;
+            }
+        }
+    }
+
+    /// @dev Every round, the id after each phase's last round (or its round 1 if it has none),
+    ///      the first id of the phase above the current one, and round 0 of phase 1.
+    function _multiCandidates(uint256 phases) internal view returns (uint80[] memory c) {
+        c = new uint80[](multi.length + phases + 2);
+        for (uint256 i = 0; i < multi.length; i++) {
+            c[i] = multi[i].id;
+        }
+        for (uint256 p = 1; p <= phases; p++) {
+            c[multi.length + p - 1] = feed.roundId(uint16(p), feed.phaseRounds(uint16(p)) + 1);
+        }
+        c[multi.length + phases] = feed.roundId(uint16(phases + 1), 1);
+        c[multi.length + phases + 1] = feed.roundId(1, 0);
     }
 
     /// @dev The last round (in id order, which is time order) with updatedAt ≤ t.
