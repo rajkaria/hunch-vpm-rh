@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { TickerMark } from '@/components/market/TickerMark';
 import { formatEtAsOf, formatEtTime, marketClock } from '@/lib/et';
-import type { PriceReading, PriceSnapshot } from '@/lib/live/types';
+import type { PriceReading, PriceSnapshot } from '@/lib/view/types';
 import { formatPrice } from '@/lib/units';
 
 const POLL_MS = 15_000;

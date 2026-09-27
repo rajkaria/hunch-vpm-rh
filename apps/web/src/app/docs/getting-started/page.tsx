@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { DocPage } from '@/components/docs/DocPage';
 import { B, C, Callout, H2, H3, LI, OL, P, Step, Table, UL } from '@/components/docs/prose';
 import { TextLink } from '@/components/ui/primitives';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { LATE_RULE, LINKS, ROBINHOOD_CHAIN, USDG } from '@/lib/site';
 import { formatAmount } from '@/lib/units';
 

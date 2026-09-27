@@ -1,4 +1,3 @@
-// TODO(S7): replace with @hunch-rh/client readVenue/readPrices (lib/live/* are the temporary readers).
 import Link from 'next/link';
 
 import { FaqList } from '@/components/faq/FaqList';
@@ -15,13 +14,17 @@ import { WhyRobinhoodChain } from '@/components/trust/WhyRobinhoodChain';
 import { Container } from '@/components/ui/Container';
 import { ButtonLink, SectionHeading, TextLink } from '@/components/ui/primitives';
 import { FAQ } from '@/content/faq';
-import { readDeployment } from '@/lib/live/deployment';
-import { readPrices } from '@/lib/live/prices';
-import { contractRows } from '@/lib/live/proof';
-import { readVenue } from '@/lib/live/venue';
+import { readDeployment } from '@/lib/deployment';
+import { getPrices } from '@/lib/server/prices';
+import { contractRowsSync } from '@/lib/server/proof';
+import { readVenueState } from '@/lib/server/venue';
 import { LINKS } from '@/lib/site';
 
-/** Rebuilt from chain reads at most every 15 s (docs/spec/05-web-app.md). */
+/**
+ * Rebuilt from cached chain reads at most every 15 s (docs/spec/05-web-app.md): the price tape
+ * (`readPrices`), the markets grid (`readVenue`) and the proof card (the latest settled market,
+ * else the labelled worked example).
+ */
 export const revalidate = 15;
 
 function Section({ id, children, className = '' }: { id?: string; children: React.ReactNode; className?: string }) {
@@ -33,9 +36,9 @@ function Section({ id, children, className = '' }: { id?: string; children: Reac
 }
 
 export default async function LandingPage() {
-  const [prices, venue] = await Promise.all([readPrices(), readVenue()]);
-  const deployment = readDeployment();
   const now = Math.floor(Date.now() / 1000);
+  const [prices, venue] = await Promise.all([getPrices(), readVenueState(now)]);
+  const deployment = readDeployment();
   const proof = selectProof(venue.settled);
   const live = venue.status === 'deployed' && venue.markets.length > 0;
 
@@ -59,7 +62,7 @@ export default async function LandingPage() {
           />
         </div>
         <div className="mt-10">
-          <MarketGrid markets={venue.markets} deployment={deployment} now={now} />
+          <MarketGrid markets={venue.markets} deployment={deployment} now={now} degraded={venue.degraded ?? null} readAt={venue.readAt ?? null} />
         </div>
       </Section>
 
@@ -116,7 +119,7 @@ export default async function LandingPage() {
               <TextLink href="/proof">Every contract, feed and settlement on the Proof page</TextLink>
             </p>
           </div>
-          <ContractTable rows={contractRows(deployment)} compact />
+          <ContractTable rows={contractRowsSync(deployment)} compact />
         </div>
       </Section>
 

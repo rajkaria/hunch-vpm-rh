@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { DocPage } from '@/components/docs/DocPage';
 import { B, Callout, H2, LI, P, Table, UL } from '@/components/docs/prose';
 import { DOCS, docHref } from '@/content/docs-nav';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { COUNTRY_NOTICE, LATE_RULE } from '@/lib/site';
 import { formatAmount } from '@/lib/units';
 

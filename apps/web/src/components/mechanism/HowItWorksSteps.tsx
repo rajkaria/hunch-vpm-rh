@@ -1,4 +1,4 @@
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { LATE_RULE } from '@/lib/site';
 import { formatAmount } from '@/lib/units';
 

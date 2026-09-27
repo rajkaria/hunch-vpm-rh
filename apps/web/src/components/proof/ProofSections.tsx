@@ -3,14 +3,14 @@ import Link from 'next/link';
 import { AddressLink } from '@/components/market/AddressLink';
 import { EmptyState, SideWord } from '@/components/ui/primitives';
 import { formatEtDateTime } from '@/lib/et';
-import type { FeeSweepRow, ProofCounter, RefundDrillData, RoundRef, SafeInfo, SettledMarketRow } from '@/lib/live/types';
+import type { FeeSweepRow, ProofCounter, RefundDrillData, RoundRef, SafeInfo, SettledMarketRow } from '@/lib/view/types';
 import { LINKS } from '@/lib/site';
 import { formatAmount, formatPrice, shortAddress } from '@/lib/units';
 
 /**
- * The /proof page's sections. Each takes typed props (lib/live/types.ts) so S7 wires chain reads
- * straight in, and each has a defined empty state that says what will appear and why it is not
- * there yet. None of them shows a zero it did not read.
+ * The /proof page's sections. Each takes typed props (lib/view/types.ts), filled from chain reads
+ * by lib/server/proof.ts, and each has a defined empty state that says what will appear and why
+ * it is not there yet. None of them shows a zero it did not read.
  */
 
 function formatCount(value: bigint): string {
@@ -102,7 +102,8 @@ export function SafePanel({ safe }: { safe: SafeInfo }) {
   );
 }
 
-function Round({ round }: { round: RoundRef }) {
+function Round({ round }: { round: RoundRef | null }) {
+  if (round === null) return <span className="text-xs text-faint">Not read</span>;
   const body = (
     <>
       <span className="num text-paper">{formatPrice(round.answer)}</span>{' '}
@@ -153,16 +154,28 @@ export function SettledMarkets({ rows }: { rows: SettledMarketRow[] }) {
                 <Link href={row.href} className="text-paper hover:underline">
                   {row.question}
                 </Link>
-                <a
-                  href={row.resolveTxUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="mt-1 block text-[11px] text-faint underline decoration-edge-strong underline-offset-2 hover:text-paper"
-                >
-                  Settlement transaction
-                </a>
+                {row.resolveTxUrl === null ? (
+                  <span className="mt-1 block text-[11px] text-faint">Settlement transaction not read</span>
+                ) : (
+                  <a
+                    href={row.resolveTxUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="mt-1 block text-[11px] text-faint underline decoration-edge-strong underline-offset-2 hover:text-paper"
+                  >
+                    Settlement transaction
+                  </a>
+                )}
               </td>
-              <td>{row.outcome === 'FLAT' ? <span className="font-semibold text-muted">FLAT · refunded</span> : <SideWord side={row.outcome} />}</td>
+              <td>
+                {row.outcome === 'FLAT' ? (
+                  <span className="font-semibold text-muted">FLAT · refunded</span>
+                ) : row.outcome === 'VOID' ? (
+                  <span className="font-semibold text-muted">Refunded</span>
+                ) : (
+                  <SideWord side={row.outcome} />
+                )}
+              </td>
               <td>
                 <Round round={row.strike} />
               </td>
@@ -179,7 +192,7 @@ export function SettledMarkets({ rows }: { rows: SettledMarketRow[] }) {
   );
 }
 
-const DRILL_REASON: Record<RefundDrillData['reason'], string> = {
+const DRILL_REASON: Record<NonNullable<RefundDrillData['reason']>, string> = {
   stale: 'The closing price was provably older than the market allowed.',
   flat: 'The price did not move between the bells.',
   paused: "Robinhood paused the token's price for a corporate action.",
@@ -200,6 +213,23 @@ export function RefundDrill({ drill }: { drill: RefundDrillData | null }) {
     );
   }
   const total = drill.refunds.reduce((sum, refund) => sum + refund.amount, 0n);
+  if (drill.status === 'listed') {
+    return (
+      <div className="rounded-card border border-dashed border-edge-strong p-4 sm:p-5">
+        <p className="text-[15px] font-semibold text-paper">
+          <Link href={drill.href} className="hover:underline">
+            {drill.question}
+          </Link>
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          Listed and taking small bets. Its closing price is read at{' '}
+          <span className="num text-paper">{formatEtDateTime(drill.finalTime)}</span>, when Chainlink&rsquo;s stock prices
+          do not update, so it cannot settle and anyone can refund it. The refund transaction and every refund will be
+          listed here once it runs.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="rounded-card border border-edge bg-raised p-4 sm:p-5">
       <p className="text-[15px] font-semibold text-paper">
@@ -207,7 +237,7 @@ export function RefundDrill({ drill }: { drill: RefundDrillData | null }) {
           {drill.question}
         </Link>
       </p>
-      <p className="mt-2 text-sm text-muted">{DRILL_REASON[drill.reason]}</p>
+      {drill.reason === null ? null : <p className="mt-2 text-sm text-muted">{DRILL_REASON[drill.reason]}</p>}
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {drill.strike === null ? null : (
           <div>
@@ -223,9 +253,13 @@ export function RefundDrill({ drill }: { drill: RefundDrillData | null }) {
         )}
         <div>
           <p className="text-[11px] text-faint">Refund transaction</p>
-          <a href={drill.voidTxUrl} target="_blank" rel="noreferrer noopener" className="text-sm text-muted underline decoration-edge-strong underline-offset-2 hover:text-paper">
-            View on Blockscout
-          </a>
+          {drill.voidTxUrl === null ? (
+            <span className="text-sm text-faint">Not read</span>
+          ) : (
+            <a href={drill.voidTxUrl} target="_blank" rel="noreferrer noopener" className="text-sm text-muted underline decoration-edge-strong underline-offset-2 hover:text-paper">
+              View on Blockscout
+            </a>
+          )}
         </div>
       </div>
       <ul className="mt-5 divide-y divide-edge-soft border-t border-edge">

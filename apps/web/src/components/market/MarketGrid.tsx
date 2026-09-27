@@ -1,8 +1,10 @@
 import { Countdown } from '@/components/market/Countdown';
 import { TickerMark } from '@/components/market/TickerMark';
 import { ButtonLink } from '@/components/ui/primitives';
-import type { Deployment } from '@/lib/live/deployment';
-import type { MarketCardData } from '@/lib/live/types';
+import type { Deployment } from '@/lib/deployment';
+import type { MarketCardData } from '@/lib/view/types';
+import { formatDuration } from '@hunch-rh/client';
+
 import { currentOrNextSession, formatEtDateTime, marketClock } from '@/lib/et';
 
 import { MarketCard } from './MarketCard';
@@ -81,16 +83,43 @@ export function LaunchingState({ deployment, now }: { deployment: Deployment; no
   );
 }
 
+/** When the chain could not be read: say so, with the age of what is shown. Never an empty grid without a reason. */
+function Degraded({ kind, readAt, now }: { kind: 'stale' | 'unavailable'; readAt: number | null; now: number }) {
+  return (
+    <p className="mb-4 rounded-control border border-coral/35 bg-coral/10 px-4 py-3 text-sm text-paper" role="status">
+      {kind === 'unavailable'
+        ? 'Market data unavailable, retrying. Robinhood Chain could not be read just now; every stake is safe in the contract.'
+        : `Price unavailable, retrying. Showing the last good read${readAt === null ? '' : ` from ${formatDuration(Math.max(0, now - readAt))} ago`}.`}
+    </p>
+  );
+}
+
 /** The live markets grid, or the launching state when there are none. Never fake markets. */
-export function MarketGrid({ markets, deployment, now }: { markets: MarketCardData[]; deployment: Deployment; now: number }) {
+export function MarketGrid({
+  markets,
+  deployment,
+  now,
+  degraded = null,
+  readAt = null,
+}: {
+  markets: MarketCardData[];
+  deployment: Deployment;
+  now: number;
+  degraded?: 'stale' | 'unavailable' | null;
+  readAt?: number | null;
+}) {
+  if (degraded === 'unavailable') return <Degraded kind="unavailable" readAt={readAt} now={now} />;
   if (markets.length === 0) return <LaunchingState deployment={deployment} now={now} />;
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
-      {markets.map((market) => (
-        <li key={market.id}>
-          <MarketCard market={market} now={now} />
-        </li>
-      ))}
-    </ul>
+    <>
+      {degraded === 'stale' ? <Degraded kind="stale" readAt={readAt} now={now} /> : null}
+      <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
+        {markets.map((market) => (
+          <li key={market.id}>
+            <MarketCard market={market} now={now} />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

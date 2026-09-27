@@ -1,4 +1,3 @@
-// TODO(S7): replace readProof() with @hunch-rh/client reads (counters, settled markets, refund drill, fee sweeps, Safe threshold).
 import type { Metadata } from 'next';
 
 import { Toc } from '@/components/docs/prose';
@@ -7,7 +6,8 @@ import { ContractTable } from '@/components/trust/ContractTable';
 import { PowersTable } from '@/components/trust/PowersTable';
 import { Container } from '@/components/ui/Container';
 import { SectionHeading, TextLink } from '@/components/ui/primitives';
-import { readProof } from '@/lib/live/proof';
+import { formatEtDateTime } from '@/lib/et';
+import { getProof } from '@/lib/server/proof';
 
 export const metadata: Metadata = {
   title: 'Proof',
@@ -42,7 +42,7 @@ function Block({ id, title, lead, children }: { id: string; title: string; lead?
 }
 
 export default async function ProofPage() {
-  const proof = await readProof();
+  const { view: proof, extras } = await getProof();
   const deployed = proof.status === 'deployed';
 
   return (
@@ -65,6 +65,23 @@ export default async function ProofPage() {
           </p>
         </div>
       )}
+
+      {deployed && (extras.stale || extras.missing.length > 0) ? (
+        <p className="mt-8 rounded-card border border-coral/35 bg-coral/10 p-4 text-sm leading-relaxed text-paper" role="status">
+          {extras.missing.length > 0 ? `Not read just now: ${extras.missing.join(', ')}. ` : ''}
+          {extras.stale ? 'Showing the last good read' : 'Retrying'}
+          {extras.readAt === null ? '.' : ` from ${formatEtDateTime(extras.readAt)}.`}
+        </p>
+      ) : null}
+      {deployed && extras.readAt !== null ? (
+        <p className="mt-4 text-xs text-faint">
+          Read from Robinhood Chain at <span className="num">{formatEtDateTime(extras.readAt)}</span>. The same data as JSON:{' '}
+          <a href="/api/proof" className="num underline decoration-edge-strong underline-offset-2 hover:text-paper">
+            /api/proof
+          </a>
+          .
+        </p>
+      ) : null}
 
       <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_200px] lg:gap-16">
         <div className="grid min-w-0 gap-16">

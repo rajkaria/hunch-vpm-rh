@@ -1,12 +1,15 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
+const here = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
+
 export default defineConfig({
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      // S7: when the web reads through @hunch-rh/client again, alias it to its source here
-      // ('../../packages/client/src/index.ts') so tests never need its `dist`.
+      '@': here('./src'),
+      // The workspace packages from source, so tests never need their `dist`.
+      '@hunch-rh/client': here('../../packages/client/src/index.ts'),
+      '@hunch-rh/keeper': here('../../packages/keeper/src/index.ts'),
     },
   },
   esbuild: {

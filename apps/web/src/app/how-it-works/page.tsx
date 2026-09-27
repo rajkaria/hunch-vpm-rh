@@ -13,7 +13,7 @@ import { Container } from '@/components/ui/Container';
 import { ButtonLink, SectionHeading, TextLink } from '@/components/ui/primitives';
 import { GLOSSARY } from '@/content/glossary';
 import { WORKED, exampleRow } from '@/content/worked-example';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { LINKS } from '@/lib/site';
 import { formatAmount, formatAmountExact } from '@/lib/units';
 

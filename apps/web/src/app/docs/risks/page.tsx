@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { DocPage } from '@/components/docs/DocPage';
 import { B, Callout, H2, LI, P, UL } from '@/components/docs/prose';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { BETA_NOTICE, COUNTRY_NOTICE } from '@/lib/site';
 import { formatAmount } from '@/lib/units';
 

@@ -4,7 +4,7 @@ import { SideWord } from '@/components/ui/primitives';
 import { TickerMark } from '@/components/market/TickerMark';
 import { EXAMPLE, WORKED, exampleBet, exampleRow, multiplePpm } from '@/content/worked-example';
 import { formatEtDateTime } from '@/lib/et';
-import type { EarlyVsLateProof, ProofBettor, RoundRef } from '@/lib/live/types';
+import type { EarlyVsLateProof, ProofBettor, RoundRef } from '@/lib/view/types';
 import { formatAmount, formatMultiple, formatPrice } from '@/lib/units';
 
 /**
@@ -250,7 +250,7 @@ export function EarlyVsLate({
           Bars: this market (top) against an ordinary pool (bottom), as a multiple of stake.
           {illustration
             ? ' Made-up bettors and the arithmetic the contract runs; a real settled market replaces this once one settles.'
-            : null}
+            : " Both after the market's fee on winnings."}
         </p>
         <p className="mt-1 text-sm">
           {proof.marketHref === null ? (

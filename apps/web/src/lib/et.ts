@@ -7,9 +7,23 @@
  * no-break space before "PM", and a server string that differs from the browser's by one
  * invisible character is a hydration error.
  *
- * S7: replace the calendar below with the NYSE calendar in @hunch-rh/client / @hunch-rh/keeper
- * (packages/keeper/calendar/nyse-2026.json) so the site and the keeper share one source.
+ * Sessions and holidays come from `@hunch-rh/client`'s NYSE calendar; this module only adds the
+ * hydration-safe formatting and the numeric wrappers the components use.
  */
+
+import {
+  CalendarRangeError,
+  addDays,
+  currentOrNextSession as clientCurrentOrNextSession,
+  earlyCloseOn,
+  etDateOf,
+  etTimeOn,
+  holidayOn,
+  isCovered,
+  isTradingDay as clientIsTradingDay,
+  isWeekend,
+  nextSession,
+} from '@hunch-rh/client';
 
 const ZONE = 'America/New_York';
 
@@ -71,36 +85,26 @@ function key(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-/** NYSE full-day closures, 2026 (docs/spec/04-markets-and-resolution.md). */
-const HOLIDAYS = new Set([
-  '2026-01-01',
-  '2026-01-19',
-  '2026-02-16',
-  '2026-04-03',
-  '2026-05-25',
-  '2026-06-19',
-  '2026-07-03',
-  '2026-09-07',
-  '2026-11-26',
-  '2026-12-25',
-]);
-
-/** NYSE early closes (13:00 ET), 2026. */
-const EARLY_CLOSES = new Set(['2026-11-27', '2026-12-24']);
+/**
+ * The NYSE calendar is `@hunch-rh/client`'s (read from nyse.com, shared with the keeper, so the
+ * site and the keeper never disagree about a holiday). For a year the calendar does not cover
+ * the site falls back to "every weekday, 9:30 to 4:00" for display only; the keeper refuses to
+ * list anything there.
+ */
+function covered(date: string): boolean {
+  return isCovered(date);
+}
 
 export function isTradingDay(year: number, month: number, day: number): boolean {
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  if (weekday === 0 || weekday === 6) return false;
-  return !HOLIDAYS.has(key(year, month, day));
+  const date = key(year, month, day);
+  if (!covered(date)) return !isWeekend(date);
+  return clientIsTradingDay(date);
 }
 
 export function closeHour(year: number, month: number, day: number): 13 | 16 {
-  return EARLY_CLOSES.has(key(year, month, day)) ? 13 : 16;
-}
-
-function addDays(year: number, month: number, day: number, days: number): [number, number, number] {
-  const date = new Date(Date.UTC(year, month - 1, day + days));
-  return [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()];
+  const date = key(year, month, day);
+  if (!covered(date)) return 16;
+  return earlyCloseOn(date) === null ? 16 : 13;
 }
 
 export interface Session {
@@ -108,19 +112,38 @@ export interface Session {
   close: number;
 }
 
-/** The regular session that is in progress at `now`, or the next one to start. */
-export function currentOrNextSession(now: number): Session {
-  const today = etParts(now);
-  for (let offset = 0; offset < 15; offset += 1) {
-    const [y, m, d] = addDays(today.year, today.month, today.day, offset);
-    if (!isTradingDay(y, m, d)) continue;
-    const open = etToUnix(y, m, d, 9, 30);
-    const close = etToUnix(y, m, d, closeHour(y, m, d), 0);
+function fallbackSession(now: number): Session {
+  let date = etDateOf(now);
+  for (let offset = 0; offset < 15; offset += 1, date = addDays(date, 1)) {
+    if (isWeekend(date)) continue;
+    const open = etTimeOn(date, '09:30');
+    const close = etTimeOn(date, '16:00');
     if (now < close) return { open, close };
   }
-  // Unreachable with a sane calendar; fall back to "tomorrow 9:30".
-  const [y, m, d] = addDays(today.year, today.month, today.day, 1);
-  return { open: etToUnix(y, m, d, 9, 30), close: etToUnix(y, m, d, 16, 0) };
+  const tomorrow = addDays(etDateOf(now), 1);
+  return { open: etTimeOn(tomorrow, '09:30'), close: etTimeOn(tomorrow, '16:00') };
+}
+
+/** The regular session that is in progress at `now`, or the next one to start. */
+export function currentOrNextSession(now: number): Session {
+  try {
+    const session = clientCurrentOrNextSession(now);
+    return { open: session.open, close: session.close };
+  } catch (error) {
+    if (error instanceof CalendarRangeError) return fallbackSession(now);
+    throw error;
+  }
+}
+
+/** The first session whose opening bell is strictly after `now`. */
+export function nextOpeningBell(now: number): Session {
+  try {
+    const session = nextSession(now);
+    return { open: session.open, close: session.close };
+  } catch (error) {
+    if (error instanceof CalendarRangeError) return fallbackSession(now + 1);
+    throw error;
+  }
 }
 
 export interface MarketClock {
@@ -144,7 +167,8 @@ export function marketClock(now: number): MarketClock {
   else if (et.weekday === 0) feedsUpdating = minutes >= 20 * 60;
   else if (et.weekday === 5) feedsUpdating = minutes < 20 * 60;
   else feedsUpdating = true;
-  if (feedsUpdating && et.weekday !== 0 && HOLIDAYS.has(key(et.year, et.month, et.day))) feedsUpdating = false;
+  const today = key(et.year, et.month, et.day);
+  if (feedsUpdating && et.weekday !== 0 && covered(today) && holidayOn(today) !== null) feedsUpdating = false;
   return { sessionOpen, session, feedsUpdating };
 }
 

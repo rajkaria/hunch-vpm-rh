@@ -1,21 +1,35 @@
-// S7: replace with contracts/fixtures/worked-example.json via @hunch-rh/client
 /**
  * The worked example from docs/spec/02-mechanism.md: "Will NVDA finish the week UP?", seed 10/10,
  * five bets, NVDA closes up. It is the only static set of numbers the site is allowed to show,
  * and it is always labelled "Illustration".
  *
- * The numbers are not typed in. They are replayed here from the two rules with the contract's
- * own fixed-point arithmetic (an 18-decimal per-share accumulator, floor division, 6-decimal
- * USDG), and `test/worked-example.test.ts` pins every one of them to the spec's table. So the
+ * Nothing here is typed in. The bets are `@hunch-rh/client`'s `WORKED_EXAMPLE`, and every number
+ * is replayed with the client's exact mirror of the contract (`simCreate` → `simEnter` →
+ * `simFinalize` → `simResolve` → `simSettle`), which the client's own tests hold to
+ * `contracts/fixtures/worked-example.json`, the file the Foundry test pins to the unit. So the
  * payouts shown are exactly what the contract would pay, truncated to the cent for display and
  * never rounded up: Mei is paid 69.166666 USDG, shown as 69.16 (the spec's table rounds it to
- * 69.17).
+ * 69.17). Only the display details (the time of day in words, and where each bet sits on the
+ * week's timeline) are local.
  */
 
-import type { Side } from '@/lib/live/types';
+import {
+  DOWN,
+  SCALE as CLIENT_SCALE,
+  UP,
+  WORKED_EXAMPLE,
+  accrued,
+  sideOf,
+  simCreate,
+  simEnter,
+  simFinalize,
+  simResolve,
+  simSettle,
+} from '@hunch-rh/client';
 
-export const SCALE = 10n ** 18n;
-const USDG = 1_000_000n;
+import type { Side } from '@/lib/view/types';
+
+export const SCALE = CLIENT_SCALE;
 
 export interface ExampleBet {
   name: string;
@@ -27,22 +41,33 @@ export interface ExampleBet {
   stake: bigint;
 }
 
+/** Display only: the spec's times in words and their place on the Tuesday-to-Friday week. */
+const DISPLAY: Record<string, { when: string; hoursIn: number }> = {
+  Mei: { when: 'Tue 9:35 am', hoursIn: 5 / 60 },
+  Dan: { when: 'Tue 12:00 pm', hoursIn: 2.5 },
+  Kim: { when: 'Thu 11:00 am', hoursIn: 49.5 },
+  Ben: { when: 'Fri 3:55 pm', hoursIn: 78.5 - 5 / 60 },
+  Lee: { when: 'Fri 3:58 pm', hoursIn: 78.5 - 2 / 60 },
+};
+
 export const EXAMPLE = {
-  question: 'Will NVDA finish the week UP?',
+  question: WORKED_EXAMPLE.question,
   ticker: 'NVDA' as const,
-  kappa: 30,
-  seedPerLeg: 10n * USDG,
-  winner: 'UP' as Side,
+  kappa: Number(WORKED_EXAMPLE.kappa),
+  seedPerLeg: WORKED_EXAMPLE.seed[0],
+  winner: WORKED_EXAMPLE.outcome as Side,
   /** Tue 9:30 am to Fri 4:00 pm ET is 3 days and 6.5 hours. */
   weekHours: 78.5,
-  bets: [
-    { name: 'Mei', when: 'Tue 9:35 am', hoursIn: 5 / 60, side: 'UP', stake: 20n * USDG },
-    { name: 'Dan', when: 'Tue 12:00 pm', hoursIn: 2.5, side: 'DOWN', stake: 30n * USDG },
-    { name: 'Kim', when: 'Thu 11:00 am', hoursIn: 49.5, side: 'DOWN', stake: 40n * USDG },
-    { name: 'Ben', when: 'Fri 3:55 pm', hoursIn: 78.5 - 5 / 60, side: 'UP', stake: 50n * USDG },
-    { name: 'Lee', when: 'Fri 3:58 pm', hoursIn: 78.5 - 2 / 60, side: 'DOWN', stake: 10n * USDG },
-  ] satisfies ExampleBet[],
-} as const;
+  bets: WORKED_EXAMPLE.entries.map(
+    (entry): ExampleBet => ({
+      name: entry.label,
+      when: DISPLAY[entry.label]?.when ?? entry.when,
+      hoursIn: DISPLAY[entry.label]?.hoursIn ?? 0,
+      side: sideOf(entry.outcome),
+      stake: entry.amount,
+    }),
+  ),
+};
 
 export interface ReplayStep {
   /** Index into `EXAMPLE.bets`, or -1 for the opening seed. */
@@ -79,67 +104,57 @@ export interface Replay {
 }
 
 /**
- * Rule 1 in the accumulator form: a stake `x` on one side raises the other side's per-share
- * accumulator by `x * SCALE / P_other` (floor). A winning position is paid
- * `s * (SCALE + A_win(T) - entryAcc) / SCALE` (floor). Rule 2 (the cap) never binds here: every
- * bet is far inside the room the other side can cover at 30x its principal.
+ * The market, one bet per block (each is its own batch), replayed by the client's contract
+ * mirror. Rule 2 (the cap) never binds here: every bet is far inside the room the other side can
+ * cover at 30x its principal.
  */
 export function replayWorkedExample(): Replay {
-  const seed = EXAMPLE.seedPerLeg;
-  let principalUp = seed;
-  let principalDown = seed;
-  // Opening seed: the two legs are each other's first counterparties.
-  let accUp = (seed * SCALE) / principalUp;
-  let accDown = (seed * SCALE) / principalDown;
-
-  const entries: { name: string; side: Side; stake: bigint; entryAcc: bigint }[] = [];
-  const steps: ReplayStep[] = [{ bet: -1, accUp, accDown, entryAcc: 0n, accruedMei: 0n, accruedBen: 0n }];
-
-  const accrued = (name: string): bigint => {
-    const entry = entries.find((candidate) => candidate.name === name);
-    if (entry === undefined) return 0n;
-    return (entry.stake * (SCALE + accUp - entry.entryAcc)) / SCALE;
+  const sim = simCreate([...WORKED_EXAMPLE.seed], WORKED_EXAMPLE.kappa);
+  const positionOf = new Map<string, number>();
+  const accruedOf = (name: string): bigint => {
+    const id = positionOf.get(name);
+    if (id === undefined) return 0n;
+    const position = sim.positions[id]!;
+    return accrued(position, sim.books[position.outcome]!);
   };
 
-  EXAMPLE.bets.forEach((bet, index) => {
-    if (bet.side === 'UP') {
-      entries.push({ name: bet.name, side: bet.side, stake: bet.stake, entryAcc: accUp });
-      accDown += (bet.stake * SCALE) / principalDown;
-      principalUp += bet.stake;
-    } else {
-      entries.push({ name: bet.name, side: bet.side, stake: bet.stake, entryAcc: accDown });
-      accUp += (bet.stake * SCALE) / principalUp;
-      principalDown += bet.stake;
-    }
+  const steps: ReplayStep[] = [
+    { bet: -1, accUp: sim.books[UP]!.acc, accDown: sim.books[DOWN]!.acc, entryAcc: 0n, accruedMei: 0n, accruedBen: 0n },
+  ];
+  WORKED_EXAMPLE.entries.forEach((entry, index) => {
+    const position = simEnter(sim, { outcome: entry.outcome, amount: entry.amount, block: entry.block, label: entry.label });
+    simFinalize(sim);
+    positionOf.set(entry.label, position.id);
     steps.push({
       bet: index,
-      accUp,
-      accDown,
-      entryAcc: entries[entries.length - 1]?.entryAcc ?? 0n,
-      accruedMei: accrued('Mei'),
-      accruedBen: accrued('Ben'),
+      accUp: sim.books[UP]!.acc,
+      accDown: sim.books[DOWN]!.acc,
+      entryAcc: sim.positions[position.id]!.entryAcc,
+      accruedMei: accruedOf('Mei'),
+      accruedBen: accruedOf('Ben'),
     });
   });
 
-  const pool = principalUp + principalDown;
-  const winningPrincipal = principalUp;
-  const pay = (stake: bigint, entryAcc: bigint): bigint => (stake * (SCALE + accUp - entryAcc)) / SCALE;
-  const classic = (stake: bigint): bigint => (stake * pool) / winningPrincipal;
+  const last = WORKED_EXAMPLE.entries.reduce((max, entry) => (entry.block > max ? entry.block : max), 0n);
+  simResolve(sim, UP, last + 1n);
+  const settled = simSettle(sim, WORKED_EXAMPLE.feeBps);
 
-  const rows: ReplayRow[] = entries.map((entry) => ({
-    ...entry,
-    payout: entry.side === 'UP' ? pay(entry.stake, entry.entryAcc) : 0n,
-    classic: entry.side === 'UP' ? classic(entry.stake) : 0n,
-  }));
-  const seedUp: ReplayRow = {
-    name: 'Hunch opening seed (UP leg)',
-    side: 'UP',
-    stake: seed,
-    entryAcc: 0n,
-    payout: pay(seed, 0n),
-    classic: classic(seed),
+  const row = (id: number, name: string): ReplayRow => {
+    const position = settled.positions[id]!;
+    return {
+      name,
+      side: sideOf(position.outcome),
+      stake: position.accepted,
+      entryAcc: position.entryAcc,
+      payout: position.settlement.gross,
+      classic: position.classic,
+    };
   };
 
+  const rows = WORKED_EXAMPLE.entries.map((entry) => row(positionOf.get(entry.label)!, entry.label));
+  const seedUp = row(0, 'Hunch opening seed (UP leg)');
+  const pool = settled.pool;
+  const winningPrincipal = sim.books[UP]!.principal;
   return {
     steps,
     rows,

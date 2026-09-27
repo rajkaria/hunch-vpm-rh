@@ -1,0 +1,13 @@
+{
+  // `pnpm typecheck` resolves the workspace packages from source, so it needs neither
+  // package's `dist` (CI typechecks before it builds). `next build` uses tsconfig.json,
+  // which resolves the published types in packages/*/dist that the build script creates.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@hunch-rh/client": ["../../packages/client/src/index.ts"],
+      "@hunch-rh/keeper": ["../../packages/keeper/src/index.ts"]
+    }
+  }
+}

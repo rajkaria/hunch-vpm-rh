@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { SideWord } from '@/components/ui/primitives';
 import { formatEtTime } from '@/lib/et';
-import type { MarketCardData, Side } from '@/lib/live/types';
+import type { MarketCardData, Side } from '@/lib/view/types';
 import { formatAmount, formatPpmPercent, formatPrice } from '@/lib/units';
 
 import { Countdown } from './Countdown';
@@ -46,13 +46,32 @@ function Split({ up, down }: { up: bigint; down: bigint }) {
 }
 
 /**
+ * Only when it matters: a side whose room is below the largest bet, so part of a big bet on it
+ * would come straight back. Most of the time both sides take a full bet and this says nothing.
+ */
+function HeadroomLine({ headroom, maxEntry }: { headroom: { up: bigint; down: bigint }; maxEntry: bigint }) {
+  const tight = (['UP', 'DOWN'] as const).filter((side) => (side === 'UP' ? headroom.up : headroom.down) < maxEntry);
+  if (tight.length === 0) return null;
+  return (
+    <p className="mt-1 text-xs leading-relaxed text-faint">
+      {tight.map((side, index) => (
+        <span key={side}>
+          {index > 0 ? ' · ' : null}
+          <SideWord side={side} /> takes up to <span className="num text-muted">{formatAmount(side === 'UP' ? headroom.up : headroom.down)}</span> USDG in full right now
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/**
  * One market on the landing grid. The whole card is the link to `/m/[id]`; a card never takes
  * money in place. Outcomes are the words UP and DOWN, coloured as reinforcement only.
  */
 export function MarketCard({ market, now }: { market: MarketCardData; now: number }) {
   const total = market.pool.up + market.pool.down;
   const direction = market.strike !== null && market.live !== null ? directionVsStrike(market.live.answer, market.strike.answer) : null;
-  const taking = market.phase === 'opens' || market.phase === 'live';
+  const taking = (market.phase === 'opens' || market.phase === 'live') && market.acceptingBets !== false;
 
   return (
     <Link
@@ -67,7 +86,9 @@ export function MarketCard({ market, now }: { market: MarketCardData; now: numbe
             <TickerMark ticker={market.ticker} />
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-paper">{market.ticker}</span>
-              <span className="block text-[11px] text-faint">{market.family === 'weekly' ? 'Weekly' : 'Daily'} · Stock Token</span>
+              <span className="block text-[11px] text-faint">
+                {market.family === 'weekly' ? 'Weekly' : market.family === 'drill' ? 'Refund drill' : 'Daily'} · Stock Token
+              </span>
             </span>
           </span>
           <StatusBadge phase={market.phase} winner={market.winner} />
@@ -135,6 +156,7 @@ export function MarketCard({ market, now }: { market: MarketCardData; now: numbe
             Bet now and you&rsquo;d collect everything the other side adds from here.
           </p>
         ) : null}
+        {taking && market.headroom != null && market.maxEntry !== undefined ? <HeadroomLine headroom={market.headroom} maxEntry={market.maxEntry} /> : null}
       </article>
     </Link>
   );

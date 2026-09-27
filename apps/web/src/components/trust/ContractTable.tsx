@@ -1,5 +1,5 @@
 import { AddressLink } from '@/components/market/AddressLink';
-import type { ContractRow } from '@/lib/live/types';
+import type { ContractRow } from '@/lib/view/types';
 import { addressUrl, isAddress, txUrl } from '@/lib/site';
 import { shortHex } from '@/lib/units';
 

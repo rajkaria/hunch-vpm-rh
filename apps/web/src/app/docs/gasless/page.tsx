@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { DocPage } from '@/components/docs/DocPage';
 import { B, C, Callout, CodeBlock, H2, LI, OL, P, Step, Table, UL } from '@/components/docs/prose';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { USDG } from '@/lib/site';
 import { formatAmount } from '@/lib/units';
 

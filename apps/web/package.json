@@ -6,15 +6,16 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "deps": "pnpm --filter \"@hunch-rh/web^...\" run build",
+    "dev": "pnpm run deps && next dev",
+    "dev:only": "next dev",
+    "build": "pnpm run deps && next build",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit -p tsconfig.json",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.typecheck.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.mjs"
   },
-  "//": "S7: once apps/web imports @hunch-rh/client again, restore 'pnpm --filter @hunch-rh/client build && ' in front of the dev and build scripts (and the vitest alias).",
   "dependencies": {
     "@hunch-rh/client": "workspace:*",
     "@hunch-rh/keeper": "workspace:*",

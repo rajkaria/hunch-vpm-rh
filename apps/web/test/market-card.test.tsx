@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MarketCard, changePpm, directionVsStrike } from '@/components/market/MarketCard';
 import { MarketGrid } from '@/components/market/MarketGrid';
-import { NOT_DEPLOYED } from '@/lib/live/deployment';
-import type { MarketCardData } from '@/lib/live/types';
+import { NOT_DEPLOYED } from '@/lib/deployment';
+import type { MarketCardData } from '@/lib/view/types';
 
 afterEach(() => {
   cleanup();

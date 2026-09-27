@@ -6,7 +6,7 @@ import { AddressLink } from '@/components/market/AddressLink';
 import { RulesBox } from '@/components/market/RulesBox';
 import { TextLink } from '@/components/ui/primitives';
 import { TICKERS } from '@/content/tickers';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { ROBINHOOD_CHAIN } from '@/lib/site';
 import { formatDuration } from '@/lib/time';
 

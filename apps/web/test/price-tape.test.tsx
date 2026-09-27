@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { PriceTape } from '@/components/landing/PriceTape';
 import { TICKERS } from '@/content/tickers';
-import type { PriceSnapshot } from '@/lib/live/types';
+import type { PriceSnapshot } from '@/lib/view/types';
 
 afterEach(cleanup);
 

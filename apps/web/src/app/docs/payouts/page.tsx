@@ -6,7 +6,7 @@ import { AccruedSteps } from '@/components/mechanism/AccruedSteps';
 import { WorkedExampleBets, WorkedExamplePayouts } from '@/components/mechanism/WorkedExampleTable';
 import { TextLink } from '@/components/ui/primitives';
 import { WORKED, exampleRow } from '@/content/worked-example';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { LATE_RULE } from '@/lib/site';
 import { formatAmount, formatAmountExact } from '@/lib/units';
 

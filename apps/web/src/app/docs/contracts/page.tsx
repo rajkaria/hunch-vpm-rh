@@ -5,8 +5,8 @@ import { B, C, Callout, CodeBlock, H2, H3, LI, P, Table, UL } from '@/components
 import { ContractTable } from '@/components/trust/ContractTable';
 import { PowersTable } from '@/components/trust/PowersTable';
 import { TextLink } from '@/components/ui/primitives';
-import { readDeployment } from '@/lib/live/deployment';
-import { contractRows, feedRows } from '@/lib/live/proof';
+import { readDeployment } from '@/lib/deployment';
+import { contractRowsSync as contractRows, feedRows } from '@/lib/server/proof';
 import { LINKS } from '@/lib/site';
 
 export const metadata: Metadata = {

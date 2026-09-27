@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { EarlyVsLate, ILLUSTRATION_PROOF, selectProof } from '@/components/proof/EarlyVsLate';
-import type { EarlyVsLateProof } from '@/lib/live/types';
+import type { EarlyVsLateProof } from '@/lib/view/types';
 
 afterEach(cleanup);
 

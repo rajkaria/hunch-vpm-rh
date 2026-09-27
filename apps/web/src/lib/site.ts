@@ -4,7 +4,7 @@
  * Everything here is either a public URL or a chain fact checked against chain
  * 4663 (docs/spec/08-deployment.md). Nothing here is a contract of ours: those
  * come from the deployment file, which says "not deployed" until the operator
- * deploys (see `lib/live/deployment.ts`).
+ * deploys (see `lib/deployment.ts`).
  */
 
 /** The canonical origin. Used for metadata, the sitemap and absolute links. */

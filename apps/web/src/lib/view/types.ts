@@ -1,20 +1,18 @@
-// TODO(S7): these are the shapes the S8 components render. Map @hunch-rh/client reads into them.
 /**
  * The typed props of every data-driven component on the non-trading pages.
  *
  * Money is `bigint` in USDG's smallest unit (6 decimals) and prices are `bigint` at the feed's
- * 8 decimals, in server components. Anything that crosses into a client island is a string (a
- * bigint cannot be serialised into props), and the type says so.
+ * 8 decimals. The server data layer (`lib/server/*`) maps `@hunch-rh/client` reads into them.
+ * The price tape is polled by its client island from `/api/prices`, so its readings are strings.
  */
 
 import type { MarketPhase } from '@/components/market/StatusBadge';
-import type { Ticker } from '@/content/tickers';
 
 export type Side = 'UP' | 'DOWN';
 
 /** One Chainlink reading for the price tape. Strings, because the tape is a client island. */
 export interface PriceReading {
-  ticker: Ticker;
+  ticker: string;
   name: string;
   feed: string;
   /** Answer at 8 decimals as a decimal integer string, or null if never read. */
@@ -50,8 +48,8 @@ export interface RoundRef {
 export interface MarketCardData {
   id: string;
   href: string;
-  ticker: Ticker;
-  family: 'daily' | 'weekly';
+  ticker: string;
+  family: 'daily' | 'weekly' | 'drill';
   question: string;
   phase: MarketPhase;
   winner?: Side;
@@ -65,6 +63,12 @@ export interface MarketCardData {
   live: { answer: bigint; updatedAt: number } | null;
   /** Accepted principal per side, USDG units, including the opening seed. */
   pool: { up: bigint; down: bigint };
+  /** The largest stake accepted in full right now on each side (null when unknown). */
+  headroom?: { up: bigint; down: bigint } | null;
+  /** The market's largest single bet. */
+  maxEntry?: bigint;
+  /** Taking bets right now (open, before the bell, new bets not paused). */
+  acceptingBets?: boolean;
 }
 
 /** A winning bettor on the proof card. */
@@ -90,7 +94,7 @@ export interface ProofBettor {
 export interface EarlyVsLateProof {
   kind: 'weekly' | 'daily' | 'illustration';
   question: string;
-  ticker: Ticker;
+  ticker: string;
   winner: Side;
   /** "Tue Sep 29 to Fri Oct 2" or similar. */
   windowLabel: string;
@@ -104,12 +108,19 @@ export interface EarlyVsLateProof {
   marketHref: string | null;
 }
 
-/** What `lib/live/venue.ts` (and later @hunch-rh/client) says about the venue right now. */
+/** What `lib/server/venue.ts` says about the venue right now. */
 export interface VenueState {
   status: 'not-deployed' | 'deployed';
   markets: MarketCardData[];
   /** Latest settled market per family with at least one winning non-seed position. */
   settled: { weekly: EarlyVsLateProof | null; daily: EarlyVsLateProof | null };
+  /** Unix seconds of the chain read behind `markets` (null when nothing was read). */
+  readAt?: number | null;
+  /**
+   * `stale`: the latest read failed and `markets` are the last good ones (see `readAt`).
+   * `unavailable`: no read has succeeded, so there is nothing to show yet.
+   */
+  degraded?: 'stale' | 'unavailable' | null;
 }
 
 // ---------------------------------------------------------------- /proof
@@ -134,10 +145,14 @@ export interface SettledMarketRow {
   id: string;
   href: string;
   question: string;
-  outcome: Side | 'FLAT';
-  strike: RoundRef;
-  final: RoundRef;
-  resolveTxUrl: string;
+  /** VOID: refunded because a price was stale, the token was paused, or nobody settled it in 72 hours. */
+  outcome: Side | 'FLAT' | 'VOID';
+  /** The two rounds that decided it (null only when they could not be read, or for a timeout refund). */
+  strike: RoundRef | null;
+  final: RoundRef | null;
+  /** The settlement transaction (null when the logs could not be read). */
+  resolveTxUrl: string | null;
+  /** Bets placed (opening seeds excluded). */
   positions: number;
   /** Total USDG paid out (payouts plus refunds), USDG units. */
   totalPaid: bigint;
@@ -155,9 +170,13 @@ export interface RefundDrillData {
   id: string;
   href: string;
   question: string;
-  /** Why it voided: `stale` (voidStale), `flat`, `paused` or the 72 h timeout. */
-  reason: 'stale' | 'flat' | 'paused' | 'timeout';
-  voidTxUrl: string;
+  /** `listed`: open, waiting for its Saturday bell. `refunded`: voided on chain. */
+  status: 'listed' | 'refunded';
+  /** Unix seconds: the bell whose price the drill cannot trust. */
+  finalTime: number;
+  /** Why it voided: `stale` (voidStale), `flat`, `paused` or the 72 h timeout; null while listed. */
+  reason: 'stale' | 'flat' | 'paused' | 'timeout' | null;
+  voidTxUrl: string | null;
   strike: RoundRef | null;
   final: RoundRef | null;
   refunds: RefundRow[];

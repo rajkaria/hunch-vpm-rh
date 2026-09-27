@@ -6,7 +6,7 @@ import { CopyButton } from '@/components/ui/CopyButton';
 import { ButtonLink, SectionHeading, TextLink } from '@/components/ui/primitives';
 import { AddNetworkButton } from '@/components/wallet/AddNetworkButton';
 import { FUNDING_ROUTES } from '@/content/funding-routes';
-import { readDeployment } from '@/lib/live/deployment';
+import { readDeployment } from '@/lib/deployment';
 import { LINKS, ROBINHOOD_CHAIN, USDG, addressUrl } from '@/lib/site';
 import { formatAmount } from '@/lib/units';
 
