@@ -6,14 +6,14 @@ import {VestedParimutuel, IERC20} from "../src/reference/VestedParimutuel.sol";
 import {NaiveVestedParimutuel} from "../src/reference/NaiveVestedParimutuel.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
 
-/// @title Gas measurements → GAS.md
+/// @title Gas measurements → GAS-REFERENCE.md
 /// @notice Every number is a `gasleft()` delta around one external call from this
 ///         contract, on cold storage (each measured call is the first touch of the
 ///         slots it writes in its transaction), so it is the execution cost the paper's
 ///         §6 talks about: it EXCLUDES the 21,000 base fee and calldata, and INCLUDES
 ///         the ERC-20 transfer inside the call. Run:
 ///           forge test --match-contract GasTest -vv
-///         which rewrites GAS.md in this directory.
+///         which rewrites GAS-REFERENCE.md in this directory.
 contract GasTest is Test {
     VestedParimutuel vpm;
     MockERC20 token;
@@ -197,7 +197,7 @@ contract GasTest is Test {
             "\nThe accumulator form's entry cost is flat in the book size (see the entry table); the loop form grows by roughly 5,000 gas per opposing position, matching the per-position SSTORE the paper's section 6 cites.\n"
         );
 
-        vm.writeFile("./GAS.md", md);
+        vm.writeFile("./GAS-REFERENCE.md", md);
         console.log(md);
     }
 }
