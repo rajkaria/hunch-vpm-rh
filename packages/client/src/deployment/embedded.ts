@@ -87,7 +87,7 @@ export const EMBEDDED_DEPLOYMENT: Deployment = {
         "daily",
         "weekly"
       ],
-      "pendingFlatRateCheck": true
+      "pendingFlatRateCheck": false
     }
   ]
 };

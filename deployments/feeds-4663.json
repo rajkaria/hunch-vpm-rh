@@ -1,0 +1,890 @@
+{
+  "chainId": 4663,
+  "measuredAt": "2026-09-27T21:12:40.000Z",
+  "block": 74251177,
+  "rpc": "https://rpc.mainnet.chain.robinhood.com",
+  "rules": {
+    "dailyFlatMax": 0.25,
+    "weeklyFlatMax": 0.1,
+    "maxAgeSec": 93600,
+    "sessions": 20,
+    "weeks": 12
+  },
+  "feeds": [
+    {
+      "ticker": "NVDA",
+      "feed": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15",
+      "stockToken": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+      "description": "RHNVDA / USD",
+      "decimals": 8,
+      "stockSymbol": "NVDA",
+      "latest": {
+        "roundId": "18446744073709552722",
+        "answer": "225.66018707",
+        "updatedAt": "2026-09-25T19:56:05.000Z"
+      },
+      "rounds": 1106,
+      "sessions": {
+        "from": "2026-08-28",
+        "to": "2026-09-25",
+        "count": 20
+      },
+      "dailyFlatRate": 0,
+      "dailyStale": [],
+      "weeks": {
+        "from": "2026-07-06",
+        "to": "2026-09-21",
+        "count": 12
+      },
+      "weeklyFlatRate": 0,
+      "weeklyStale": [],
+      "maxInWeekGap": {
+        "seconds": 73495,
+        "human": "20 h 24 min",
+        "from": "2026-09-22T15:07:56.000Z",
+        "to": "2026-09-23T11:32:51.000Z"
+      },
+      "oraclePausedNow": false,
+      "oraclePauseEvents90d": [],
+      "verdict": {
+        "basic": true,
+        "daily": true,
+        "weekly": true
+      },
+      "detail": {
+        "daily": [
+          {
+            "date": "2026-08-28",
+            "result": "moved"
+          },
+          {
+            "date": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-01",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-02",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-03",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-04",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-08",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-09",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-10",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-11",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-15",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-16",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-17",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-18",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-21",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-22",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-23",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-24",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-25",
+            "result": "moved"
+          }
+        ],
+        "weekly": [
+          {
+            "weekOf": "2026-07-06",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-13",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-20",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-27",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-03",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-10",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-17",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-24",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-07",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-21",
+            "result": "moved"
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "TSLA",
+      "feed": "0x4A1166a659A55625345e9515b32adECea5547C38",
+      "stockToken": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+      "description": "RHTSLA / USD",
+      "decimals": 8,
+      "stockSymbol": "TSLA",
+      "latest": {
+        "roundId": "18446744073709552983",
+        "answer": "371.7471",
+        "updatedAt": "2026-09-25T19:02:24.000Z"
+      },
+      "rounds": 1367,
+      "sessions": {
+        "from": "2026-08-28",
+        "to": "2026-09-25",
+        "count": 20
+      },
+      "dailyFlatRate": 0,
+      "dailyStale": [],
+      "weeks": {
+        "from": "2026-07-06",
+        "to": "2026-09-21",
+        "count": 12
+      },
+      "weeklyFlatRate": 0,
+      "weeklyStale": [],
+      "maxInWeekGap": {
+        "seconds": 55247,
+        "human": "15 h 20 min",
+        "from": "2026-08-27T16:54:49.000Z",
+        "to": "2026-08-28T08:15:36.000Z"
+      },
+      "oraclePausedNow": false,
+      "oraclePauseEvents90d": [],
+      "verdict": {
+        "basic": true,
+        "daily": true,
+        "weekly": true
+      },
+      "detail": {
+        "daily": [
+          {
+            "date": "2026-08-28",
+            "result": "moved"
+          },
+          {
+            "date": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-01",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-02",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-03",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-04",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-08",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-09",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-10",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-11",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-15",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-16",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-17",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-18",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-21",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-22",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-23",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-24",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-25",
+            "result": "moved"
+          }
+        ],
+        "weekly": [
+          {
+            "weekOf": "2026-07-06",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-13",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-20",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-27",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-03",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-10",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-17",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-24",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-07",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-21",
+            "result": "moved"
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "AAPL",
+      "feed": "0x6B22A786bAa607d76728168703a39Ea9C99f2cD0",
+      "stockToken": "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
+      "description": "Robinhood AAPL / USD",
+      "decimals": 8,
+      "stockSymbol": "AAPL",
+      "latest": {
+        "roundId": "18446744073709552287",
+        "answer": "341.45318048",
+        "updatedAt": "2026-09-25T19:49:25.000Z"
+      },
+      "rounds": 671,
+      "sessions": {
+        "from": "2026-08-28",
+        "to": "2026-09-25",
+        "count": 20
+      },
+      "dailyFlatRate": 0,
+      "dailyStale": [],
+      "weeks": {
+        "from": "2026-07-06",
+        "to": "2026-09-21",
+        "count": 12
+      },
+      "weeklyFlatRate": 0,
+      "weeklyStale": [],
+      "maxInWeekGap": {
+        "seconds": 74865,
+        "human": "20 h 47 min",
+        "from": "2026-09-21T16:43:10.000Z",
+        "to": "2026-09-22T13:30:55.000Z"
+      },
+      "oraclePausedNow": false,
+      "oraclePauseEvents90d": [],
+      "verdict": {
+        "basic": true,
+        "daily": true,
+        "weekly": true
+      },
+      "detail": {
+        "daily": [
+          {
+            "date": "2026-08-28",
+            "result": "moved"
+          },
+          {
+            "date": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-01",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-02",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-03",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-04",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-08",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-09",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-10",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-11",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-15",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-16",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-17",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-18",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-21",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-22",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-23",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-24",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-25",
+            "result": "moved"
+          }
+        ],
+        "weekly": [
+          {
+            "weekOf": "2026-07-06",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-13",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-20",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-27",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-03",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-10",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-17",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-24",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-07",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-21",
+            "result": "moved"
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "COIN",
+      "feed": "0xA3a468A452940B7D6b69991207B508c609a98Ef2",
+      "stockToken": "0x6330D8C3178a418788dF01a47479c0ce7CCF450b",
+      "description": "Robinhood COIN / USD",
+      "decimals": 8,
+      "stockSymbol": "COIN",
+      "latest": {
+        "roundId": "18446744073709554728",
+        "answer": "194.95499999",
+        "updatedAt": "2026-09-25T19:40:14.000Z"
+      },
+      "rounds": 3112,
+      "sessions": {
+        "from": "2026-08-28",
+        "to": "2026-09-25",
+        "count": 20
+      },
+      "dailyFlatRate": 0,
+      "dailyStale": [],
+      "weeks": {
+        "from": "2026-07-06",
+        "to": "2026-09-21",
+        "count": 12
+      },
+      "weeklyFlatRate": 0,
+      "weeklyStale": [],
+      "maxInWeekGap": {
+        "seconds": 39402,
+        "human": "10 h 56 min",
+        "from": "2026-09-09T20:36:28.000Z",
+        "to": "2026-09-10T07:33:10.000Z"
+      },
+      "oraclePausedNow": false,
+      "oraclePauseEvents90d": [],
+      "verdict": {
+        "basic": true,
+        "daily": true,
+        "weekly": true
+      },
+      "detail": {
+        "daily": [
+          {
+            "date": "2026-08-28",
+            "result": "moved"
+          },
+          {
+            "date": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-01",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-02",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-03",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-04",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-08",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-09",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-10",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-11",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-15",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-16",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-17",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-18",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-21",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-22",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-23",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-24",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-25",
+            "result": "moved"
+          }
+        ],
+        "weekly": [
+          {
+            "weekOf": "2026-07-06",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-13",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-20",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-27",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-03",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-10",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-17",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-24",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-07",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-21",
+            "result": "moved"
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "SPY",
+      "feed": "0x319724394D3A0e3669269846abE664Cd621f9f6A",
+      "stockToken": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+      "description": "RHSPY / USD",
+      "decimals": 8,
+      "stockSymbol": "SPY",
+      "latest": {
+        "roundId": "18446744073709551762",
+        "answer": "772.32802713",
+        "updatedAt": "2026-09-25T16:03:00.000Z"
+      },
+      "rounds": 146,
+      "sessions": {
+        "from": "2026-08-28",
+        "to": "2026-09-25",
+        "count": 20
+      },
+      "dailyFlatRate": 0.35,
+      "dailyStale": [],
+      "weeks": {
+        "from": "2026-07-06",
+        "to": "2026-09-21",
+        "count": 12
+      },
+      "weeklyFlatRate": 0,
+      "weeklyStale": [],
+      "maxInWeekGap": {
+        "seconds": 86427,
+        "human": "1 d",
+        "from": "2026-09-03T15:12:12.000Z",
+        "to": "2026-09-04T15:12:39.000Z"
+      },
+      "oraclePausedNow": false,
+      "oraclePauseEvents90d": [],
+      "verdict": {
+        "basic": true,
+        "daily": false,
+        "weekly": true
+      },
+      "detail": {
+        "daily": [
+          {
+            "date": "2026-08-28",
+            "result": "moved"
+          },
+          {
+            "date": "2026-08-31",
+            "result": "flat"
+          },
+          {
+            "date": "2026-09-01",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-02",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-03",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-04",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-08",
+            "result": "flat"
+          },
+          {
+            "date": "2026-09-09",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-10",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-11",
+            "result": "flat"
+          },
+          {
+            "date": "2026-09-14",
+            "result": "flat"
+          },
+          {
+            "date": "2026-09-15",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-16",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-17",
+            "result": "flat"
+          },
+          {
+            "date": "2026-09-18",
+            "result": "flat"
+          },
+          {
+            "date": "2026-09-21",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-22",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-23",
+            "result": "moved"
+          },
+          {
+            "date": "2026-09-24",
+            "result": "flat"
+          },
+          {
+            "date": "2026-09-25",
+            "result": "moved"
+          }
+        ],
+        "weekly": [
+          {
+            "weekOf": "2026-07-06",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-13",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-20",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-07-27",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-03",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-10",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-17",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-24",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-08-31",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-07",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-14",
+            "result": "moved"
+          },
+          {
+            "weekOf": "2026-09-21",
+            "result": "moved"
+          }
+        ]
+      }
+    }
+  ]
+}

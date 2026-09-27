@@ -71,7 +71,7 @@
       "maxStrikeAge": 93600,
       "maxFinalAge": 93600,
       "families": ["daily", "weekly"],
-      "pendingFlatRateCheck": true
+      "pendingFlatRateCheck": false
     }
   ]
 }
