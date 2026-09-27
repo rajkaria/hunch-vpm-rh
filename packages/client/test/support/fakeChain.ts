@@ -76,6 +76,11 @@ export class FakeChain {
   readonly positionIndex: { market: number; local: number }[] = [];
   readonly feeds = new Map<string, { rounds: Map<bigint, RoundData>; latest: bigint; stockToken: Address; ticker: string; allowed: boolean }>();
   readonly previews = new Map<string, readonly [number, bigint, bigint, bigint, bigint]>();
+  readonly usdgBalances = new Map<string, bigint>();
+  readonly allowances = new Map<string, bigint>();
+  readonly openers = new Set<string>([KEEPER.toLowerCase()]);
+  /** Calls simulated through `simulateContract` (what a runner would send). */
+  readonly simulated: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
   calls = 0;
 
   constructor(readonly d: Deployment, now: number) {
@@ -177,6 +182,11 @@ export class FakeChain {
     for (const f of this.feeds.values()) {
       if (f.stockToken.toLowerCase() === a && fn === 'oraclePaused') return false;
     }
+    if (a === this.d.usdg.toLowerCase()) {
+      if (fn === 'balanceOf') return this.usdgBalances.get((args[0] as string).toLowerCase()) ?? 0n;
+      if (fn === 'allowance') return this.allowances.get(`${(args[0] as string).toLowerCase()}:${(args[1] as string).toLowerCase()}`) ?? 0n;
+      if (fn === 'authorizationState') return false;
+    }
     if (a === this.d.multicall3.toLowerCase()) {
       if (fn === 'getBlockNumber') return this.l1;
       if (fn === 'getCurrentBlockTimestamp') return BigInt(this.now);
@@ -213,6 +223,8 @@ export class FakeChain {
         return BigInt(this.feeds.size);
       case 'feedAt':
         return [...this.feeds.keys()][Number(args[0])];
+      case 'openers':
+        return this.openers.has((args[0] as string).toLowerCase());
     }
     throw new Error(`execution reverted: factory.${fn}`);
   }
@@ -233,6 +245,8 @@ export class FakeChain {
         return this.entriesPaused;
       case 'feesAccrued':
         return this.feesAccrued;
+      case 'marketCount':
+        return BigInt(this.markets.length);
       case 'getMarket': {
         const m = market();
         return [this.d.usdg, FACTORY, RESOLVER, SAFE, BigInt(m.finalTime), 259_200n, 2, m.sim.status, m.sim.winner, 30n, m.sim.acceptedPool, m.sim.paidOut];
@@ -331,6 +345,16 @@ export class FakeChain {
       },
       async getBalance() {
         return 10n ** 16n;
+      },
+      async getCode() {
+        return '0x';
+      },
+      async simulateContract(c: { address: Address; functionName: string; args?: readonly unknown[] }) {
+        self.simulated.push({ address: c.address, functionName: c.functionName, args: c.args ?? [] });
+        return { request: c, result: undefined };
+      },
+      async waitForTransactionReceipt({ hash }: { hash: Hex }) {
+        return { status: 'success', transactionHash: hash };
       },
     } as unknown as PublicClient;
   }
