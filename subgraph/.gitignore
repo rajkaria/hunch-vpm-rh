@@ -1,7 +1,0 @@
-build/
-generated/
-node_modules/
-tests/.bin/
-tests/.latest.json
-# tools/with-network.mjs keeps a recovery copy of the manifest while a deploy runs
-subgraph.yaml.orig

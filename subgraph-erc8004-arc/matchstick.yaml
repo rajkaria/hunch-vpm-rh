@@ -1,3 +1,0 @@
-testsFolder: ./tests/matchstick
-manifestPath: ./subgraph.yaml
-libsFolder: ./node_modules
