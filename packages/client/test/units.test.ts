@@ -1,94 +1,101 @@
 import { describe, expect, it } from 'vitest';
 import {
+  closingBell,
+  formatAge,
+  formatAgeBound,
+  formatBps,
+  formatCountdown,
+  formatDuration,
+  formatEtDate,
+  formatEtDateTime,
+  formatEtTime,
+  formatMultiple,
+  formatPercent,
   formatPrice,
+  formatPriceExact,
   formatUnitsExact,
-  formatUsdc,
-  parseUnitsExact,
-  parseUsdc,
-  ppmToPercent,
-  shareToPpm,
-} from '../src/units.js';
+  formatUsdg,
+  formatUsdgWithUnit,
+  openingBell,
+  parseUsdg,
+  parseUsdgInput,
+  priceChange,
+  usdg,
+} from '../src/index.js';
 
-describe('formatUsdc', () => {
-  it('formats without losing digits', () => {
-    expect(formatUsdc(107_000000n)).toBe('107');
-    expect(formatUsdc(1_500000n)).toBe('1.5');
-    expect(formatUsdc(1n)).toBe('0.000001');
-    expect(formatUsdc(0n)).toBe('0');
+describe('USDG amounts', () => {
+  it('parses exactly and refuses sub-micro precision', () => {
+    expect(parseUsdg('12.5')).toBe(12_500_000n);
+    expect(parseUsdg('0.000001')).toBe(1n);
+    expect(parseUsdg('.5')).toBe(500_000n);
+    expect(() => parseUsdg('1.0000001')).toThrow();
+    expect(() => parseUsdg('-1')).toThrow();
+    expect(() => parseUsdg('abc')).toThrow();
   });
 
-  it('pads the fraction on request', () => {
-    expect(formatUsdc(1_500000n, { trailingZeros: true })).toBe('1.500000');
-    expect(formatUsdc(107_000000n, { trailingZeros: true })).toBe('107.000000');
+  it('lenient input parsing for the amount box', () => {
+    expect(parseUsdgInput(' 1,000.25 USDG ')).toEqual({ ok: true, amount: 1_000_250_000n });
+    expect(parseUsdgInput('')).toEqual({ ok: false, reason: 'empty' });
+    expect(parseUsdgInput('1.2345678')).toEqual({ ok: false, reason: 'too-many-decimals' });
+    expect(parseUsdgInput('0')).toEqual({ ok: false, reason: 'zero' });
+    expect(parseUsdgInput('1e3')).toEqual({ ok: false, reason: 'invalid' });
   });
 
-  it('stays exact past the float boundary', () => {
-    // 10 billion USDC is 1e16 smallest-units, past 2^53. A number round-trip
-    // would round this; the string must not.
-    const huge = 10_000_000_000_000001n;
-    expect(formatUsdc(huge)).toBe('10000000000.000001');
-    expect(parseUsdc(formatUsdc(huge))).toBe(huge);
-  });
-
-  it('handles negatives', () => {
-    expect(formatUsdc(-1_500000n)).toBe('-1.5');
-    expect(parseUsdc('-1.5')).toBe(-1_500000n);
-  });
-});
-
-describe('parseUsdc', () => {
-  it('parses whole and fractional amounts', () => {
-    expect(parseUsdc('107')).toBe(107_000000n);
-    expect(parseUsdc('0.000001')).toBe(1n);
-    expect(parseUsdc('1.5')).toBe(1_500000n);
-  });
-
-  it('refuses to silently truncate', () => {
-    expect(() => parseUsdc('1.0000005')).toThrow(/more than 6 decimal places/);
-  });
-
-  it('refuses junk', () => {
-    expect(() => parseUsdc('')).toThrow(/not a decimal amount/);
-    expect(() => parseUsdc('1e6')).toThrow(/not a decimal amount/);
-    expect(() => parseUsdc('0x10')).toThrow(/not a decimal amount/);
+  it('formats to the cent, floored, grouped', () => {
+    expect(formatUsdg(69_166_666n)).toBe('69.16');
+    expect(formatUsdg(69_169_999n)).toBe('69.16');
+    expect(formatUsdg(1_234_567_890_000n)).toBe('1,234,567.89');
+    expect(formatUsdg(0n)).toBe('0.00');
+    expect(formatUsdg(5n)).toBe('0.00');
+    expect(formatUsdg(69_166_666n, { decimals: 6 })).toBe('69.166666');
+    expect(formatUsdgWithUnit(usdg(10))).toBe('10.00 USDG');
+    expect(formatUnitsExact(1_500_000n, 6)).toBe('1.5');
   });
 });
 
-describe('formatUnitsExact', () => {
-  it('handles zero decimals', () => {
-    expect(formatUnitsExact(42n, 0)).toBe('42');
-    expect(parseUnitsExact('42', 0)).toBe(42n);
+describe('prices and ratios', () => {
+  it('prices are 8-decimal Chainlink answers', () => {
+    expect(formatPrice(22_566_018_707n)).toBe('225.66');
+    expect(formatPriceExact(22_566_018_707n)).toBe('225.66018707');
+    expect(formatPrice(22_566_018_707n, { decimals: 4 })).toBe('225.6601');
   });
 
-  it('rejects an impossible precision', () => {
-    expect(() => formatUnitsExact(1n, -1)).toThrow(RangeError);
-    expect(() => parseUnitsExact('1', 99)).toThrow(RangeError);
-  });
-});
-
-describe('shareToPpm', () => {
-  it('floors', () => {
-    expect(shareToPpm(6_000000n, 107_000000n)).toBe(56_074n);
-    expect(shareToPpm(101_000000n, 107_000000n)).toBe(943_925n);
+  it('multiples floor, 2–3 decimals', () => {
+    expect(formatMultiple(56_250_000n, 50_000_000n)).toBe('1.125×');
+    expect(formatMultiple(69_166_666n, 20_000_000n)).toBe('3.458×');
+    expect(formatMultiple(69_166_666n, 20_000_000n, { maxDecimals: 2 })).toBe('3.45×');
+    expect(formatMultiple(20n, 20n)).toBe('1.00×');
+    expect(formatMultiple(1n, 0n)).toBeNull();
   });
 
-  it('guards a zero denominator instead of throwing', () => {
-    expect(shareToPpm(0n, 0n)).toBe(0n);
-    expect(shareToPpm(5n, 0n)).toBe(0n);
-  });
-});
-
-describe('ppmToPercent', () => {
-  it('reads as a percent with four places', () => {
-    expect(ppmToPercent(56_074n)).toBe('5.6074');
-    expect(ppmToPercent(1_000_000n)).toBe('100.0000');
-    expect(ppmToPercent(0n)).toBe('0.0000');
+  it('percent, bps, change vs strike', () => {
+    expect(formatPercent(1n, 3n)).toBe('33.3%');
+    expect(formatBps(200)).toBe('2%');
+    expect(formatBps(250)).toBe('2.5%');
+    expect(priceChange(100_00000000n, 101_23000000n)).toEqual({ direction: 'UP', bps: 123, text: '+1.23%' });
+    expect(priceChange(100_00000000n, 99_60000000n)).toEqual({ direction: 'DOWN', bps: -40, text: '-0.40%' });
+    expect(priceChange(100_00000000n, 100_00000000n)?.direction).toBe('FLAT');
+    expect(priceChange(0n, 1n)).toBeNull();
   });
 });
 
-describe('formatPrice', () => {
-  it('reads a feed strike at 8 decimals', () => {
-    expect(formatPrice(300_000000000n)).toBe('3000');
-    expect(formatPrice(-1_00000000n)).toBe('-1');
+describe('ET time formatting', () => {
+  it('bells read in ET', () => {
+    expect(formatEtTime(openingBell('2026-09-29'))).toBe('9:30 am ET');
+    expect(formatEtTime(closingBell('2026-11-27'))).toBe('1:00 pm ET');
+    expect(formatEtDate(openingBell('2026-09-29'))).toBe('Tue Sep 29');
+    expect(formatEtDateTime(closingBell('2026-11-02'))).toBe('Mon Nov 2, 4:00 pm ET');
+  });
+
+  it('durations truncate, never round up', () => {
+    expect(formatDuration(45)).toBe('45 s');
+    expect(formatDuration(750)).toBe('12 min');
+    expect(formatDuration(11_100)).toBe('3 h 5 min');
+    expect(formatDuration(187_200)).toBe('2 d 4 h');
+    expect(formatAge(100, 820)).toBe('12 min ago');
+    expect(formatCountdown(7509, 0)).toBe('2:05:09');
+    expect(formatCountdown(0, 10)).toBe('0:00:00');
+    expect(formatAgeBound(93_600)).toBe('26 hours');
+    expect(formatAgeBound(3600)).toBe('1 hour');
   });
 });

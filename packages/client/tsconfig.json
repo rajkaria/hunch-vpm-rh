@@ -3,8 +3,8 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": ".",
-    // Only the tests touch node APIs — they read the subgraph schemas off disk
-    // to check the queries against them. `src` stays runtime-agnostic.
+    // Only the tests touch node APIs (they read captured round series and the
+    // contract fixtures off disk). `src` stays runtime-agnostic.
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]

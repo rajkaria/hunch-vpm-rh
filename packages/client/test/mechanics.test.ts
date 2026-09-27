@@ -1,185 +1,262 @@
 import { describe, expect, it } from 'vitest';
-import { bookHeadroom, competingDemand, earnedVesting, outcomeHeadroom, payoutIfWins } from '../src/mechanics.js';
-import type { Book, Market } from '../src/types.js';
-import { ACC_SCALE } from '../src/units.js';
+import {
+  DOWN,
+  KAPPA_UNBOUNDED,
+  MARKET_STATUS,
+  SCALE,
+  UP,
+  accrued,
+  classicPayouts,
+  feeOnGain,
+  formatMultiple,
+  formatUsdg,
+  headroom,
+  quote,
+  quoteEntry,
+  rollBooks,
+  seedClamp,
+  settlementOf,
+  simCreate,
+  simEnter,
+  simFinalize,
+  simResolve,
+  simSettle,
+  simVoid,
+  simulateMarket,
+  workedExample,
+  SimRevert,
+  type Book,
+} from '../src/index.js';
 
-function book(partial: Partial<Book> & { outcome: number }): Book {
-  return {
-    principal: 0n,
-    vested: 0n,
-    capacity: null,
-    acc: 0n,
-    demand: null,
-    ...partial,
-  };
-}
+const U = 1_000_000n;
 
-function market(books: Book[], partial: Partial<Market> = {}): Market {
-  return {
-    id: 'm',
-    settler: '0x1111111111111111111111111111111111111111',
-    settlerKind: 'vested',
-    marketId: 0n,
-    token: '0x3600000000000000000000000000000000000000',
-    creator: '0x2222222222222222222222222222222222222222',
-    opener: null,
-    resolver: '0x3333333333333333333333333333333333333333',
-    residueOwner: '0x2222222222222222222222222222222222222222',
-    outcomeCount: books.length,
-    kappa: 30n,
-    createdAt: 1_999_395_200n,
-    resolutionTime: 2_000_000_000n,
-    voidTimeout: 86_400n,
-    status: 'Open',
-    winner: null,
-    acceptedPool: 0n,
-    paidOut: 0n,
-    residue: 0n,
-    residueClaimed: false,
-    resolvedPrice: null,
-    priceUpdatedAt: null,
-    voidedStaleAge: null,
-    vintageOpen: null,
-    vintageBlock: null,
-    books,
-    spec: null,
-    ...partial,
-  };
-}
+describe('T8 · worked example (docs/spec/02-mechanism.md), exact contract arithmetic', () => {
+  const { market, settlement } = workedExample();
+  const s = settlement!;
+  const byLabel = (label: string) => s.positions.find((p) => p.label === label)!;
 
-describe('bookHeadroom', () => {
-  it('is capacity minus vested', () => {
-    expect(bookHeadroom(book({ outcome: 0, capacity: 180_000000n, vested: 101_000000n }))).toBe(79_000000n);
+  it('replays the accumulator column', () => {
+    // A_UP = 1 + 1 + 40/30 + 10/80, A_DOWN = 1 + 2 + 50/80, in fixed point at S = 1e18.
+    expect(market.books[UP]!.acc).toBe(3_458_333_333_333_333_333n);
+    expect(market.books[DOWN]!.acc).toBe(3_625_000_000_000_000_000n);
+    expect(byLabel('Mei').entryAcc).toBe(1n * SCALE);
+    expect(byLabel('Dan').entryAcc).toBe(3n * SCALE);
+    expect(byLabel('Kim').entryAcc).toBe(3n * SCALE);
+    expect(byLabel('Ben').entryAcc).toBe(3_333_333_333_333_333_333n);
+    expect(byLabel('Lee').entryAcc).toBe(3_625_000_000_000_000_000n);
   });
 
-  it('floors at zero when a book is already covered past its capacity', () => {
-    expect(bookHeadroom(book({ outcome: 0, capacity: 2_000000n, vested: 3_000000n }))).toBe(0n);
+  it('pays the table (to the micro-USDG) and conserves the pool', () => {
+    expect(s.pool).toBe(170n * U);
+    expect(byLabel('Mei').settlement.gross).toBe(69_166_666n);
+    expect(byLabel('Ben').settlement.gross).toBe(56_250_000n);
+    expect(byLabel('Seed UP').settlement.gross).toBe(44_583_333n);
+    for (const loser of ['Dan', 'Kim', 'Lee', 'Seed DOWN']) expect(byLabel(loser).settlement.gross).toBe(0n);
+    expect(s.paidOutGross).toBe(169_999_999n);
+    expect(s.residue).toBe(1n); // floor dust to the residue owner (P1/P8)
+    expect(s.paidOutGross + s.residue).toBe(s.pool);
   });
 
-  it('is null when capacity is unbounded', () => {
-    expect(bookHeadroom(book({ outcome: 0, capacity: null, vested: 5n }))).toBeNull();
-  });
-});
-
-describe('competingDemand', () => {
-  const b = book({ outcome: 1, demand: 50_000000n });
-
-  it('counts demand only while the vintage belongs to the current block', () => {
-    const open = market([b], { vintageOpen: true, vintageBlock: 1000n });
-    expect(competingDemand(open, b, 1000n)).toBe(50_000000n);
+  it('formats to the cent without ever rounding up', () => {
+    expect(formatUsdg(byLabel('Mei').settlement.gross)).toBe('69.16'); // the doc's 69.17 is rounded half-up
+    expect(formatUsdg(byLabel('Ben').settlement.gross)).toBe('56.25');
+    expect(formatUsdg(byLabel('Seed UP').settlement.gross)).toBe('44.58');
+    expect(formatMultiple(byLabel('Mei').settlement.gross, 20n * U)).toBe('3.458×');
+    expect(formatMultiple(byLabel('Ben').settlement.gross, 50n * U)).toBe('1.125×');
   });
 
-  it('ignores a vintage left open by an earlier block, which a new entry rolls first', () => {
-    const stale = market([b], { vintageOpen: true, vintageBlock: 999n });
-    expect(competingDemand(stale, b, 1000n)).toBe(0n);
+  it('computes the ordinary-pool counterfactual (170 / 80 = 2.125×)', () => {
+    expect(byLabel('Mei').classic).toBe(42_500_000n);
+    expect(byLabel('Ben').classic).toBe(106_250_000n);
+    expect(byLabel('Seed UP').classic).toBe(21_250_000n);
+    expect(byLabel('Dan').classic).toBe(0n);
   });
 
-  it('ignores demand when no vintage is open', () => {
-    const closed = market([b], { vintageOpen: false, vintageBlock: 0n });
-    expect(competingDemand(closed, b, 1000n)).toBe(0n);
-  });
-});
-
-describe('outcomeHeadroom', () => {
-  it('is bound by the OPPOSING book, not the outcome you stake on', () => {
-    const m = market([
-      book({ outcome: 0, capacity: 180_000000n, vested: 101_000000n }),
-      book({ outcome: 1, capacity: 3_030_000000n, vested: 6_000000n }),
-    ]);
-    const zero = outcomeHeadroom(m, 0, 1000n);
-    expect(zero.bookHeadroom).toBe(79_000000n);
-    expect(zero.bindingHeadroom).toBe(3_024_000000n);
-    expect(zero.bindingOutcome).toBe(1);
-  });
-
-  it('takes the tightest of several opposing books', () => {
-    const m = market([
-      book({ outcome: 0, capacity: 100n, vested: 0n }),
-      book({ outcome: 1, capacity: 60n, vested: 10n }),
-      book({ outcome: 2, capacity: 80n, vested: 0n }),
-    ]);
-    const zero = outcomeHeadroom(m, 0, 1000n);
-    expect(zero.bindingHeadroom).toBe(50n);
-    expect(zero.bindingOutcome).toBe(1);
-    expect(zero.maxFullyAccepted).toBe(50n);
-  });
-
-  it('subtracts demand already queued in this block', () => {
-    const m = market(
-      [
-        book({ outcome: 0, capacity: 180_000000n, vested: 101_000000n, demand: 50_000000n }),
-        book({ outcome: 1, capacity: 3_030_000000n, vested: 6_000000n, demand: 0n }),
-      ],
-      { vintageOpen: true, vintageBlock: 1000n },
-    );
-    const one = outcomeHeadroom(m, 1, 1000n);
-    expect(one.bindingHeadroom).toBe(79_000000n);
-    expect(one.competingDemand).toBe(50_000000n);
-    expect(one.maxFullyAccepted).toBe(29_000000n);
-  });
-
-  it('names the book that actually binds, not the one with the smallest headroom', () => {
-    // Book 1 has more room than book 2 but a queue against it that book 2 does
-    // not have, so book 2 is what a stake on outcome 0 is rationed against. All
-    // three fields describing the binding book have to name the same book, or
-    // `bindingHeadroom - competingDemand` does not reconstruct
-    // `maxFullyAccepted` and the answer cannot be audited.
-    const m = market(
-      [
-        book({ outcome: 0, capacity: 1000n, vested: 0n, demand: 0n }),
-        book({ outcome: 1, capacity: 100n, vested: 0n, demand: 90n }),
-        book({ outcome: 2, capacity: 50n, vested: 0n, demand: 0n }),
-      ],
-      { vintageOpen: true, vintageBlock: 1000n },
-    );
-    const zero = outcomeHeadroom(m, 0, 1000n);
-
-    expect(zero.maxFullyAccepted).toBe(10n);
-    expect(zero.bindingOutcome).toBe(1);
-    expect(zero.bindingHeadroom).toBe(100n);
-    expect(zero.competingDemand).toBe(90n);
-    expect((zero.bindingHeadroom ?? 0n) - zero.competingDemand).toBe(zero.maxFullyAccepted);
-    // The book with the least raw room is still there to be found.
-    expect(zero.opposing.map((room) => room.headroom)).toEqual([100n, 50n]);
-  });
-
-  it('reports nothing accepted when there is no opposing book to vest into', () => {
-    const m = market([book({ outcome: 0, capacity: 100n })]);
-    expect(outcomeHeadroom(m, 0, 1000n).maxFullyAccepted).toBe(0n);
-  });
-});
-
-describe('earnedVesting and payoutIfWins', () => {
-  const cases: { accepted: bigint; entryAcc: bigint; currentAcc: bigint }[] = [
-    { accepted: 5_000000n, entryAcc: ACC_SCALE, currentAcc: 17_666666666666666666n },
-    { accepted: 1_000000n, entryAcc: 0n, currentAcc: 17_666666666666666666n },
-    { accepted: 1_000000n, entryAcc: 0n, currentAcc: 6n * ACC_SCALE },
-    { accepted: 100_000000n, entryAcc: 6n * ACC_SCALE, currentAcc: 6n * ACC_SCALE },
-    { accepted: 1n, entryAcc: 0n, currentAcc: 1n },
-    { accepted: 123_456789n, entryAcc: 7n, currentAcc: 999_999_999_999_999_999n },
-  ];
-
-  it('matches the settler: floor(s*(S + dA)/S) == s + floor(s*dA/S)', () => {
-    for (const { accepted, entryAcc, currentAcc } of cases) {
-      const settlerFormula = (accepted * (ACC_SCALE + currentAcc - entryAcc)) / ACC_SCALE;
-      expect(payoutIfWins(accepted, entryAcc, currentAcc)).toBe(settlerFormula);
+  it('accrued() equals the claim payout at resolution (D6)', () => {
+    for (const p of s.positions.filter((x) => x.outcome === UP)) {
+      expect(accrued(p, market.books[UP]!)).toBe(p.settlement.gross);
     }
   });
+});
 
-  it('earns the accrual only', () => {
-    expect(earnedVesting(5_000000n, ACC_SCALE, 17_666666666666666666n)).toBe(83_333333n);
-    expect(payoutIfWins(5_000000n, ACC_SCALE, 17_666666666666666666n)).toBe(88_333333n);
+describe('seed clamp (§4.4 creation)', () => {
+  it('accepts a symmetric seed in full and opens 290 of first-vintage room per side', () => {
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    expect(sim.books.map((b) => b.principal)).toEqual([10n * U, 10n * U]);
+    expect(headroom(sim.books[DOWN]!)).toBe(290n * U);
+    expect(sim.books[UP]!.acc).toBe(SCALE);
   });
 
-  it('is zero when nothing has vested since entry', () => {
-    expect(earnedVesting(100_000000n, 6n * ACC_SCALE, 6n * ACC_SCALE)).toBe(0n);
+  it('clamps an asymmetric seed to κ·min', () => {
+    expect(seedClamp([1000n, 10n], 30n)).toEqual([300n, 10n]);
   });
 
-  it('clamps rather than reporting a negative earning on an inconsistent read', () => {
-    expect(earnedVesting(100n, 5n * ACC_SCALE, ACC_SCALE)).toBe(0n);
+  it('reverts InvalidSeed on a zero leg', () => {
+    expect(() => seedClamp([10n, 0n], 30n)).toThrow(SimRevert);
+  });
+});
+
+describe('Rule 2 rationing and quotes', () => {
+  const fresh = () => simCreate([10n * U, 10n * U], 30n).books as [Book, Book];
+
+  it('accepts 290, returns 110 of a 400 entry right after creation (02 §Partial fills)', () => {
+    const q = quote({ amount: 400n * U, outcome: UP, books: fresh(), kappa: 30n, minEntry: 0n, maxEntry: 0n });
+    expect(q.accepted).toBe(290n * U);
+    expect(q.refused).toBe(110n * U);
+    expect(q.floorIfWin).toBe(290n * U);
+    expect(q.headroom).toBe(290n * U);
+    expect(q.problem).toBeNull();
   });
 
-  it('is zero for a position the books accepted nothing of', () => {
-    expect(earnedVesting(0n, 0n, 99n * ACC_SCALE)).toBe(0n);
+  it('matches the simulator on a partial fill', () => {
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    const p = simEnter(sim, { outcome: UP, amount: 400n * U, block: 1n });
+    simFinalize(sim);
+    expect(p.accepted).toBe(290n * U);
+  });
+
+  it('enforces the per-entry caps on the offered amount', () => {
+    const base = { outcome: UP, books: fresh(), kappa: 30n, minEntry: 1n * U, maxEntry: 100n * U } as const;
+    expect(quote({ ...base, amount: 999_999n }).problem).toBe('below-min');
+    expect(quote({ ...base, amount: 100n * U + 1n }).problem).toBe('above-max');
+    expect(quote({ ...base, amount: 0n }).problem).toBe('zero');
+    expect(quote({ ...base, amount: 100n * U }).accepted).toBe(100n * U);
+  });
+
+  it('rations pro-rata with demand already queued in the same vintage (single pass)', () => {
+    const books = fresh();
+    // 200 already queued on UP against DOWN's 290; a new 200 UP entry: D = 400 > 290 → 200·290/400 = 145.
+    const q = quote({ amount: 200n * U, outcome: UP, books, openVintageDemand: 200n * U, kappa: 30n, minEntry: 0n, maxEntry: 0n });
+    expect(q.accepted).toBe(145n * U);
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    const a = simEnter(sim, { outcome: UP, amount: 200n * U, block: 1n });
+    const b = simEnter(sim, { outcome: UP, amount: 200n * U, block: 1n });
+    simFinalize(sim);
+    expect(a.accepted).toBe(145n * U);
+    expect(b.accepted).toBe(145n * U);
+  });
+
+  it('quoteEntry rolls a stale vintage before quoting, and joins a current one', () => {
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    simEnter(sim, { outcome: UP, amount: 100n * U, block: 7n });
+    const books = [{ ...sim.books[0]! }, { ...sim.books[1]! }] as [Book, Book];
+    const pending = [{ outcome: UP, offered: 100n * U }];
+    const base = { amount: 250n * U, outcome: UP, books, kappa: 30n, minEntry: 0n, maxEntry: 0n, pending, vintageBlock: 7n } as const;
+
+    // Same L1 block: joins the vintage, D = 350 > 290 → 250·290/350.
+    expect(quoteEntry({ ...base, l1Block: 7n }).accepted).toBe((250n * U * 290n * U) / (350n * U));
+    // Later block: the 100 is finalized first (DOWN vested 110, capacity 300 → room 190).
+    const later = quoteEntry({ ...base, l1Block: 8n });
+    const rolled = rollBooks(books, pending, 30n);
+    expect(headroom(rolled[DOWN])).toBe(190n * U);
+    expect(later.accepted).toBe(190n * U);
+    // …which is exactly what the contract would do.
+    simEnter(sim, { outcome: UP, amount: 250n * U, block: 8n });
+    simFinalize(sim);
+    expect(sim.positions[sim.positions.length - 1]!.accepted).toBe(190n * U);
+  });
+
+  it('never rations against an unbounded book', () => {
+    const b: Book = { principal: 1n, acc: 0n, capacity: KAPPA_UNBOUNDED, vested: 0n, demand: 0n, live: 1n };
+    const q = quote({ amount: 10n ** 30n, outcome: UP, books: [b, b], kappa: KAPPA_UNBOUNDED, minEntry: 0n, maxEntry: 0n });
+    expect(q.accepted).toBe(10n ** 30n);
+  });
+});
+
+describe('late-entry neutrality (P4) and monotone accrual (P2)', () => {
+  it('a buzzer entry is paid exactly its stake', () => {
+    const r = simulateMarket({
+      seed: [10n * U, 10n * U],
+      kappa: 30n,
+      entries: [
+        { outcome: DOWN, amount: 30n * U, block: 1n, label: 'early' },
+        { outcome: UP, amount: 20n * U, block: 2n, label: 'buzzer' },
+      ],
+      outcome: 'UP',
+    });
+    const buzzer = r.settlement!.positions.find((p) => p.label === 'buzzer')!;
+    expect(buzzer.settlement.gross).toBe(20n * U);
+  });
+
+  it('accrued never decreases as later entries arrive', () => {
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    const mine = simEnter(sim, { outcome: UP, amount: 20n * U, block: 1n });
+    let last = 0n;
+    const flow: [number, bigint][] = [[DOWN, 5n], [UP, 7n], [DOWN, 40n], [DOWN, 1n], [UP, 90n], [DOWN, 13n]];
+    flow.forEach(([o, a], i) => {
+      simEnter(sim, { outcome: o, amount: a * U, block: BigInt(i + 2) });
+      simFinalize(sim);
+      const now = accrued(mine, sim.books[UP]!);
+      expect(now).toBeGreaterThanOrEqual(last);
+      last = now;
+    });
+  });
+});
+
+describe('D1 fee and settlement', () => {
+  it('takes floor(gain · bps / 1e4) from winners only', () => {
+    expect(feeOnGain(69_166_666n, 20_000_000n, 200)).toBe(983_333n);
+    expect(feeOnGain(20_000_000n, 20_000_000n, 200)).toBe(0n);
+    expect(feeOnGain(0n, 20_000_000n, 200)).toBe(0n);
+    const { settlement } = simulateMarket({
+      seed: [10n * U, 10n * U],
+      kappa: 30n,
+      entries: [
+        { outcome: UP, amount: 20n * U, block: 1n, label: 'win' },
+        { outcome: DOWN, amount: 30n * U, block: 2n, label: 'lose' },
+      ],
+      outcome: 'UP',
+      feeBps: 200,
+    });
+    const win = settlement!.positions.find((p) => p.label === 'win')!.settlement;
+    expect(win.net).toBe(win.gross - win.fee);
+    expect(win.fee).toBe(((win.gross - 20n * U) * 200n) / 10_000n);
+    const lose = settlement!.positions.find((p) => p.label === 'lose')!.settlement;
+    expect(lose).toMatchObject({ gross: 0n, fee: 0n, total: 0n, deliverable: false });
+  });
+
+  it('refunds accepted principal on void with no fee, plus any refused remainder', () => {
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    simEnter(sim, { outcome: UP, amount: 400n * U, block: 1n });
+    simVoid(sim, 2n);
+    const s = simSettle(sim, 200);
+    const big = s.positions[2]!.settlement;
+    expect(big).toMatchObject({ gross: 290n * U, fee: 0n, refund: 110n * U, total: 400n * U, deliverable: true });
+    expect(s.residue).toBe(0n);
+  });
+
+  it('an entry still pending when resolved in the same L1 block refunds in full (contract edge)', () => {
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    simEnter(sim, { outcome: UP, amount: 5n * U, block: 9n });
+    simResolve(sim, UP, 9n); // same block: _rollVintage does not finalize
+    const p = sim.positions[2]!;
+    const st = settlementOf(p, sim, sim.books[UP]!, 0);
+    expect(p.finalized).toBe(false);
+    expect(st).toMatchObject({ gross: 0n, refund: 5n * U, total: 5n * U });
+  });
+
+  it('settlementOf is zero once claimed and refund-only while open', () => {
+    const open = settlementOf(
+      { finalized: true, accepted: 5n, entryAcc: 0n, outcome: UP, offered: 9n, refunded: false, claimed: false },
+      { status: MARKET_STATUS.Open, winner: 0 },
+      null,
+      200,
+    );
+    expect(open).toMatchObject({ gross: 0n, refund: 4n, total: 4n, deliverable: false });
+    const claimed = settlementOf(
+      { finalized: true, accepted: 5n, entryAcc: 0n, outcome: UP, offered: 9n, refunded: true, claimed: true },
+      { status: MARKET_STATUS.Resolved, winner: 0 },
+      { acc: SCALE },
+      200,
+    );
+    expect(claimed.total).toBe(0n);
+  });
+});
+
+describe('classic counterfactual', () => {
+  it('refunds everyone when nobody backed the winner, or on void', () => {
+    const ps = [{ outcome: DOWN, accepted: 5n }, { outcome: DOWN, accepted: 7n }];
+    expect(classicPayouts(ps, UP)).toEqual([5n, 7n]);
+    expect(classicPayouts(ps, null)).toEqual([5n, 7n]);
   });
 });

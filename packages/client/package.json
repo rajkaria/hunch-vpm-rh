@@ -1,7 +1,7 @@
 {
   "name": "@hunch-rh/client",
   "version": "0.1.0",
-  "description": "Typed reads from The Graph and unsigned writes through viem for the Vested Parimutuel on Arc",
+  "description": "Hunch on Robinhood Chain (4663): chain, deployment, ABIs, view-call reads, exact settlement math, Chainlink round finding, gasless USDG entry typed data, NYSE calendar and market copy",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -19,7 +19,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build": "tsc -p tsconfig.build.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json",
     "test": "vitest run"
   },
   "dependencies": {
@@ -29,11 +30,18 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "graphql": "^16.9.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "keywords": [
+    "robinhood-chain",
+    "prediction-markets",
+    "parimutuel",
+    "chainlink",
+    "usdg",
+    "viem"
+  ]
 }

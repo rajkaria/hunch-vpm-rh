@@ -1,165 +1,95 @@
-import { decodeFunctionData } from 'viem';
+import { decodeFunctionData, getAddress, toFunctionSelector, type Hex } from 'viem';
 import { describe, expect, it } from 'vitest';
-import { arcMainnet } from '../src/chains.js';
-import { ARC_USDC } from '../src/addresses.js';
-import { createHunchClient } from '../src/client.js';
-import { KAPPA_UNBOUNDED } from '../src/units.js';
-import { marketFactoryAbi, settlerAbi } from '../src/writes/abi.js';
-import type { OpenMarketParams } from '../src/writes/calldata.js';
-import { TEST_SETTLER, testClient } from './support/client.js';
+import {
+  DOWN,
+  UP,
+  approveUsdgCall,
+  claimCall,
+  claimForCall,
+  enterCall,
+  enterWithAuthorizationCall,
+  finalizeVintageCall,
+  hunchMarketFactoryAbi,
+  hunchVpmAbi,
+  openUpDownCall,
+  resolveCall,
+  stockRoundResolverAbi,
+  sweepFeesCall,
+  toTransaction,
+  usdgAbi,
+  voidMarketCall,
+  voidPausedCall,
+  voidStaleCall,
+  withdrawRefundCall,
+  withdrawRefundForCall,
+} from '../src/index.js';
+import { FACTORY, RESOLVER, VPM, deployedDeployment } from './support/fakeChain.js';
 
-const FACTORY = '0x9999999999999999999999999999999999999999';
-const RESIDUE_OWNER = '0x2222222222222222222222222222222222222222';
-const ORACLE = '0xacC0a0cF13571d30B4b8637996F5D6D774d4fd62';
-const FEED_KEY = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const d = deployedDeployment();
+const specId = `0x${'ab'.repeat(32)}` as Hex;
 
-function client() {
-  return testClient({}).client;
-}
+describe('write builders encode the frozen interfaces', () => {
+  it('bettor calls', () => {
+    const tx = toTransaction(enterCall(d, { marketId: 3n, outcome: DOWN, amount: 5_000_000n }));
+    expect(tx.to).toBe(VPM);
+    expect(tx.data.slice(0, 10)).toBe(toFunctionSelector('enter(uint256,uint8,uint256)'));
+    expect(decodeFunctionData({ abi: hunchVpmAbi, data: tx.data }).args).toEqual([3n, DOWN, 5_000_000n]);
 
-describe('enterCalldata', () => {
-  it('encodes enter(marketId, outcome, amount) to the settler', () => {
-    const call = client().enterCalldata({ marketId: 0n, outcome: 1, amount: 25_000000n });
-
-    expect(call.to).toBe(TEST_SETTLER);
-    expect(call.value).toBe(0n);
-    const decoded = decodeFunctionData({ abi: settlerAbi, data: call.data });
-    expect(decoded.functionName).toBe('enter');
-    expect(decoded.args).toEqual([0n, 1, 25_000000n]);
-  });
-
-  it('refuses a stake of zero, which the settler would revert on', () => {
-    expect(() => client().enterCalldata({ marketId: 0n, outcome: 0, amount: 0n })).toThrow(/must be positive/);
-  });
-
-  it('refuses an amount the settler could not pack into uint128', () => {
-    expect(() => client().enterCalldata({ marketId: 0n, outcome: 0, amount: 2n ** 128n })).toThrow(
-      /stake out of range/,
-    );
-  });
-
-  it('refuses an outcome index the settler has no room for', () => {
-    expect(() => client().enterCalldata({ marketId: 0n, outcome: 255, amount: 1n })).toThrow(/outcome must be/);
-    expect(() => client().enterCalldata({ marketId: 0n, outcome: -1, amount: 1n })).toThrow(/outcome must be/);
-  });
-
-  it('can target the other settler for a side-by-side comparison', () => {
-    const classic = '0x7777777777777777777777777777777777777777';
-    const call = client().enterCalldata({ marketId: 0n, outcome: 0, amount: 1n, settler: classic });
-    expect(call.to).toBe(classic);
-  });
-});
-
-describe('claimCalldata and withdrawRefundCalldata', () => {
-  it('encode their position id', () => {
-    const claim = decodeFunctionData({ abi: settlerAbi, data: client().claimCalldata({ positionId: 12n }).data });
-    expect(claim.functionName).toBe('claim');
-    expect(claim.args).toEqual([12n]);
-
-    const refund = decodeFunctionData({
-      abi: settlerAbi,
-      data: client().withdrawRefundCalldata({ positionId: 12n }).data,
-    });
-    expect(refund.functionName).toBe('withdrawRefund');
-    expect(refund.args).toEqual([12n]);
-  });
-
-  it('encodes claimResidue against a market id, not a position id', () => {
-    const residue = decodeFunctionData({
-      abi: settlerAbi,
-      data: client().claimResidueCalldata({ marketId: 6n }).data,
-    });
-    expect(residue.functionName).toBe('claimResidue');
-    expect(residue.args).toEqual([6n]);
-  });
-});
-
-describe('openMarketCalldata', () => {
-  const base: Omit<OpenMarketParams, 'settler' | 'token' | 'factory'> = {
-    seed: [1_000000n, 1_000000n],
-    kappa: 30n,
-    resolutionTime: 2_000_000_000n,
-    voidTimeout: 86_400n,
-    residueOwner: RESIDUE_OWNER,
-    feed: {
-      oracle: ORACLE,
-      feedKey: FEED_KEY,
-      strike: 300_000000000n,
-      direction: 'above',
-      maxStaleness: 300n,
-    },
-  };
-
-  it('encodes the terms and the feed into one factory call', () => {
-    const call = client().openMarketCalldata({ ...base });
-
-    expect(call.to).toBe(FACTORY);
-    const decoded = decodeFunctionData({ abi: marketFactoryAbi, data: call.data });
-    expect(decoded.functionName).toBe('open');
-    const [terms, feed] = decoded.args;
-    expect(terms.settler).toBe(TEST_SETTLER);
-    expect(terms.token).toBe(ARC_USDC);
-    expect(terms.seed).toEqual([1_000000n, 1_000000n]);
-    expect(terms.kappa).toBe(30n);
-    expect(feed.direction).toBe(0);
-    expect(feed.strike).toBe(300_000000000n);
-  });
-
-  it('turns unbounded kappa into the settler sentinel', () => {
-    const call = client().openMarketCalldata({ ...base, kappa: null });
-    const decoded = decodeFunctionData({ abi: marketFactoryAbi, data: call.data });
-    expect(decoded.args[0].kappa).toBe(KAPPA_UNBOUNDED);
-  });
-
-  it('encodes "below" as direction 1', () => {
-    const call = client().openMarketCalldata({ ...base, feed: { ...base.feed, direction: 'below' } });
-    const decoded = decodeFunctionData({ abi: marketFactoryAbi, data: call.data });
-    expect(decoded.args[1].direction).toBe(1);
-  });
-
-  it('refuses a market with fewer than two outcomes', () => {
-    expect(() => client().openMarketCalldata({ ...base, seed: [1_000000n] })).toThrow(/at least 2 outcomes/);
-  });
-
-  it('refuses a zero seed leg, which would void creation outright', () => {
-    expect(() => client().openMarketCalldata({ ...base, seed: [1_000000n, 0n] })).toThrow(/seed leg 1 must be/);
-  });
-
-  it('refuses kappa below one', () => {
-    expect(() => client().openMarketCalldata({ ...base, kappa: 0n })).toThrow(/kappa must be at least 1/);
-  });
-
-  it('refuses a feed key that is not 32 bytes', () => {
-    expect(() => client().openMarketCalldata({ ...base, feed: { ...base.feed, feedKey: '0xbb' } })).toThrow(
-      /feedKey must be 32 bytes/,
-    );
-  });
-});
-
-describe('approveCalldata', () => {
-  it('targets the settlement asset by default', () => {
-    const call = client().approveCalldata({ spender: TEST_SETTLER, amount: 25_000000n });
-    expect(call.to).toBe(ARC_USDC);
-    expect(call.value).toBe(0n);
-  });
-});
-
-describe('placeholder addresses', () => {
-  it('refuse to build calldata rather than sending to the zero address', () => {
-    // Mainnet: the one network where every one of ours is still the zero placeholder.
-    const undeployed = createHunchClient({ subgraphUrl: 'https://subgraph.invalid/x', chain: arcMainnet });
-    expect(() => undeployed.enterCalldata({ marketId: 0n, outcome: 0, amount: 1n })).toThrow(
-      /settler is not deployed yet/,
-    );
-    expect(() =>
-      undeployed.openMarketCalldata({
-        seed: [1n, 1n],
-        kappa: 30n,
-        resolutionTime: 2_000_000_000n,
-        voidTimeout: 1n,
-        residueOwner: RESIDUE_OWNER,
-        feed: { oracle: ORACLE, feedKey: FEED_KEY, strike: 0n, direction: 'above', maxStaleness: 1n },
+    const sig = `0x${'11'.repeat(65)}` as Hex;
+    const auth = toTransaction(
+      enterWithAuthorizationCall(d, {
+        from: getAddress('0x000000000000000000000000000000000000a11c'),
+        marketId: 3n,
+        outcome: UP,
+        amount: 2_000_000n,
+        validAfter: 0n,
+        validBefore: 1_790_000_000n,
+        salt: specId,
+        signature: sig,
       }),
-    ).toThrow(/market factory is not deployed yet/);
+    );
+    expect(auth.data.slice(0, 10)).toBe(
+      toFunctionSelector('enterWithAuthorization(address,uint256,uint8,uint256,uint256,uint256,bytes32,bytes)'),
+    );
+    const approve = toTransaction(approveUsdgCall(d, { amount: 10n }));
+    expect(approve.to).toBe(d.usdg);
+    expect(decodeFunctionData({ abi: usdgAbi, data: approve.data }).args).toEqual([VPM, 10n]);
+    expect(toTransaction(claimCall(d, 9n)).data.slice(0, 10)).toBe(toFunctionSelector('claim(uint256)'));
+    expect(toTransaction(withdrawRefundCall(d, 9n)).data.slice(0, 10)).toBe(toFunctionSelector('withdrawRefund(uint256)'));
+  });
+
+  it('delivery and settlement calls', () => {
+    expect(toTransaction(claimForCall(d, 1n)).data.slice(0, 10)).toBe(toFunctionSelector('claimFor(uint256)'));
+    expect(toTransaction(withdrawRefundForCall(d, 1n)).data.slice(0, 10)).toBe(toFunctionSelector('withdrawRefundFor(uint256)'));
+    expect(toTransaction(finalizeVintageCall(d, 1n)).data.slice(0, 10)).toBe(toFunctionSelector('finalizeVintage(uint256)'));
+    expect(toTransaction(sweepFeesCall(d)).data.slice(0, 10)).toBe(toFunctionSelector('sweepFees(address)'));
+    expect(toTransaction(voidMarketCall(d, 1n)).data.slice(0, 10)).toBe(toFunctionSelector('voidMarket(uint256)'));
+    const r = toTransaction(resolveCall(d, { specId, strikeRound: 18446744073709552000n, finalRound: 18446744073709552010n }));
+    expect(r.to).toBe(RESOLVER);
+    expect(r.data.slice(0, 10)).toBe(toFunctionSelector('resolve(bytes32,uint80,uint80)'));
+    expect(decodeFunctionData({ abi: stockRoundResolverAbi, data: r.data }).args).toEqual([specId, 18446744073709552000n, 18446744073709552010n]);
+    expect(toTransaction(voidStaleCall(d, { specId, strikeRound: 1n, finalRound: 2n })).data.slice(0, 10)).toBe(
+      toFunctionSelector('voidStale(bytes32,uint80,uint80)'),
+    );
+    expect(toTransaction(voidPausedCall(d, specId)).data.slice(0, 10)).toBe(toFunctionSelector('voidPaused(bytes32)'));
+  });
+
+  it('opener call', () => {
+    const tx = toTransaction(
+      openUpDownCall(d, {
+        feed: d.feeds[0]!.feed,
+        strikeTime: 1_790_602_200n,
+        finalTime: 1_790_625_600n,
+        maxStrikeAge: 0,
+        maxFinalAge: 0,
+        seedPerLeg: 10_000_000n,
+        minEntry: 1_000_000n,
+        maxEntry: 100_000_000n,
+      }),
+    );
+    expect(tx.to).toBe(FACTORY);
+    expect(tx.data.slice(0, 10)).toBe(toFunctionSelector('openUpDown((address,uint64,uint64,uint32,uint32,uint128,uint128,uint128))'));
+    const decoded = decodeFunctionData({ abi: hunchMarketFactoryAbi, data: tx.data });
+    expect(decoded.args[0]).toMatchObject({ feed: d.feeds[0]!.feed, seedPerLeg: 10_000_000n });
   });
 });
