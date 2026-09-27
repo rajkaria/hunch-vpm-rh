@@ -58,3 +58,58 @@ export function bruteForce(rounds: RoundData[], t: bigint): RoundData | null {
   for (const r of rounds) if (r.updatedAt <= t && (best === null || r.roundId > best.roundId)) best = r;
   return best;
 }
+
+// ------------------------------------------------------------------ overlapping phases (M-1)
+
+/**
+ * TRANSFORMED data: `rounds` re-labelled as aggregator rounds 1..k of `phase`, every
+ * `updatedAt` / `startedAt` moved by `shift` seconds. Used to build multi-phase tapes (an
+ * aggregator migration) out of captured series; never presented as captured.
+ */
+export function relabel(rounds: RoundData[], phase: bigint, shift = 0n): RoundData[] {
+  return rounds.map((r, i) => {
+    const roundId = proxyRoundId(phase, BigInt(i + 1));
+    return { ...r, roundId, answeredInRound: roundId, startedAt: r.startedAt + shift, updatedAt: r.updatedAt + shift };
+  });
+}
+
+/** The resolver's rule by brute force: among rounds with updatedAt ≤ t, the highest phase; in it, the last round. */
+export function bruteForceInEffect(rounds: RoundData[], t: bigint): RoundData | null {
+  let best: RoundData | null = null;
+  for (const r of rounds) {
+    if (r.updatedAt > t) continue;
+    if (best === null || r.roundId >> 64n > best.roundId >> 64n || (r.roundId >> 64n === best.roundId >> 64n && r.roundId > best.roundId)) best = r;
+  }
+  return best;
+}
+
+/**
+ * A literal port of `StockRoundResolver._prove` over a series (what the contract would say
+ * about round `x` for time `t`): 'ok', 'badProof', 'badAnswer' or 'phaseBoundary'.
+ */
+export function proveLikeTheResolver(byId: ReadonlyMap<bigint, RoundData>, latestId: bigint, x: bigint, t: bigint, maxSpan = 8n): string {
+  const get = (id: bigint) => {
+    const r = byId.get(id);
+    return r === undefined || r.updatedAt === 0n ? null : r;
+  };
+  const round = get(x);
+  if (round === null || round.updatedAt > t) return 'badProof';
+  if (round.answer <= 0n || round.answer >= 10n ** 14n) return 'badAnswer';
+  const phase = x >> 64n;
+  const current = latestId >> 64n;
+  if (phase > current) return 'badProof';
+  if (current - phase > maxSpan) return 'phaseBoundary';
+  let laterPrinted = false;
+  for (let q = phase + 1n; q <= current; q++) {
+    const first = get(proxyRoundId(q, 1n));
+    if (first !== null) {
+      if (first.updatedAt <= t) return 'phaseBoundary';
+      laterPrinted = true;
+    }
+  }
+  if ((x & ((1n << 64n) - 1n)) !== (1n << 64n) - 1n) {
+    const next = get(x + 1n);
+    if (next !== null) return next.updatedAt > t ? 'ok' : 'badProof';
+  }
+  return x === latestId || laterPrinted ? 'ok' : 'badProof';
+}
