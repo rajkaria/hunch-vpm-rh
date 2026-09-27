@@ -2,18 +2,19 @@
   "name": "@hunch-rh/web",
   "version": "0.1.0",
   "private": true,
-  "description": "The web surface for the Vested Parimutuel on Arc",
+  "description": "Hunch on Robinhood Chain: the web venue (rh.playhunch.xyz)",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @hunch-rh/client build && next dev",
-    "build": "pnpm --filter @hunch-rh/client build && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.mjs"
   },
+  "//": "S7: once apps/web imports @hunch-rh/client again, restore 'pnpm --filter @hunch-rh/client build && ' in front of the dev and build scripts (and the vitest alias).",
   "dependencies": {
     "@hunch-rh/client": "workspace:*",
     "@hunch-rh/keeper": "workspace:*",

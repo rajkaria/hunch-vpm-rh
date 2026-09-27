@@ -1,9 +1,11 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import type { OutcomeTone } from '@/lib/data/types';
 import { formatUtcDate } from '@/lib/time';
+
+/** Which colour a series is drawn in. UP is lime, DOWN is coral; the label always carries the word. */
+export type OutcomeTone = 'up' | 'down' | 'neutral';
 
 export interface CurvePoint {
   /** Unix seconds. */
@@ -65,7 +67,6 @@ export function VestingCurve({
   markers?: CurveMarker[];
 }) {
   const [selected, setSelected] = useState(defaultOutcome);
-  const gradientId = useId();
   const active = series.find((entry) => entry.outcome === selected) ?? series[0];
 
   const geometry = useMemo(() => (active === undefined ? null : layout(active, freezeAt, nowSeconds)), [
@@ -116,17 +117,8 @@ export function VestingCurve({
           role="img"
           aria-label={`One unit staked on ${active.label} at the open is worth ${format(
             last?.vpm ?? 1,
-          )} times its stake under the vested rule and ${format(last?.classic ?? 1)} times under the classic rule.`}
+          )} times its stake on Hunch and ${format(last?.classic ?? 1)} times in an ordinary pool.`}
         >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              {/* A flat 8% wash under the vested line. Not a glow and not a
-                  gradient in the brand sense — two stops of the same colour,
-                  used only to say which side of the classic line it is on. */}
-              <stop offset="0%" stopColor={stroke} stopOpacity="0.16" />
-              <stop offset="100%" stopColor={stroke} stopOpacity="0.16" />
-            </linearGradient>
-          </defs>
 
           {geometry.ticks.map((tick) => (
             <g key={tick.value}>
@@ -147,13 +139,13 @@ export function VestingCurve({
                 fill="var(--color-faint)"
                 fontSize="11"
               >
-                {format(tick.value)}x
+                {format(tick.value)}×
               </text>
             </g>
           ))}
 
-          {/* The difference between the two rules, as an area. */}
-          <path d={geometry.area} fill={`url(#${gradientId})`} />
+          {/* The difference between the two rules, as a flat tinted area (no gradient). */}
+          <path d={geometry.area} fill={stroke} fillOpacity="0.12" />
 
           <path
             d={geometry.classicPath}
@@ -222,8 +214,8 @@ export function VestingCurve({
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-edge px-4 py-3 text-xs sm:px-5">
         <span className="flex items-center gap-2">
           <span aria-hidden className="inline-block h-0.5 w-6" style={{ background: stroke }} />
-          <span className="text-muted">Vested</span>
-          <span className="num text-paper">{format(last?.vpm ?? 1)}x</span>
+          <span className="text-muted">Hunch</span>
+          <span className="num text-paper">{format(last?.vpm ?? 1)}×</span>
         </span>
         <span className="flex items-center gap-2">
           <span
@@ -231,21 +223,21 @@ export function VestingCurve({
             className="inline-block h-0 w-6 border-t-2 border-dashed"
             style={{ borderColor: 'var(--color-muted)' }}
           />
-          <span className="text-muted">Classic pool</span>
-          <span className="num text-paper">{format(last?.classic ?? 1)}x</span>
+          <span className="text-muted">Ordinary pool</span>
+          <span className="num text-paper">{format(last?.classic ?? 1)}×</span>
         </span>
         <span className="text-muted">
           {last === undefined || Math.abs(last.vpm - last.classic) < 0.005 ? (
-            'The two rules currently pay an opening unit the same.'
+            'Both rules currently pay an opening unit the same.'
           ) : last.vpm > last.classic ? (
             <>
-              The vested rule pays an opening unit{' '}
-              <span className="num text-paper">{format(last.vpm - last.classic)}x</span> more.
+              Hunch pays an opening unit{' '}
+              <span className="num text-paper">{format(last.vpm - last.classic)}×</span> more.
             </>
           ) : (
             <>
-              The classic rule pays an opening unit{' '}
-              <span className="num text-paper">{format(last.classic - last.vpm)}x</span> more.
+              An ordinary pool pays an opening unit{' '}
+              <span className="num text-paper">{format(last.classic - last.vpm)}×</span> more.
             </>
           )}
         </span>
@@ -366,7 +358,7 @@ function niceTicks(min: number, max: number): number[] {
  * float. Nothing downstream of this number is money.
  */
 function format(value: number): string {
-  if (!Number.isFinite(value)) return '—';
+  if (!Number.isFinite(value)) return 'n/a';
   if (Math.abs(value) >= 100) return value.toFixed(0);
   if (Math.abs(value) >= 10) return value.toFixed(1);
   return value.toFixed(2);

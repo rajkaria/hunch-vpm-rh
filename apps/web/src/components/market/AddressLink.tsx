@@ -1,55 +1,46 @@
-import { addressExplorerUrl, isDeployed, type ChainFacts } from '@/lib/chain';
+import { addressUrl, isAddress } from '@/lib/site';
 import { shortAddress } from '@/lib/units';
 
 /**
- * An address, linked into the explorer when there is something there to see.
+ * An address, linked into Blockscout when there is something there to see.
  *
- * Nothing of ours is deployed yet, so most of these are the zero placeholder.
- * A placeholder renders as plain text with a label saying so, rather than as a
- * link into an explorer page that does not exist — a dead link on a contract
- * address is worse than no link, because it reads as a deployment that failed.
+ * Before deployment most of our own addresses are empty. An empty slot renders
+ * as plain text saying "not yet deployed" rather than as a link into an
+ * explorer page that does not exist: a dead link on a contract address reads
+ * as a deployment that failed.
  */
 export function AddressLink({
   address,
   label,
+  full = false,
   className = '',
-  chain,
 }: {
-  address: string;
+  address: string | null | undefined;
+  /** Text to show instead of the shortened address. */
   label?: string;
+  /** Show the whole address (wraps on narrow screens) instead of 0x1234…abcd. */
+  full?: boolean;
   className?: string;
-  /** Which chain's explorer to link into. Defaults to testnet's; mainnet's is unpublished, so it links nowhere. */
-  chain?: ChainFacts;
 }) {
-  const url = addressExplorerUrl(address, chain);
-  const text = label ?? shortAddress(address);
-
-  if (!isDeployed(address)) {
+  if (!isAddress(address)) {
     return (
-      <span className={`num inline-flex items-center gap-2 text-sm text-muted ${className}`} title={address}>
-        {text}
-        <span className="rounded-tag border border-edge px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] text-faint">
-          not deployed
+      <span className={`inline-flex items-center gap-2 text-sm text-faint ${className}`}>
+        <span className="rounded-tag border border-edge px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]">
+          Not yet deployed
         </span>
       </span>
     );
   }
 
-  if (url === null) {
-    return (
-      <span className={`num text-sm text-muted ${className}`} title={address}>
-        {text}
-      </span>
-    );
-  }
+  const text = label ?? (full ? address : shortAddress(address));
 
   return (
     <a
-      href={url}
+      href={addressUrl(address)}
       target="_blank"
       rel="noreferrer noopener"
       title={address}
-      className={`num text-sm text-muted underline decoration-edge underline-offset-4 transition-colors hover:text-paper hover:decoration-paper/40 ${className}`}
+      className={`num break-all text-sm text-muted underline decoration-edge-strong underline-offset-4 transition-colors hover:text-paper hover:decoration-paper/40 ${className}`}
     >
       {text}
     </a>

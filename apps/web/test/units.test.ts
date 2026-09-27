@@ -23,7 +23,7 @@ describe('toDecimalString', () => {
   });
 
   it('does not lose precision past 2^53', () => {
-    const huge = 9_007_199_254_740_993_000_000n; // 2^53 + 1, in USDC units
+    const huge = 9_007_199_254_740_993_000_000n; // 2^53 + 1, in USDG units
     expect(toDecimalString(huge, 6)).toBe('9007199254740993');
   });
 });
@@ -97,10 +97,10 @@ describe('shareToPpm and its formatting', () => {
 
 describe('formatMultiple', () => {
   it('renders a ppm multiple', () => {
-    expect(formatMultiple(1_000_000n)).toBe('1.00x');
-    expect(formatMultiple(41_000_000n)).toBe('41.00x');
-    expect(formatMultiple(28_931_034n)).toBe('28.93x');
-    expect(formatMultiple(null)).toBe('—');
+    expect(formatMultiple(1_000_000n)).toBe('1.00×');
+    expect(formatMultiple(41_000_000n)).toBe('41.00×');
+    expect(formatMultiple(28_931_034n)).toBe('28.93×');
+    expect(formatMultiple(null)).toBe('n/a');
   });
 });
 

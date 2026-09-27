@@ -1,24 +1,20 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
-import { Portfolio } from '@/components/portfolio/Portfolio';
+// S7: the connected wallet's positions across all markets replace this.
 
-export const metadata: Metadata = {
-  title: 'Portfolio',
-  description: 'Every position an address holds — open, frozen and settled.',
-};
+export const metadata: Metadata = { title: 'Portfolio', robots: { index: false } };
 
 export default function PortfolioPage() {
   return (
-    <div>
-      <header className="mb-6">
-        <h1 className="display-xl text-3xl sm:text-4xl">Portfolio</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-          Everything this address holds, open or not. The claim page lists only what can be pulled
-          right now; most of a position&rsquo;s life is before that.
-        </p>
-      </header>
-
-      <Portfolio />
-    </div>
+    <section className="py-16">
+      <h1 className="text-2xl">Your portfolio ships with the venue launch.</h1>
+      <p className="mt-3 max-w-prose text-sm text-muted">
+        Once markets are live, every position your wallet holds shows here with what it has earned so far.
+      </p>
+      <Link href="/" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-lime">
+        Back to the home page
+      </Link>
+    </section>
   );
 }

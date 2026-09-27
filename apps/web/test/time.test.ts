@@ -4,7 +4,7 @@ import { formatDuration } from '@/lib/time';
 
 describe('formatDuration', () => {
   it('is exact, because a staleness bound decides whether a market settles or voids', () => {
-    // The Arc testnet markets use 5400 s. It used to render as "2h".
+    // A 5400 s bound used to render as "2h".
     expect(formatDuration(5400)).toBe('1h 30m');
     expect(formatDuration(5400n)).toBe('1h 30m');
     expect(formatDuration(90_000)).toBe('1d 1h');

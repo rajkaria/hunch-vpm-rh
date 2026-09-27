@@ -1,15 +1,15 @@
 /**
  * Exact integer arithmetic and display formatting.
  *
- * Every token amount on this surface is a `bigint` in USDC's smallest unit. No
+ * Every token amount on this surface is a `bigint` in USDG's smallest unit. No
  * amount is ever routed through a JS `number`: a float round-trip on a balance
  * would silently move someone's money, and the numbers here are the ones a
  * person decides on. Formatting is digit surgery on the decimal string, so it
  * loses nothing it does not say it is losing.
  */
 
-/** USDC on Arc reports 6 decimals through the ERC-20 interface. */
-export const USDC_DECIMALS = 6;
+/** USDG on Robinhood Chain has 6 decimals. */
+export const USDG_DECIMALS = 6;
 
 /** Parts per million, the fixed-point base for every ratio reported here. */
 export const PPM = 1_000_000n;
@@ -20,7 +20,7 @@ export const ACC_SCALE = 10n ** 18n;
 /** `VestedParimutuel.KAPPA_UNBOUNDED` — the sentinel for an unbounded capacity. */
 export const KAPPA_UNBOUNDED = 2n ** 256n - 1n;
 
-/** The price feed and strike in `FeedResolver` are scaled to 8 decimals. */
+/** Robinhood Chain's Chainlink equity feeds report 8 decimals. */
 export const PRICE_DECIMALS = 8;
 
 export function minBigInt(a: bigint, b: bigint): bigint {
@@ -55,7 +55,7 @@ export function toDecimalString(value: bigint, decimals: number): string {
 
 /**
  * Decimal string -> bigint, exact, rejecting more fraction digits than the
- * asset has rather than truncating them. A caller who types "1.0000005" USDC
+ * asset has rather than truncating them. A caller who types "1.0000005" USDG
  * has made a mistake and should be told so.
  */
 export function fromDecimalString(value: string, decimals: number): bigint {
@@ -80,7 +80,7 @@ export interface ParsedAmount {
 }
 
 /**
- * Parse a typed USDC amount.
+ * Parse a typed USDG amount.
  *
  * Amounts are parsed, not coerced. An input with more than six decimal places
  * is a mistake worth telling someone about rather than quietly truncating,
@@ -90,17 +90,17 @@ export interface ParsedAmount {
  * Empty is not an error: it is the initial state of every amount field, and
  * showing a validation message before anyone has typed is noise.
  */
-export function parseUsdcAmount(text: string): ParsedAmount {
+export function parseUsdgAmount(text: string): ParsedAmount {
   const trimmed = text.trim();
   if (trimmed === '') return { value: 0n, problem: null };
   try {
-    const value = fromDecimalString(trimmed, USDC_DECIMALS);
+    const value = fromDecimalString(trimmed, USDG_DECIMALS);
     if (value < 0n) return { value: null, problem: 'A stake cannot be negative.' };
     return { value, problem: null };
   } catch {
     return {
       value: null,
-      problem: `Enter an amount like 250 or 250.50. USDC has ${USDC_DECIMALS} decimal places.`,
+      problem: `Enter an amount like 25 or 25.50. USDG has ${USDG_DECIMALS} decimal places.`,
     };
   }
 }
@@ -128,20 +128,20 @@ export function formatAmount(value: bigint, options: AmountFormat = {}): string 
   const group = options.group ?? true;
   const negative = value < 0n;
   const magnitude = negative ? -value : value;
-  const base = 10n ** BigInt(USDC_DECIMALS);
+  const base = 10n ** BigInt(USDG_DECIMALS);
   const whole = magnitude / base;
   const fraction = magnitude % base;
 
-  const allDigits = fraction.toString().padStart(USDC_DECIMALS, '0');
+  const allDigits = fraction.toString().padStart(USDG_DECIMALS, '0');
   const shown = fractionDigits === 0 ? '' : `.${allDigits.slice(0, fractionDigits)}`;
   const wholeText = group ? groupDigits(whole.toString()) : whole.toString();
   const sign = negative ? '-' : options.signed === true && value > 0n ? '+' : '';
   return `${sign}${wholeText}${shown}`;
 }
 
-/** Exact USDC string for a `title` attribute, so the display truncation is never the last word. */
+/** Exact USDG string for a `title` attribute, so the display truncation is never the last word. */
 export function formatAmountExact(value: bigint): string {
-  return toDecimalString(value, USDC_DECIMALS);
+  return toDecimalString(value, USDG_DECIMALS);
 }
 
 function groupDigits(digits: string): string {
@@ -177,15 +177,18 @@ export function ppmToPercentNumber(ppm: bigint): number {
   return Number(clamped) / 10_000;
 }
 
-/** A multiple in ppm -> "1.84x". `1_840_000n` is 1.84 times the stake. */
+/**
+ * A multiple in ppm -> "1.84×". `1_840_000n` is 1.84 times the stake.
+ * Truncated like money, so a multiple is never shown higher than it is.
+ */
 export function formatMultiple(ppm: bigint | null, fractionDigits = 2): string {
-  if (ppm === null) return '—';
+  if (ppm === null) return 'n/a';
   const negative = ppm < 0n;
   const magnitude = negative ? -ppm : ppm;
   const whole = magnitude / PPM;
   const rest = (magnitude % PPM).toString().padStart(6, '0');
   const shown = fractionDigits === 0 ? '' : `.${rest.slice(0, fractionDigits)}`;
-  return `${negative ? '-' : ''}${whole}${shown}x`;
+  return `${negative ? '-' : ''}${whole}${shown}×`;
 }
 
 /** Feed price or strike (8dp, signed) -> a grouped decimal string. */
