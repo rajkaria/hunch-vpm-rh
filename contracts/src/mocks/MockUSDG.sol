@@ -13,12 +13,19 @@ interface IERC1271 {
 ///             verifyingContract} (USDG has no `eip712Domain()`, so wallets hardcode it);
 ///           * EIP-3009 `receiveWithAuthorization` in both the `bytes` (0x88b7ab63) and the
 ///             `(v, r, s)` (0xef55bec6) forms, `transferWithAuthorization` (bytes form),
-///             `authorizationState`, and `CallerMustBePayee` when `to != msg.sender`;
+///             `cancelAuthorization` (bytes form), `authorizationState`, and
+///             `CallerMustBePayee` when `to != msg.sender`;
+///           * USDG's handling of a used or cancelled nonce, measured on a fork of chain 4663
+///             (test/fork/ForkE2E.t.sol): no revert, it emits `AuthorizationAlreadyUsed` and
+///             returns without moving funds and without checking the signature or the value.
+///             Callers must check `authorizationState` (HunchVPM does, D5);
 ///           * ERC-1271 signatures for contract signers (the `bytes` form);
 ///           * Paxos's address freeze and global pause, so tests can show that a frozen
 ///             winner's claim fails alone and that no state is lost while the token is paused.
 ///         Errors named as on chain: `InvalidSignature` (0x8baa579f), `CallerMustBePayee`
-///         (0x5454b17d). The time-window and reuse errors are this mock's own names.
+///         (0x5454b17d). The time-window errors are this mock's own names. `setBrokenPulls`
+///         simulates a faulty token (pulls that report success and move nothing), so tests can
+///         show that the settler's balance check refuses them.
 contract MockUSDG {
     // ERC-20 / EIP-712 metadata keeps its standard lower-case names
     // forge-lint: disable-start(screaming-snake-case-const)
@@ -34,6 +41,8 @@ contract MockUSDG {
     bytes32 public constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH = keccak256(
         "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
     );
+    bytes32 public constant CANCEL_AUTHORIZATION_TYPEHASH =
+        keccak256("CancelAuthorization(address authorizer,bytes32 nonce)");
     bytes32 internal constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
@@ -43,16 +52,22 @@ contract MockUSDG {
     mapping(address => mapping(bytes32 => bool)) public authorizationState;
     mapping(address => bool) public isFrozen;
     bool public paused;
+    /// @notice Test control: `transferFrom` and the authorizations report success and move nothing.
+    bool public brokenPulls;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
+    event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
+    /// @notice Real USDG on chain 4663 does not revert on a used or cancelled authorization: it
+    ///         emits this and returns without moving funds or checking the signature (measured
+    ///         with test/fork/ForkE2E.t.sol). The mock does the same, so callers must check.
+    event AuthorizationAlreadyUsed(address indexed authorizer, bytes32 indexed nonce);
 
     error InvalidSignature();
     error CallerMustBePayee();
     error AuthorizationNotYetValid();
     error AuthorizationExpired();
-    error AuthorizationAlreadyUsed();
     error AddressFrozen();
     error TokenPaused();
     error InsufficientBalance();
@@ -89,6 +104,11 @@ contract MockUSDG {
         paused = paused_;
     }
 
+    /// @notice A faulty token (a hypothetical bad upgrade): pulls report success, move nothing.
+    function setBrokenPulls(bool broken) external {
+        brokenPulls = broken;
+    }
+
     // ------------------------------------------------------------------ ERC-20
 
     function approve(address spender, uint256 amount) external returns (bool) {
@@ -109,6 +129,7 @@ contract MockUSDG {
             if (a < amount) revert InsufficientAllowance();
             allowance[from][msg.sender] = a - amount;
         }
+        if (brokenPulls) return true;
         _transfer(from, to, amount);
         return true;
     }
@@ -164,6 +185,20 @@ contract MockUSDG {
         _authorize(TRANSFER_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce, signature);
     }
 
+    /// @notice Burn one of your own unused nonces (EIP-3009). Free, and open to anyone for
+    ///         their own authorizations: which is why a used nonce must never book an entry.
+    function cancelAuthorization(address authorizer, bytes32 nonce, bytes calldata signature) external {
+        if (authorizationState[authorizer][nonce]) {
+            emit AuthorizationAlreadyUsed(authorizer, nonce);
+            return;
+        }
+        bytes32 structHash = keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, authorizer, nonce));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash));
+        if (!_validSignature(authorizer, digest, signature)) revert InvalidSignature();
+        authorizationState[authorizer][nonce] = true;
+        emit AuthorizationCanceled(authorizer, nonce);
+    }
+
     function _authorize(
         bytes32 typeHash,
         address from,
@@ -176,12 +211,16 @@ contract MockUSDG {
     ) internal {
         if (block.timestamp <= validAfter) revert AuthorizationNotYetValid();
         if (block.timestamp >= validBefore) revert AuthorizationExpired();
-        if (authorizationState[from][nonce]) revert AuthorizationAlreadyUsed();
+        if (authorizationState[from][nonce]) {
+            emit AuthorizationAlreadyUsed(from, nonce); // as USDG: no revert, no transfer, no signature check
+            return;
+        }
         bytes32 structHash = keccak256(abi.encode(typeHash, from, to, value, validAfter, validBefore, nonce));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash));
         if (!_validSignature(from, digest, signature)) revert InvalidSignature();
         authorizationState[from][nonce] = true;
         emit AuthorizationUsed(from, nonce);
+        if (brokenPulls) return;
         _transfer(from, to, value);
     }
 

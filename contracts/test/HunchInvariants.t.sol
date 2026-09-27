@@ -57,7 +57,9 @@ contract HunchHandler is Test {
     uint256 public badExit; // INV-3: a token left to anyone but the position's owner
     uint256 public badAccrual; // INV-5: accrued() went down
     uint256 public badMirror; // INV-6: market B diverged from the reference
-    uint256 public badSignedEntry; // INV-8: a tampered or replayed authorization landed
+    uint256 public badSignedEntry; // INV-8: a tampered, replayed or unpaid authorization landed
+    uint256 public freeEntriesTried; // INV-8: entries attempted on a cancelled nonce (all must fail)
+    uint256 internal constant ATTACKER_PK = 0xBAD5EED;
 
     // ---- what the campaign actually exercised (test_TheHandlerIsNotVacuous)
     uint256 public landedDirect;
@@ -173,6 +175,34 @@ contract HunchHandler is Test {
         else from = actors[(a + 1) % actors.length];
         vm.prank(RELAYER);
         try vpm.enterWithAuthorization(from, market, outcome, amount, 0, block.timestamp + 1 hours, s, sig) {
+            badSignedEntry++;
+        } catch {}
+    }
+
+    /// @notice INV-8: an attacker holding no USDG burns one of their own nonces (EIP-3009
+    ///         `cancelAuthorization`, free) and enters on it with a junk signature. USDG returns
+    ///         without paying for a used nonce, so this lands unless the settler refuses it.
+    function freeEntry(uint256 marketSeed, uint8 outcome, uint256 amount) external {
+        uint256 k = marketSeed % MARKETS;
+        outcome = uint8(bound(outcome, 0, 1));
+        amount = bound(amount, 1e6, 100e6);
+        bytes32 s = bytes32(++salt);
+        address attacker = vm.addr(ATTACKER_PK);
+        bytes32 nonce = vpm.enterNonce(mkt[k], outcome, amount, s);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                usdg.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(usdg.CANCEL_AUTHORIZATION_TYPEHASH(), attacker, nonce))
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 ss) = vm.sign(ATTACKER_PK, digest);
+        usdg.cancelAuthorization(attacker, nonce, abi.encodePacked(r, ss, v));
+        freeEntriesTried++;
+        vm.prank(attacker);
+        try vpm.enterWithAuthorization(
+            attacker, mkt[k], outcome, amount, 0, block.timestamp + 1 hours, s, new bytes(65)
+        ) {
             badSignedEntry++;
         } catch {}
     }
@@ -588,7 +618,8 @@ contract HunchInvariantsTest is StdInvariant, Test {
     }
 
     /// @notice INV-8 Signed entries: an authorization whose market, side, amount, salt or owner
-    ///         differs from what was signed never lands, and a used one is never replayed.
+    ///         differs from what was signed never lands, a used one is never replayed, and an
+    ///         entry on a cancelled nonce (which USDG would not charge) never lands.
     function invariant_INV8_SignedEntries() public view {
         assertEq(h.badSignedEntry(), 0, "INV-8: a tampered or replayed authorization landed");
     }
@@ -601,6 +632,7 @@ contract HunchInvariantsTest is StdInvariant, Test {
             h.enter(i, i, uint8(i % 2), 5e6 + i * 3e6, i % 3 == 0);
             h.enterSigned(i + 1, i + 1, uint8((i + 1) % 2), 7e6 + i * 2e6, i % 2 == 0);
             if (i % 5 == 0) h.tamperedRelay(i, i, uint8(i % 2), 10e6, uint8(i));
+            if (i % 6 == 0) h.freeEntry(i, uint8(i % 2), 50e6);
             if (i % 7 == 0) h.pause(i % 2 == 0);
             _checkAll();
         }
@@ -625,6 +657,7 @@ contract HunchInvariantsTest is StdInvariant, Test {
         _checkAll();
         assertGt(h.landedDirect(), 10, "direct entries landed");
         assertGt(h.landedSigned(), 10, "signed entries landed");
+        assertGt(h.freeEntriesTried(), 0, "entries on cancelled nonces were tried (and refused: INV-8)");
         assertGt(h.refundsDelivered(), 0, "partial fills refunded by a third party");
         assertEq(h.claimsDelivered(), h.positionsCount(), "every position claimed");
         assertGt(h.feesTaken(), 0, "fees were taken");

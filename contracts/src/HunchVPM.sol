@@ -8,6 +8,7 @@ import {IEIP3009} from "./interfaces/IEIP3009.sol"; // D5: USDG's signed pull (E
 interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256); // D5: every pull is checked
 }
 
 /// @title  HunchVPM — the reference Vested Parimutuel plus diffs D1–D9 and nothing else
@@ -23,7 +24,8 @@ interface IERC20 {
 ///         λ = 1. The product adds, around that unchanged mechanism: D1 a fee on
 ///         winners' gains, D2 claims deliverable by anyone (to the owner only), D3 per-market
 ///         entry bounds, D4 a guardian switch that pauses new entries and nothing else, D5
-///         gasless entry through a signed USDG transfer (EIP-3009), D6 views, D7 events, and
+///         gasless entry through a signed USDG transfer (EIP-3009, with every pull checked),
+///         D6 views, D7 events, and
 ///         two safety fixes. D8: `resolve` / `voidMarket` finalize the last vintage even when
 ///         `block.number` has not advanced. On Robinhood Chain `block.number` is the L1 block
 ///         (~12 s) while timestamps are L2, so a market can settle in the same "block" as its
@@ -187,6 +189,8 @@ contract HunchVPM {
     error NotGuardian();          // D4
     error ZeroAddress();          // D1, D4, D5
     error VintageFull();          // D9: this block's vintage is full (MAX_VINTAGE_ENTRIES or MAX_VINTAGE_WORK)
+    error AuthorizationUsed();    // D5: the signed authorization's nonce is already used or cancelled
+    error NotPaid();              // D5: a pull did not raise the settler's balance by the amount
 
     modifier nonReentrant() {
         if (locked != 1) revert Reentrancy();
@@ -272,7 +276,7 @@ contract HunchVPM {
         m.acceptedPool = total;
         emit MarketCreated(marketId, msg.sender, uint8(seed.length), kappa, resolutionTime); // D1, D3: stack
 
-        _pull(token, msg.sender, total);
+        _pullExact(token, msg.sender, total); // D5: the seed is checked like every pull
     }
 
     /// @dev Vintage 0: clamp the seed, open the books, record the legs. The legs are each
@@ -361,7 +365,7 @@ contract HunchVPM {
     ///         `msg.sender`); it pays with `transferFrom`, so it needs an allowance.
     function enter(uint256 marketId, uint8 outcome, uint256 amount) external nonReentrant returns (uint256 positionId) {
         positionId = _enter(msg.sender, marketId, outcome, amount); // D5: the one entry path
-        _pull(markets[marketId].token, msg.sender, amount);
+        _pullExact(markets[marketId].token, msg.sender, amount); // D5: no stake is booked unpaid
     }
 
     /// @notice D5: the same entry as `enter`, paid with a USDG ReceiveWithAuthorization
@@ -369,14 +373,17 @@ contract HunchVPM {
     ///         Anyone may relay it; the position always belongs to `from`, never to the
     ///         relayer. The signed nonce is `enterNonce(marketId, outcome, amount, salt)`, so
     ///         a relayer can never change the market, the side or the amount (the token's
-    ///         signature check fails), and the token marks the nonce used, so it can never
-    ///         be replayed. The authorization's payee is this contract, which only this
-    ///         contract can redeem (EIP-3009 requires `to == msg.sender`).
+    ///         signature check fails). D5: a used or cancelled nonce is refused here
+    ///         (`AuthorizationUsed`), because USDG returns without paying for one instead of
+    ///         reverting, and the settler's balance must rise by `amount` (`NotPaid`), so no
+    ///         entry is ever booked unpaid. The authorization's payee is this contract, which
+    ///         only this contract can redeem (EIP-3009 requires `to == msg.sender`).
     /// @param  from        the bettor who signed, and the position's owner
     /// @param  validAfter  the authorization is valid strictly after this unix time
     /// @param  validBefore the authorization is valid strictly before this unix time
     /// @param  salt        any bettor-chosen value, so the same bet can be signed twice
     /// @param  signature   65-byte ECDSA (r, s, v) or an ERC-1271 smart-wallet signature
+    // slither-disable-next-line reentrancy-balance
     function enterWithAuthorization(
         address from,
         uint256 marketId,
@@ -389,10 +396,16 @@ contract HunchVPM {
     ) external nonReentrant returns (uint256 positionId) {
         if (from == address(0)) revert ZeroAddress(); // D5
         bytes32 nonce = enterNonce(marketId, outcome, amount, salt); // D5: binds market, side, amount
+        IERC20 token = markets[marketId].token; // D5
+        // D5: USDG does not revert on a used or cancelled nonce: it emits AuthorizationAlreadyUsed
+        // and returns without paying and without checking the signature. Refuse it before booking.
+        if (IEIP3009(address(token)).authorizationState(from, nonce)) revert AuthorizationUsed(); // D5
         positionId = _enter(from, marketId, outcome, amount); // D5: checks, roll, book for `from`
-        IEIP3009(address(markets[marketId].token)).receiveWithAuthorization(
+        uint256 before = token.balanceOf(address(this)); // D5: and the pull must actually pay
+        IEIP3009(address(token)).receiveWithAuthorization(
             from, address(this), amount, validAfter, validBefore, nonce, signature
-        ); // D5: pulled last; the token reverts on a wrong signature, time window or reuse
+        ); // D5: pulled last; with an unused nonce the token reverts on a wrong signature or time window
+        if (token.balanceOf(address(this)) < before + amount) revert NotPaid(); // D5
     }
 
     /// @notice D5: the EIP-3009 nonce a bettor signs for one entry. It binds the chain, this
@@ -834,6 +847,18 @@ contract HunchVPM {
     function _pull(IERC20 token, address from, uint256 amount) internal {
         if (amount == 0) return;
         if (!token.transferFrom(from, address(this), amount)) revert TransferFailed();
+    }
+
+    /// @dev D5: `_pull`, then require the settler's balance to have risen by at least `amount`,
+    ///      so a token that reports success without paying (a used EIP-3009 nonce on USDG is one
+    ///      such path, a faulty upgrade could be another) can never book an unpaid stake that
+    ///      other bettors' escrow would pay out. §6 (a) requires a transfer-exact token; this
+    ///      enforces the half of it that protects the escrow. Every caller is nonReentrant.
+    // slither-disable-next-line reentrancy-balance
+    function _pullExact(IERC20 token, address from, uint256 amount) internal {
+        uint256 before = token.balanceOf(address(this));
+        _pull(token, from, amount);
+        if (token.balanceOf(address(this)) < before + amount) revert NotPaid();
     }
 
     function _push(IERC20 token, address to, uint256 amount) internal {

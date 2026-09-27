@@ -13,7 +13,7 @@ if any rule below is broken.
 | D2 | Anyone delivers, only to the owner | `claimFor`, `withdrawRefundFor` (permissionless). `claim` / `withdrawRefund` keep the owner check. All four pay `positions[id].owner` through the shared `_claim` / `_withdrawRefund`. |
 | D3 | Entry bounds | `create` takes `minEntry`, `maxEntry` (0 = no bound), immutable per market; entries outside them revert on the offered amount. |
 | D4 | Entries pause | The immutable `guardian` may `setEntriesPaused`. Only `enter` and `enterWithAuthorization` read it. |
-| D5 | Gasless entry | `enterWithAuthorization` pays with the bettor's signed USDG `receiveWithAuthorization` (EIP-3009, `bytes` signature). `enterNonce` binds chain, contract, market, side, amount and salt. `enter` and it share `_enter(owner, ...)`. |
+| D5 | Gasless entry, paid entries | `enterWithAuthorization` pays with the bettor's signed USDG `receiveWithAuthorization` (EIP-3009, `bytes` signature). `enterNonce` binds chain, contract, market, side, amount and salt. `enter` and it share `_enter(owner, ...)`. A used or cancelled nonce reverts `AuthorizationUsed` before anything is booked (USDG returns without paying for one), and every pull (`create`, `enter`, `enterWithAuthorization`) must raise the settler's balance by the amount (`NotPaid`, via `_pullExact`; the reference `_pull` is unchanged). |
 | D6 | Views | `accrued`, `previewFee`, `marketTerms`, `marketPositionCount`, `marketPositions` (backed by a per-market id list). `getMarket` keeps the reference's twelve fields. |
 | D7 | Events | Added `FeeAccrued`, `FeesSwept`, `EntriesPaused`. The reference events are unchanged; `Claimed.payout` is the amount sent for the settlement (gross minus fee). |
 | D8 | Settlement finalizes the last vintage | `resolve` and `voidMarket` finalize an open vintage unconditionally instead of only when `block.number` has advanced (one line each). |
@@ -92,15 +92,15 @@ reference assumes, in a later block than the last entry).
 
 ## Summary (generated)
 
-- hunks: 24; lines added: 269; lines removed: 22
-- hunks citing each diff: D1 16 · D2 6 · D3 11 · D4 8 · D5 9 · D6 7 · D7 4 · D8 5 · D9 8
+- hunks: 24; lines added: 295; lines removed: 23
+- hunks citing each diff: D1 16 · D2 6 · D3 11 · D4 8 · D5 10 · D6 7 · D7 4 · D8 5 · D9 8
 
 ## The diff
 
 ```diff
 --- a/src/reference/VestedParimutuel.sol
 +++ b/src/HunchVPM.sol
-@@ -1,6 +1,8 @@
+@@ -1,14 +1,17 @@
  // SPDX-License-Identifier: MIT
  pragma solidity ^0.8.20;
  
@@ -109,8 +109,9 @@ reference assumes, in a later block than the last entry).
  /// @dev Minimal ERC-20 surface. The settlement asset MUST be transfer-exact
  ///      (§6 requirement (a)): no fee-on-transfer, no rebasing.
  interface IERC20 {
-@@ -8,7 +10,7 @@
+     function transfer(address to, uint256 amount) external returns (bool);
      function transferFrom(address from, address to, uint256 amount) external returns (bool);
++    function balanceOf(address account) external view returns (uint256); // D5: every pull is checked
  }
  
 -/// @title  Vested Parimutuel (VPM) — reference on-chain implementation
@@ -118,7 +119,7 @@ reference assumes, in a later block than the last entry).
  /// @notice One contract, many markets. Implements the mechanism of the paper
  ///         "The Vested Parimutuel" exactly as its reference settler does:
  ///           * Rule 1 (flow vesting) and Rule 2 (capacity matching), §4.1;
-@@ -18,8 +20,21 @@
+@@ -18,8 +21,22 @@
  ///           * pull-based claims, residue owner fixed at creation, §6 (a)–(d);
  ///           * resolution timestamp fixed at creation, accumulator frozen there,
  ///             post-freeze entries refused, void path refunding accepted principal, §12.
@@ -127,7 +128,8 @@ reference assumes, in a later block than the last entry).
 +///         λ = 1. The product adds, around that unchanged mechanism: D1 a fee on
 +///         winners' gains, D2 claims deliverable by anyone (to the owner only), D3 per-market
 +///         entry bounds, D4 a guardian switch that pauses new entries and nothing else, D5
-+///         gasless entry through a signed USDG transfer (EIP-3009), D6 views, D7 events, and
++///         gasless entry through a signed USDG transfer (EIP-3009, with every pull checked),
++///         D6 views, D7 events, and
 +///         two safety fixes. D8: `resolve` / `voidMarket` finalize the last vintage even when
 +///         `block.number` has not advanced. On Robinhood Chain `block.number` is the L1 block
 +///         (~12 s) while timestamps are L2, so a market can settle in the same "block" as its
@@ -142,7 +144,7 @@ reference assumes, in a later block than the last entry).
  /// @dev    Block vintages are applied lazily (design "A" in the README): entries of
  ///         the current block are buffered with their OFFERED amount; the vintage is
  ///         finalized — rationed (§4.4 iii), vested against the vintage-start books
-@@ -30,7 +45,9 @@
+@@ -30,7 +47,9 @@
  ///         in the entry transaction; §6 (c)'s "same-transaction refund" holds only when
  ///         acceptance is knowable in that transaction, which under the §4.4 batching
  ///         rule is never the case for an entry that is not the last of its block.
@@ -153,7 +155,7 @@ reference assumes, in a later block than the last entry).
      // ------------------------------------------------------------------ constants
      /// @notice Fixed-point scale S of the accumulator (§6). Choose S ≳ s_max·m_max.
      uint256 public constant SCALE = 1e18;
-@@ -39,6 +56,22 @@
+@@ -39,6 +58,22 @@
      /// @dev The seed clamp is monotone and converges in ≤ 2 passes for κ ≥ 1; the
      ///      bound only guards against a pathological input.
      uint256 internal constant MAX_CLAMP_PASSES = 64;
@@ -176,7 +178,7 @@ reference assumes, in a later block than the last entry).
  
      // ------------------------------------------------------------------ types
      enum Status {
-@@ -67,12 +100,15 @@
+@@ -67,12 +102,15 @@
          uint8 n;               // |O| ≥ 2
          Status status;
          uint8 winner;          // ω, valid when Resolved
@@ -192,7 +194,7 @@ reference assumes, in a later block than the last entry).
          uint256[] pending;     // its position ids, in arrival order
          Book[] books;
      }
-@@ -99,6 +135,17 @@
+@@ -99,6 +137,17 @@
      Market[] internal markets;
      Position[] public positions;
      uint256 private locked = 1;
@@ -210,7 +212,7 @@ reference assumes, in a later block than the last entry).
  
      // ------------------------------------------------------------------ events / errors
      event MarketCreated(uint256 indexed marketId, address indexed creator, uint8 n, uint256 kappa, uint64 resolutionTime);
-@@ -109,6 +156,9 @@
+@@ -109,6 +158,9 @@
      event Claimed(uint256 indexed positionId, address indexed to, uint256 payout, uint256 refund);
      event ResidueClaimed(uint256 indexed marketId, address indexed to, uint256 amount);
      event PositionTransferred(uint256 indexed positionId, address indexed from, address indexed to);
@@ -220,7 +222,7 @@ reference assumes, in a later block than the last entry).
  
      error InvalidKappa();
      error InvalidSeed();          // F3 / P11: a leg left unbacked voids the market at creation
-@@ -129,6 +179,14 @@
+@@ -129,6 +181,16 @@
      error TransferFailed();
      error Reentrancy();
      error AmountTooLarge();
@@ -232,10 +234,12 @@ reference assumes, in a later block than the last entry).
 +    error NotGuardian();          // D4
 +    error ZeroAddress();          // D1, D4, D5
 +    error VintageFull();          // D9: this block's vintage is full (MAX_VINTAGE_ENTRIES or MAX_VINTAGE_WORK)
++    error AuthorizationUsed();    // D5: the signed authorization's nonce is already used or cancelled
++    error NotPaid();              // D5: a pull did not raise the settler's balance by the amount
  
      modifier nonReentrant() {
          if (locked != 1) revert Reentrancy();
-@@ -137,6 +195,25 @@
+@@ -137,6 +199,25 @@
          locked = 1;
      }
  
@@ -261,7 +265,7 @@ reference assumes, in a later block than the last entry).
      // ================================================================== creation (§4.4)
  
      /// @notice Open a market by posting the creator's seed on every outcome in the
-@@ -148,11 +225,16 @@
+@@ -148,11 +229,16 @@
      ///         refused part of an asymmetric seed never leaves the creator's wallet.
      /// @param  token          transfer-exact settlement asset (§6 a)
      /// @param  seed           offered amount per outcome; length n = |O| ≥ 2
@@ -279,7 +283,7 @@ reference assumes, in a later block than the last entry).
      function create(
          IERC20 token,
          uint256[] calldata seed,
-@@ -160,12 +242,17 @@
+@@ -160,12 +246,17 @@
          uint64 resolutionTime,
          uint64 voidTimeout,
          address resolver,
@@ -300,7 +304,7 @@ reference assumes, in a later block than the last entry).
  
          marketId = markets.length;
          Market storage m = markets.push();
-@@ -175,12 +262,15 @@
+@@ -175,14 +266,17 @@
          m.residueOwner = residueOwner;
          m.resolutionTime = resolutionTime;
          m.voidTimeout = voidTimeout;
@@ -316,9 +320,12 @@ reference assumes, in a later block than the last entry).
 -        emit MarketCreated(marketId, msg.sender, uint8(n), kappa, resolutionTime);
 +        emit MarketCreated(marketId, msg.sender, uint8(seed.length), kappa, resolutionTime); // D1, D3: stack
  
-         _pull(token, msg.sender, total);
+-        _pull(token, msg.sender, total);
++        _pullExact(token, msg.sender, total); // D5: the seed is checked like every pull
      }
-@@ -222,6 +312,7 @@
+ 
+     /// @dev Vintage 0: clamp the seed, open the books, record the legs. The legs are each
+@@ -222,6 +316,7 @@
              })
          );
          emit Entered(marketId, positions.length - 1, msg.sender, w, offered, 0);
@@ -326,7 +333,7 @@ reference assumes, in a later block than the last entry).
      }
  
      function _sum(uint256[] memory xs) internal pure returns (uint256 t) {
-@@ -266,7 +357,57 @@
+@@ -266,7 +361,66 @@
      ///         (rationed per §4.4 iii against the headroom as of vintage start). The
      ///         full offered amount is escrowed now; the refused remainder becomes
      ///         withdrawable once the vintage is finalized.
@@ -334,7 +341,7 @@ reference assumes, in a later block than the last entry).
 +    ///         `msg.sender`); it pays with `transferFrom`, so it needs an allowance.
      function enter(uint256 marketId, uint8 outcome, uint256 amount) external nonReentrant returns (uint256 positionId) {
 +        positionId = _enter(msg.sender, marketId, outcome, amount); // D5: the one entry path
-+        _pull(markets[marketId].token, msg.sender, amount);
++        _pullExact(markets[marketId].token, msg.sender, amount); // D5: no stake is booked unpaid
 +    }
 +
 +    /// @notice D5: the same entry as `enter`, paid with a USDG ReceiveWithAuthorization
@@ -342,14 +349,17 @@ reference assumes, in a later block than the last entry).
 +    ///         Anyone may relay it; the position always belongs to `from`, never to the
 +    ///         relayer. The signed nonce is `enterNonce(marketId, outcome, amount, salt)`, so
 +    ///         a relayer can never change the market, the side or the amount (the token's
-+    ///         signature check fails), and the token marks the nonce used, so it can never
-+    ///         be replayed. The authorization's payee is this contract, which only this
-+    ///         contract can redeem (EIP-3009 requires `to == msg.sender`).
++    ///         signature check fails). D5: a used or cancelled nonce is refused here
++    ///         (`AuthorizationUsed`), because USDG returns without paying for one instead of
++    ///         reverting, and the settler's balance must rise by `amount` (`NotPaid`), so no
++    ///         entry is ever booked unpaid. The authorization's payee is this contract, which
++    ///         only this contract can redeem (EIP-3009 requires `to == msg.sender`).
 +    /// @param  from        the bettor who signed, and the position's owner
 +    /// @param  validAfter  the authorization is valid strictly after this unix time
 +    /// @param  validBefore the authorization is valid strictly before this unix time
 +    /// @param  salt        any bettor-chosen value, so the same bet can be signed twice
 +    /// @param  signature   65-byte ECDSA (r, s, v) or an ERC-1271 smart-wallet signature
++    // slither-disable-next-line reentrancy-balance
 +    function enterWithAuthorization(
 +        address from,
 +        uint256 marketId,
@@ -362,10 +372,16 @@ reference assumes, in a later block than the last entry).
 +    ) external nonReentrant returns (uint256 positionId) {
 +        if (from == address(0)) revert ZeroAddress(); // D5
 +        bytes32 nonce = enterNonce(marketId, outcome, amount, salt); // D5: binds market, side, amount
++        IERC20 token = markets[marketId].token; // D5
++        // D5: USDG does not revert on a used or cancelled nonce: it emits AuthorizationAlreadyUsed
++        // and returns without paying and without checking the signature. Refuse it before booking.
++        if (IEIP3009(address(token)).authorizationState(from, nonce)) revert AuthorizationUsed(); // D5
 +        positionId = _enter(from, marketId, outcome, amount); // D5: checks, roll, book for `from`
-+        IEIP3009(address(markets[marketId].token)).receiveWithAuthorization(
++        uint256 before = token.balanceOf(address(this)); // D5: and the pull must actually pay
++        IEIP3009(address(token)).receiveWithAuthorization(
 +            from, address(this), amount, validAfter, validBefore, nonce, signature
-+        ); // D5: pulled last; the token reverts on a wrong signature, time window or reuse
++        ); // D5: pulled last; with an unused nonce the token reverts on a wrong signature or time window
++        if (token.balanceOf(address(this)) < before + amount) revert NotPaid(); // D5
 +    }
 +
 +    /// @notice D5: the EIP-3009 nonce a bettor signs for one entry. It binds the chain, this
@@ -384,7 +400,7 @@ reference assumes, in a later block than the last entry).
          Market storage m = markets[marketId];
          if (m.status != Status.Open) revert NotOpen();
          if (outcome >= m.n) revert InvalidOutcomes();
-@@ -274,18 +415,23 @@
+@@ -274,18 +428,23 @@
          // §12 freeze: the market ends at its declared time; a post-freeze entry is
          // refused in full (it would vest into a frozen accumulator and break P1).
          if (block.timestamp >= m.resolutionTime) revert Frozen();
@@ -409,7 +425,7 @@ reference assumes, in a later block than the last entry).
                  outcome: outcome,
                  finalized: false,
                  refunded: false,
-@@ -297,15 +443,14 @@
+@@ -297,15 +456,14 @@
              })
          );
          m.pending.push(positionId);
@@ -427,7 +443,7 @@ reference assumes, in a later block than the last entry).
      }
  
      /// @notice Finalize the buffered vintage if its block has passed. Anyone may poke.
-@@ -393,7 +538,7 @@
+@@ -393,7 +551,7 @@
          if (msg.sender != m.resolver) revert NotResolver();
          if (block.timestamp < m.resolutionTime) revert TooEarly();
          if (winner >= m.n) revert InvalidOutcomes();
@@ -436,7 +452,7 @@ reference assumes, in a later block than the last entry).
          m.status = Status.Resolved;
          m.winner = winner;
          emit Resolved(marketId, winner);
-@@ -410,7 +555,7 @@
+@@ -410,7 +568,7 @@
          bool resolverEarly = msg.sender == m.resolver && block.timestamp >= m.resolutionTime;
          bool timedOut = block.timestamp >= uint256(m.resolutionTime) + m.voidTimeout;
          if (!resolverEarly && !timedOut) revert TooEarly();
@@ -445,7 +461,7 @@ reference assumes, in a later block than the last entry).
          m.status = Status.Voided;
          emit Voided(marketId);
      }
-@@ -420,9 +565,24 @@
+@@ -420,9 +578,24 @@
      /// @notice Withdraw the refused remainder of a partial fill (offered − accepted).
      ///         Available once the position's vintage is finalized, before or after
      ///         resolution. `claim` also pays it if still outstanding.
@@ -471,7 +487,7 @@ reference assumes, in a later block than the last entry).
          Market storage m = markets[p.marketId];
          if (m.status == Status.Open) _rollVintage(p.marketId);
          if (!p.finalized) revert NotFinalized();
-@@ -430,28 +590,47 @@
+@@ -430,28 +603,47 @@
          p.refunded = true;
          uint256 refund = p.offered - p.accepted;
          if (refund == 0) revert NothingToRefund();
@@ -522,7 +538,7 @@ reference assumes, in a later block than the last entry).
              }
          } else {
              payout = p.accepted; // void: refund at accepted principal, exactly
-@@ -462,8 +641,13 @@
+@@ -462,8 +654,13 @@
              refund = p.offered - p.accepted;
          }
          p.claimed = true;
@@ -538,7 +554,7 @@ reference assumes, in a later block than the last entry).
      }
  
      /// @notice The fixed-point residue, `accepted pool − Σ payouts` (§6), claimable only
-@@ -482,6 +666,18 @@
+@@ -482,6 +679,18 @@
          if (residue > 0) _push(m.token, msg.sender, residue);
      }
  
@@ -557,7 +573,7 @@ reference assumes, in a later block than the last entry).
      // ================================================================== exit (§4.4, §11)
  
      /// @notice Transfer a position whole: principal, vested claims and vintage move
-@@ -561,6 +757,57 @@
+@@ -561,6 +770,57 @@
          return (p.accepted * (SCALE + m.books[m.winner].acc - p.entryAcc)) / SCALE;
      }
  
@@ -615,4 +631,23 @@ reference assumes, in a later block than the last entry).
      // ================================================================== internals
  
      function _headroom(Book storage b) internal view returns (uint256) {
+@@ -589,6 +849,18 @@
+         if (!token.transferFrom(from, address(this), amount)) revert TransferFailed();
+     }
+ 
++    /// @dev D5: `_pull`, then require the settler's balance to have risen by at least `amount`,
++    ///      so a token that reports success without paying (a used EIP-3009 nonce on USDG is one
++    ///      such path, a faulty upgrade could be another) can never book an unpaid stake that
++    ///      other bettors' escrow would pay out. §6 (a) requires a transfer-exact token; this
++    ///      enforces the half of it that protects the escrow. Every caller is nonReentrant.
++    // slither-disable-next-line reentrancy-balance
++    function _pullExact(IERC20 token, address from, uint256 amount) internal {
++        uint256 before = token.balanceOf(address(this));
++        _pull(token, from, amount);
++        if (token.balanceOf(address(this)) < before + amount) revert NotPaid();
++    }
++
+     function _push(IERC20 token, address to, uint256 amount) internal {
+         if (!token.transfer(to, amount)) revert TransferFailed();
+     }
 ```

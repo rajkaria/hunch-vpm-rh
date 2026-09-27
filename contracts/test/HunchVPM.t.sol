@@ -644,9 +644,94 @@ contract HunchVPMTest is HunchBase {
         vpm.enterWithAuthorization(alice, id, 0, 10 * USDG, 0, vb, bytes32("s"), sig);
         vm.roll(block.number + 1);
         vm.prank(stranger);
-        vm.expectRevert(MockUSDG.AuthorizationAlreadyUsed.selector);
+        vm.expectRevert(HunchVPM.AuthorizationUsed.selector);
         vpm.enterWithAuthorization(alice, id, 0, 10 * USDG, 0, vb, bytes32("s"), sig);
         assertEq(usdg.balanceOf(alice), 90 * USDG, "charged once");
+    }
+
+    /// @dev USDG returns without paying for a used nonce, whatever the signature: the settler
+    ///      must refuse the entry itself, or it books a position nobody paid for. (Found by the
+    ///      fork suite against real USDG, test/fork/ForkE2E.t.sol; MockUSDG now behaves the same.)
+    function test_D5_AUsedNonceWithAnySignatureIsRefused() public {
+        uint256 id = _create(0);
+        usdg.mint(alice, 100 * USDG);
+        uint256 vb = block.timestamp + 1 hours;
+        bytes memory sig = _signEnter(alicePk, id, 0, 10 * USDG, 0, vb, bytes32("s"));
+        vm.prank(relayer);
+        vpm.enterWithAuthorization(alice, id, 0, 10 * USDG, 0, vb, bytes32("s"), sig);
+        uint256 escrow = usdg.balanceOf(address(vpm));
+        uint256 count = vpm.marketPositionCount(id);
+        vm.prank(stranger);
+        vm.expectRevert(HunchVPM.AuthorizationUsed.selector);
+        vpm.enterWithAuthorization(alice, id, 0, 10 * USDG, 0, vb, bytes32("s"), new bytes(65));
+        assertEq(usdg.balanceOf(address(vpm)), escrow, "no unpaid stake");
+        assertEq(vpm.marketPositionCount(id), count, "no unpaid position");
+    }
+
+    /// @dev The free attack: an attacker with no USDG cancels one of their own nonces (EIP-3009
+    ///      `cancelAuthorization`, free) and enters on it with a junk signature. Without the
+    ///      check USDG would return without paying and the settler would book the stake.
+    function test_D5_ACancelledNonceCannotBookAFreeEntry() public {
+        uint256 id = _create(0);
+        _fund(bob, 100 * USDG);
+        vm.prank(bob);
+        vpm.enter(id, 1, 100 * USDG); // honest money in the escrow
+        uint256 escrow = usdg.balanceOf(address(vpm));
+        uint256 attackerPk = 0xBAD;
+        address attacker = vm.addr(attackerPk);
+        bytes32 salt = bytes32("free entry");
+        bytes32 nonce = vpm.enterNonce(id, 0, 100 * USDG, salt);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                usdg.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(usdg.CANCEL_AUTHORIZATION_TYPEHASH(), attacker, nonce))
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(attackerPk, digest);
+        usdg.cancelAuthorization(attacker, nonce, abi.encodePacked(r, s, v));
+        assertTrue(usdg.authorizationState(attacker, nonce), "the nonce is burnt, for free");
+
+        vm.roll(block.number + 1);
+        vm.prank(attacker);
+        vm.expectRevert(HunchVPM.AuthorizationUsed.selector);
+        vpm.enterWithAuthorization(attacker, id, 0, 100 * USDG, 0, block.timestamp + 1 days, salt, new bytes(65));
+        assertEq(usdg.balanceOf(address(vpm)), escrow, "the escrow is untouched");
+        assertEq(usdg.balanceOf(attacker), 0);
+    }
+
+    /// @dev Defence in depth: whatever the reason, a pull that reports success without raising
+    ///      the settler's balance by the amount reverts `NotPaid` (a faulty token upgrade is
+    ///      simulated with MockUSDG.setBrokenPulls): no create, no entry, no signed entry.
+    function test_D5_APullThatDoesNotPayIsRefused() public {
+        uint256 id = _create(0);
+        _fund(bob, 50 * USDG);
+        usdg.mint(alice, 50 * USDG);
+        uint256 vb = block.timestamp + 1 hours;
+        bytes memory sig = _signEnter(alicePk, id, 0, 10 * USDG, 0, vb, bytes32("p"));
+        uint256 escrow = usdg.balanceOf(address(vpm));
+        usdg.setBrokenPulls(true);
+
+        vm.prank(bob);
+        vm.expectRevert(HunchVPM.NotPaid.selector);
+        vpm.enter(id, 1, 10 * USDG);
+        vm.prank(relayer);
+        vm.expectRevert(HunchVPM.NotPaid.selector);
+        vpm.enterWithAuthorization(alice, id, 0, 10 * USDG, 0, vb, bytes32("p"), sig);
+        vm.prank(creator);
+        vm.expectRevert(HunchVPM.NotPaid.selector);
+        vpm.create(
+            IERC20(address(usdg)), _seed(10 * USDG, 10 * USDG), KAPPA, T, VOID_TIMEOUT, resolver, residueOwner, 0, 0, 0
+        );
+        assertEq(usdg.balanceOf(address(vpm)), escrow, "nothing booked");
+        assertEq(vpm.marketPositionCount(id), 2, "only the seed legs");
+
+        usdg.setBrokenPulls(false); // the same calls pay, and land
+        vm.prank(bob);
+        vpm.enter(id, 1, 10 * USDG);
+        vm.prank(relayer);
+        vpm.enterWithAuthorization(alice, id, 0, 10 * USDG, 0, vb, bytes32("p"), sig);
+        assertEq(usdg.balanceOf(address(vpm)), escrow + 20 * USDG);
     }
 
     function test_D5_ExpiredOrNotYetValidAuthorizationsRevert() public {
