@@ -260,3 +260,20 @@ describe('classic counterfactual', () => {
     expect(classicPayouts(ps, null)).toEqual([5n, 7n]);
   });
 });
+
+describe('replay from on-chain positions', () => {
+  it('replayMarket reproduces the books; accrualPath is monotone and ends at the payout', async () => {
+    const { replayMarket, accrualPath } = await import('../src/index.js');
+    const { market, settlement } = workedExample();
+    const entries = market.positions.map((p) => ({ outcome: p.outcome, offered: p.offered, vintage: p.vintage }));
+    const replay = replayMarket(entries, 30n);
+    simFinalize(replay);
+    expect(replay.books.map((b) => b.acc)).toEqual(market.books.map((b) => b.acc));
+    const mei = accrualPath(entries, 30n, 2);
+    expect(mei[0]).toEqual({ vintage: 1n, accrued: 20_000_000n });
+    for (let i = 1; i < mei.length; i++) expect(mei[i]!.accrued).toBeGreaterThanOrEqual(mei[i - 1]!.accrued);
+    expect(mei[mei.length - 1]!.accrued).toBe(settlement!.positions[2]!.settlement.gross);
+    const seedUp = accrualPath(entries, 30n, 0);
+    expect(seedUp[0]).toEqual({ vintage: 0n, accrued: 20_000_000n });
+  });
+});

@@ -589,3 +589,64 @@ export function workedExample(): SimulateResult {
     seedLabels: ['Seed UP', 'Seed DOWN'],
   });
 }
+
+// ------------------------------------------------------------------ replay from on-chain positions
+
+export interface ReplayEntry {
+  outcome: number;
+  offered: bigint;
+  /** L1 block of entry; 0 = a seed leg (vintage 0). */
+  vintage: bigint;
+}
+
+/**
+ * Rebuild a market from its positions in `marketPositions` order (seed legs first, then
+ * entries by arrival). Positions carry everything the mechanism depends on (outcome,
+ * offered, vintage), so the replay reproduces the contract's books exactly; still-pending
+ * entries stay pending.
+ */
+export function replayMarket(positions: readonly ReplayEntry[], kappa: bigint): SimMarket {
+  const seeds = positions.filter((p) => p.vintage === 0n);
+  const sim = simCreate(seeds.map((p) => p.offered), kappa);
+  for (const p of positions.filter((x) => x.vintage !== 0n)) simEnter(sim, { outcome: p.outcome, amount: p.offered, block: p.vintage });
+  return sim;
+}
+
+export interface AccrualPoint {
+  /** The vintage (L1 block) after which this value holds; the first point is the position's own. */
+  vintage: bigint;
+  /** Win payout if the position's side won at that point (monotone non-decreasing). */
+  accrued: bigint;
+}
+
+/**
+ * The accrued win payout of `positions[index]` after its own vintage and after every later
+ * vintage: the data behind a "your win payout can only go up" curve.
+ */
+export function accrualPath(positions: readonly ReplayEntry[], kappa: bigint, index: number): AccrualPoint[] {
+  const target = positions[index];
+  if (target === undefined) throw new RangeError(`no position at index ${index}`);
+  const seeds = positions.filter((p) => p.vintage === 0n);
+  const sim = simCreate(seeds.map((p) => p.offered), kappa);
+  const entries = positions.map((p, i) => ({ ...p, i })).filter((p) => p.vintage !== 0n);
+  const vintages = [...new Set(entries.map((e) => e.vintage))].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const simIndex = new Map<number, number>();
+  seeds.forEach((_, k) => simIndex.set(positions.indexOf(seeds[k]!), k));
+  const points: AccrualPoint[] = [];
+  const record = (vintage: bigint) => {
+    const id = simIndex.get(index);
+    if (id === undefined) return;
+    const p = sim.positions[id]!;
+    if (p.finalized) points.push({ vintage, accrued: accrued(p, sim.books[p.outcome]!) });
+  };
+  record(0n);
+  for (const v of vintages) {
+    for (const e of entries.filter((x) => x.vintage === v)) {
+      const pos = simEnter(sim, { outcome: e.outcome, amount: e.offered, block: v });
+      simIndex.set(e.i, pos.id);
+    }
+    simFinalize(sim);
+    record(v);
+  }
+  return points;
+}

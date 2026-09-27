@@ -14,5 +14,6 @@ export * from './questions.js';
 export * from './mechanics.js';
 export * from './rounds.js';
 export * from './typedData.js';
+export * from './reads/index.js';
+export * from './writes/index.js';
 export * from './redact.js';
-export { callMany, type Call, type CallResult } from './reads/shared.js';
