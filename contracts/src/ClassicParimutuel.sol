@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IERC20} from "./VestedParimutuel.sol";
+import {IERC20} from "./reference/VestedParimutuel.sol";
 import {IParimutuelSettler} from "./interfaces/IParimutuelSettler.sol";
 
 /// @title The classic pool, on-chain, behind the same interface as the vested one

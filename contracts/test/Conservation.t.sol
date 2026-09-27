@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {VestedParimutuel, IERC20} from "../src/VestedParimutuel.sol";
+import {VestedParimutuel, IERC20} from "../src/reference/VestedParimutuel.sol";
 import {ClassicParimutuel} from "../src/ClassicParimutuel.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
 import {IParimutuelSettler} from "../src/interfaces/IParimutuelSettler.sol";

@@ -6,16 +6,19 @@ not to have changed the mechanism.
 
 | File | Origin | Modified |
 |---|---|---|
-| `src/VestedParimutuel.sol` | reference implementation published with *The Vested Parimutuel* (MIT, no dependencies) | no — byte for byte |
-| `src/NaiveVestedParimutuel.sol` | the paper's §4.1 loop form, kept for gas comparison | no |
+| `src/reference/VestedParimutuel.sol` | reference implementation published with *The Vested Parimutuel* (MIT, no dependencies) | no — byte for byte |
+| `src/reference/NaiveVestedParimutuel.sol` | the paper's §4.1 loop form, kept for gas comparison | no |
 | `src/mocks/MockERC20.sol` | the reference project's transfer-exact test token | no |
-| `test/Vectors.t.sol` | the reference project's differential replay | fixture path only |
-| `test/Mechanism.t.sol` | the reference project's hand-checked paths | no |
-| `test/Gas.t.sol` | the reference project's gas measurements | no |
+| `test/Vectors.t.sol` | the reference project's differential replay | fixture and import paths only |
+| `test/Mechanism.t.sol` | the reference project's hand-checked paths | import path only |
+| `test/Gas.t.sol` | the reference project's gas measurements | import path only |
 | `test/vectors/vpm-vectors.json` | published conformance suite 1.2.0, 118 vectors | no |
 
-Everything else under `src/` is new: `ClassicParimutuel`, `FeedResolver`, `MarketFactory`,
-the two interfaces and the oracle adapters.
+The two vendored settler files live under `src/reference/` so that nothing new can be
+mistaken for them. They are test oracles and gas baselines here; neither is deployed.
+
+`ClassicParimutuel` and `IParimutuelSettler` come from the pre-event Arc venue
+(hunch-vpm @6313376) and are kept for the ordinary-pool counterfactual only.
 
 ## How the byte-for-byte claim is enforced
 
