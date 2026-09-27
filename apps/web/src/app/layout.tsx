@@ -1,8 +1,10 @@
+import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
 import { Archivo, Inter, JetBrains_Mono } from 'next/font/google';
 
 import { SiteFooter } from '@/components/chrome/SiteFooter';
 import { SiteHeader } from '@/components/chrome/SiteHeader';
+import { ConnectModalHost } from '@/components/wallet/ConnectModalHost';
 import { HERO_TITLE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site';
 import './globals.css';
 
@@ -74,6 +76,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <SiteFooter />
+        {/* Loads nothing until someone asks to connect a wallet. */}
+        <ConnectModalHost />
+        <Analytics />
       </body>
     </html>
   );

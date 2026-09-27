@@ -1,83 +1,75 @@
 'use client';
 
-// S7: may move onto the wagmi connector (useSwitchChain with add-then-switch); keep the same
-// behaviour: add first (wallets that never return 4902 still get the add call), then switch.
-
-import { useState } from 'react';
+import { CHAIN_ID } from '@hunch-rh/client';
+import { useCallback, useEffect, useState } from 'react';
 
 import { buttonClass } from '@/components/ui/primitives';
-import { ROBINHOOD_CHAIN } from '@/lib/site';
+import { trackEvent } from '@/lib/wallet/analytics';
+import { describeWalletError } from '@/lib/wallet/errors';
+import { useWalletPort } from '@/lib/wallet/port';
 
-interface Eip1193 {
-  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
-}
-
-type State = { kind: 'idle' } | { kind: 'working' } | { kind: 'done' } | { kind: 'no-wallet' } | { kind: 'error'; message: string };
-
-function provider(): Eip1193 | null {
-  const candidate = (window as unknown as { ethereum?: Eip1193 }).ethereum;
-  return candidate !== undefined && typeof candidate.request === 'function' ? candidate : null;
-}
-
-function describe(error: unknown): string {
-  const code = (error as { code?: number } | null)?.code;
-  if (code === 4001) return 'You declined in your wallet. Nothing changed; try again when ready.';
-  if (code === -32002) return 'Your wallet already has a request open. Check it, then try again.';
-  return 'Your wallet did not add the network. Add it by hand with the details above.';
-}
+type State = { kind: 'idle' } | { kind: 'waiting-for-wallet' } | { kind: 'working' } | { kind: 'done' } | { kind: 'error'; message: string };
 
 /**
- * Adds Robinhood Chain to a browser wallet and switches to it. Adding and switching a network
- * costs nothing and sends no transaction.
+ * Adds Robinhood Chain to a wallet and switches to it, through the same wallet connection the
+ * bet panel uses: connect first if needed, then add, then switch (a wallet that never answers
+ * "unknown chain" still gets the add). Adding and switching a network costs nothing and sends no
+ * transaction.
  */
 export function AddNetworkButton() {
+  const wallet = useWalletPort();
   const [state, setState] = useState<State>({ kind: 'idle' });
+  const onChain = wallet.status === 'connected' && wallet.chainId === CHAIN_ID;
 
-  const add = async (): Promise<void> => {
-    const wallet = provider();
-    if (wallet === null) {
-      setState({ kind: 'no-wallet' });
-      return;
-    }
+  const run = useCallback(async (): Promise<void> => {
     setState({ kind: 'working' });
     try {
-      await wallet.request({
-        method: 'wallet_addEthereumChain',
-        params: [
-          {
-            chainId: ROBINHOOD_CHAIN.idHex,
-            chainName: ROBINHOOD_CHAIN.name,
-            nativeCurrency: ROBINHOOD_CHAIN.currency,
-            rpcUrls: [ROBINHOOD_CHAIN.rpcUrl],
-            blockExplorerUrls: [ROBINHOOD_CHAIN.explorerUrl],
-          },
-        ],
-      });
-      await wallet.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ROBINHOOD_CHAIN.idHex }] });
+      await wallet.switchToRobinhood();
+      trackEvent('switch_chain', { from: 'start' });
       setState({ kind: 'done' });
     } catch (error) {
-      setState({ kind: 'error', message: describe(error) });
+      setState({ kind: 'error', message: describeWalletError(error).message });
     }
+  }, [wallet]);
+
+  // After the wallet list connects a wallet, carry on with the add and switch.
+  useEffect(() => {
+    if (state.kind === 'waiting-for-wallet' && wallet.status === 'connected') void run();
+  }, [state.kind, wallet.status, run]);
+
+  const onClick = (): void => {
+    if (wallet.status !== 'connected') {
+      setState({ kind: 'waiting-for-wallet' });
+      wallet.openConnect();
+      return;
+    }
+    void run();
   };
+
+  const label = onChain
+    ? 'Robinhood Chain is selected'
+    : state.kind === 'working'
+      ? 'Check your wallet'
+      : state.kind === 'waiting-for-wallet'
+        ? 'Pick your wallet'
+        : 'Add Robinhood Chain to my wallet';
 
   return (
     <div>
       <button
         type="button"
-        onClick={() => void add()}
-        disabled={state.kind === 'working'}
-        className={buttonClass('secondary', 'md', 'disabled:cursor-wait disabled:opacity-60')}
+        onClick={onClick}
+        disabled={state.kind === 'working' || onChain}
+        className={buttonClass('secondary', 'md', 'disabled:cursor-default disabled:opacity-70')}
       >
-        {state.kind === 'working' ? 'Check your wallet' : state.kind === 'done' ? 'Added to your wallet' : 'Add Robinhood Chain to my wallet'}
+        {label}
       </button>
       <p className="mt-2 min-h-5 text-sm text-muted" role="status" aria-live="polite">
-        {state.kind === 'done'
+        {onChain || state.kind === 'done'
           ? 'Robinhood Chain is in your wallet and selected.'
-          : state.kind === 'no-wallet'
-            ? 'No browser wallet found here. Open this page in MetaMask or Rabby, or add the network by hand with the details above.'
-            : state.kind === 'error'
-              ? state.message
-              : 'Free: adding and switching networks sends no transaction.'}
+          : state.kind === 'error'
+            ? state.message
+            : 'Free: adding and switching networks sends no transaction.'}
       </p>
     </div>
   );
