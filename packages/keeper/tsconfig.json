@@ -2,8 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": ".",
-    "types": ["node"]
+    "types": ["node"],
+    // Typecheck (and tsx) resolve the client from source, so neither needs its dist.
+    // The build (tsconfig.build.json) resolves the published types in ../client/dist.
+    "paths": {
+      "@hunch-rh/client": ["../client/src/index.ts"]
+    }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "calendar/*.json", "vitest.config.ts"]
 }

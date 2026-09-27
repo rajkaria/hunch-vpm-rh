@@ -3,7 +3,10 @@
   "compilerOptions": {
     "noEmit": false,
     "outDir": "dist",
-    "rootDir": "src"
+    // "." (not "src") so calendar/corporate-actions.json, imported by src/calendar.ts,
+    // is emitted next to the code: dist/src/*.js and dist/calendar/*.json.
+    "rootDir": ".",
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "calendar/*.json"]
 }

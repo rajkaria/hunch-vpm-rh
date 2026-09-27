@@ -1,0 +1,4 @@
+{
+  "_comment": "Announced corporate actions that make the keeper skip listing a ticker. Robinhood pauses a Stock Token's oracle (oraclePaused) around splits and similar actions, and a pause can outlast a market, so the keeper does not list a daily or weekly market whose window (strike ET date through final ET date, inclusive) overlaps an action. Add one object to `actions` per announced action: ticker (as in deployments/robinhood-mainnet.json), date (ET YYYY-MM-DD, the ex or effective date), optional until (last ET date affected, inclusive; defaults to date), kind (split | reverse-split | special-dividend | spin-off | merger | other), source (URL of the issuer's or Robinhood's announcement) and note. Remove entries once they are in the past. Markets already listed are unaffected: they settle or void on their own proofs.",
+  "actions": []
+}
