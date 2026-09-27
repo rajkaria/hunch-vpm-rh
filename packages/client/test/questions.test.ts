@@ -46,7 +46,8 @@ describe('rules box', () => {
         'DOWN if it is lower. If they are the same, or if either price is more than 26 hours old at that moment, or if Robinhood pauses the token\'s price ' +
         'for a corporate action for more than a day, every bet is refunded in full. Bets are accepted until 4:00 pm ET. The earlier you bet, the more of ' +
         "the other side's later money is yours; a bet placed at the last moment gets its stake back plus whatever the other side adds after it. " +
-        'Hunch keeps 2% of winnings. Nobody at Hunch can set or change a price.',
+        'Hunch keeps 2% of winnings. Nobody at Hunch can set or change a price. ' +
+        'If Chainlink moves this feed to a new aggregator around a bell, the price is read from the newest aggregator that had reported by then.',
     );
     expect(box.markdown.startsWith('**How this market settles.**')).toBe(true);
     expect(box.markdown).toContain('**UP** wins');

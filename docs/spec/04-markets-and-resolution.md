@@ -12,7 +12,8 @@ on 2026-09-27); the public copy of every address is `deployments/robinhood-mainn
   heartbeat**. 8 decimals.
 - So there is almost never a round printed exactly at 9:30 or 4:00 pm ET. Every reading
   in this venue is **"the Chainlink price in effect at time T" = the answer of the last
-  round with `updatedAt ≤ T`**. It can differ from the exchange's official print by up
+  round with `updatedAt ≤ T` of the newest Chainlink aggregator (feed phase) that had
+  reported by T**. It can differ from the exchange's official print by up
   to about 0.5%, and it is the price of the **Stock Token** (share price ×
   `uiMultiplier`, continuous through dividends and splits). The rules box says both.
 - If the price stayed inside Chainlink's 0.5% band for the whole window, the strike and
@@ -124,4 +125,6 @@ Question templates (rendered from the spec, never from free text):
 > bet is refunded in full. Bets are accepted until 4:00 pm ET. The earlier you bet, the
 > more of the other side's later money is yours; a bet placed at the last moment gets
 > its stake back plus whatever the other side adds after it. Hunch keeps 2% of winnings.
-> Nobody at Hunch can set or change a price.
+> Nobody at Hunch can set or change a price. If Chainlink moves this feed to a new
+> aggregator around a bell, the price is read from the newest aggregator that had reported
+> by then.

@@ -89,7 +89,9 @@ Both non-zero, checked.
 
 - `create(...)` gains `uint128 minEntry, uint128 maxEntry` (0 = no bound). Immutable per
   market. `enter` reverts `EntryTooSmall` / `EntryTooLarge` on the **offered** amount.
-- Venue values: min 1 USDG, max 100 USDG.
+- Venue values: min 1 USDG, max 100 USDG. The factory enforces a floor of at least
+  `MIN_ENTRY` (1 USDG) and a non-zero cap at or above the floor (`EntryBoundsTooLoose`,
+  `InvalidEntryBounds`), so filling a vintage to block entries costs real capital.
 
 ### D4 · Entries pause (guardian), nothing else pausable
 
@@ -130,8 +132,13 @@ function enterWithAuthorization(
 - Order: all `enter` checks (open, not frozen, outcome, bounds, not paused) → vintage
   roll → book the position for `from` → `USDG.receiveWithAuthorization(from,
   address(this), amount, validAfter, validBefore, enterNonce(...), signature)`. USDG
-  requires `to == msg.sender`, so the authorization cannot be redirected, and USDG marks
-  the nonce used, so it cannot be replayed.
+  requires `to == msg.sender`, so the authorization cannot be redirected.
+- **Real USDG does not revert on a used or cancelled nonce**: it emits
+  `AuthorizationAlreadyUsed`, moves nothing and checks neither signature nor value (found
+  by the fork suite on chain 4663, not by local mocks). So the settler checks
+  `authorizationState(from, nonce)` first and reverts `AuthorizationUsed`, and every pull
+  (`create`, `enter`, `enterWithAuthorization`) goes through `_pullExact`, which reverts
+  `NotPaid` unless the settler's USDG balance rose by the amount.
 - The internal `_enter(owner, marketId, outcome, amount)` is shared by `enter`
   (owner = `msg.sender`, pulls with `transferFrom`) and `enterWithAuthorization`
   (owner = `from`, pulls with the authorization). The mechanism code path is identical.
@@ -182,7 +189,7 @@ USDG from a victim market on the reference). Fix: `resolve` and `voidMarket` fin
 open vintage unconditionally (one line each). Identical to the reference whenever the
 block has advanced; safe in the same block because no entry can join after the freeze.
 
-### D9 · At most 200 entries per vintage
+### D9 · Lock prevention (vintage entry and work caps, κ bound)
 
 Added during the build after a reproduced permanent lock. Finalizing a vintage costs about
 34k gas per entry and every exit from a market finalizes first; about 1,000 minimum entries
@@ -190,7 +197,13 @@ in one L1 block push finalization past the chain's 32M per-transaction gas limit
 market (with every stake in it) can never settle (`test/VintageStuffing.t.sol`). Fix:
 `MAX_VINTAGE_ENTRIES = 200`; a 201st entry in the same vintage reverts `VintageFull()` and
 the relayer retries it in the next block (the signed authorization stays unused, because
-every check runs before the pull). A full vintage finalizes in about 6.9M gas.
+every check runs before the pull). A full vintage finalizes in about 6.9M gas. Because
+finalization costs O(entries × outcomes) and `create` allows up to 255 outcomes, a second
+cap `MAX_VINTAGE_WORK = 12,800` bounds `(pending + 1) × n` (200 entries up to 64 outcomes,
+50 at 255); the fullest vintage of any creatable market finalizes in at most ~23.1M gas.
+A finite κ above `MAX_KAPPA = 1e9` is refused at creation (`InvalidKappa`): a huge κ
+overflows `κ · a` at finalization and would lock the market. (The published vectors use κ up
+to 1e9.)
 
 ### Unchanged from the reference (do not touch)
 
@@ -249,12 +262,17 @@ that the settler's market has `resolver == address(this)` and `resolutionTime ==
   proxy's current `latestRoundData().roundId` (possible only because resolution runs at
   `block.timestamp ≥ T`: a round written later has `updatedAt > T`).
 - Round ids are proxy ids (`phaseId << 64 | aggregatorRoundId`); `x + 1` is taken in the
-  same phase. If `x` is the last round of a phase and a new phase started before T,
-  `resolve` reverts `PhaseBoundary` (the keeper pages the operator; the 72 h settler
-  timeout remains the backstop). If `x + 1` is absent, `x` is not the latest round and the
-  next phase's first round is **after** T, `x` is accepted (the old phase's last round is
-  the price in effect at T); if nothing in the next phase is readable yet, the proof is
-  BADPROOF until it prints.
+  same phase. **Across phases the rule is: the last round at or before T of the highest
+  phase that has any round at or before T.** A round in phase p is accepted only if every
+  phase from p + 1 up to the proxy's current phase has its first round absent or after T.
+  When Chainlink moves a proxy to a new aggregator, the new one usually reports before it
+  is confirmed and the old one keeps its history, so two phases overlap in time; without
+  this rule a caller could pick whichever phase's round gave the outcome they wanted (found
+  by the independent review, `test/PhaseOverlap.t.sol`). A round more than
+  `MAX_PHASE_SPAN = 8` phases below the current one reverts `PhaseBoundary` (the keeper
+  pages the operator; the 72 h settler timeout remains the backstop). Residual: if
+  Chainlink confirms, after a bell, an aggregator that had already reported before it, the
+  provable pair switches at that moment; the first settlement is final.
 - Resolution requires `block.timestamp > T` strictly, so no round written later can
   carry `updatedAt ≤ T`. An unreadable `oraclePaused()` counts as paused.
 - A missing round (proxy reverts "No data present" or returns `updatedAt == 0`) is read
@@ -389,8 +407,9 @@ The factory holds no funds between transactions (asserted by test).
 - **INV-5 Monotone accrual (P2).** For every finalized open position, `accrued(id)` never
   decreases across any sequence of later entries.
 - **INV-6 Reference equivalence.** Fee 0 / no bounds ⇒ identical outcomes to the reference.
-- **INV-7 Resolver soundness.** `resolve` succeeds only with the unique "last round at
-  or before T" pair; any other pair reverts `BadProof`.
+- **INV-7 Resolver soundness.** `resolve` succeeds only with the unique pair defined
+  above (the last round at or before T of the highest phase with one), including when
+  phases overlap in time; any other pair reverts.
 - **INV-8 Signed entries.** An `enterWithAuthorization` whose market, side, amount or
   salt differs from what was signed reverts; a used authorization cannot be replayed.
 
