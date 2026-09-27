@@ -85,9 +85,12 @@ forge build --root contracts
 RH_RPC_URL=$RH_RPC_URL bash scripts/rehearse-fork.sh
 ```
 
-This forks chain 4663 locally, runs the real deploy script against real USDG, real Chainlink
-feeds and real Stock Tokens, opens markets, places signed bets, settles and delivers. It must
-end with `REHEARSAL PASSED`. Then run the fork test suites once with your keyed RPC:
+This forks chain 4663 locally (about 75 to 100 seconds), creates a real 2-of-3 Safe, runs the
+real deploy script against real USDG, real Chainlink feeds and real Stock Tokens, accepts
+ownership from the Safe, lists a market, places a normal bet and a gasless signed bet from a
+wallet holding no ETH, refuses replays, resolves after the bell, delivers every payout, sweeps
+fees and claims the residue, and checks every balance to the unit. It must end with
+`REHEARSAL PASSED`. Then run the fork test suites once with your keyed RPC:
 
 ```bash
 RH_RPC_URL=$RH_RPC_URL forge test --root contracts --match-path 'test/fork/*'
@@ -105,30 +108,41 @@ forge script contracts/script/DeployRH.s.sol:DeployRH \
   --broadcast --slow
 ```
 
+Your keystore password is prompted. Right after it finishes:
+
+```bash
+bash scripts/post-deploy.sh
+```
+
+`post-deploy.sh` reads `contracts/broadcast/DeployRH.s.sol/4663/run-latest.json`, fetches every
+receipt, checks each succeeded, reads the wiring back from chain (refusing on any mismatch),
+fills the deploy transactions, L2 blocks, `startBlock`, `deployedAt` and `gitCommit` into
+`deployments/robinhood-mainnet.json`, and runs `pnpm wire`. Running it twice writes the same
+values. If the broadcast is interrupted, rerun the same `forge script` command with `--resume`,
+then `post-deploy.sh`.
+
 The script refuses to run unless: the chain id is 4663; `SAFE_ADDRESS` has code and a
 threshold of at least 2 (or `ALLOW_1OF1=1`); USDG has 6 decimals; every feed has 8 decimals
 and the expected description; every Stock Token has the expected symbol; the deployer holds
-at least 0.002 ETH. It then deploys `StockRoundResolver`, `HunchVPM` (guardian = treasury =
+at least 0.002 ETH; the keeper is neither the deployer nor the Safe; the deployment JSON still
+says `not-deployed`. It prints the predicted addresses, then deploys `StockRoundResolver`, `HunchVPM` (guardian = treasury =
 Safe) and `HunchMarketFactory` (owner = deployer for one block), allow-lists NVDA, TSLA, AAPL
 (and COIN) with 26 h staleness bounds, sets the keeper as opener, starts the two-step ownership
-transfer to the Safe, and writes `deployments/robinhood-mainnet.json` (addresses, deploy
-transactions, blocks, feeds, Safe, keeper, compiler settings, git commit).
+transfer to the Safe, reads everything back, and writes the addresses, Safe, keeper and each
+feed's current aggregator into `deployments/robinhood-mainnet.json` (post-deploy adds the rest).
 
 ## 7. Verify the contracts on Blockscout
 
 ```bash
-for c in StockRoundResolver HunchVPM HunchMarketFactory; do
-  addr=$(jq -r ".contracts.$c.address" deployments/robinhood-mainnet.json)
-  forge verify-contract "$addr" "src/$c.sol:$c" --root contracts \
-    --chain-id 4663 --rpc-url $RH_RPC_URL \
-    --verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/ \
-    --guess-constructor-args --watch
-done
+bash scripts/verify-contracts.sh
 ```
 
-If Blockscout's Cloudflare challenge blocks the CLI, use Sourcify (`--verifier sourcify`,
-proven working on chain 4663), then open each address on
-<https://robinhoodchain.blockscout.com> in a browser and confirm the green "verified" badge.
+It rebuilds each contract's constructor arguments from the deployment JSON, checks them against
+the tail of the creation transaction, submits to Blockscout, and falls back to Sourcify for
+anything Blockscout refuses (Blockscout's API sits behind a Cloudflare challenge). Options:
+`--verifier blockscout|sourcify` forces one; `--print` only prints the commands. Then open each
+address on <https://robinhoodchain.blockscout.com> in a browser and confirm the green
+"verified" badge.
 
 ## 8. Accept factory ownership from the Safe
 
@@ -159,10 +173,12 @@ for the value; nothing lands in history).
 
 ## 10. Ship the addresses
 
+`post-deploy.sh` already ran `pnpm wire` (README address table and the client's embedded copy).
+
 ```bash
-pnpm wire                      # regenerates the README address table from the deployment JSON
 pnpm verify                    # must end with VERIFY PASSED
-git add deployments/robinhood-mainnet.json README.md
+git add deployments/robinhood-mainnet.json packages/client/src/deployment/embedded.ts README.md \
+        contracts/broadcast/DeployRH.s.sol/4663/
 git commit -m "deploy: Robinhood Chain mainnet"
 git push                       # Vercel builds and deploys main to production
 ```
