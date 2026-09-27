@@ -44,8 +44,8 @@ contract HunchMarketFactory {
     /// @param maxStrikeAge 0 = the feed's bound; otherwise at most the feed's bound
     /// @param maxFinalAge  0 = the feed's bound; otherwise at most the feed's bound
     /// @param seedPerLeg   USDG the opener stakes on each side (at least 1 USDG)
-    /// @param minEntry     smallest entry, USDG base units (0 = no bound)
-    /// @param maxEntry     largest entry, USDG base units (0 = no bound)
+    /// @param minEntry     smallest entry, USDG base units (at least MIN_ENTRY, 1 USDG)
+    /// @param maxEntry     largest entry, USDG base units (non-zero, at least minEntry)
     struct UpDown {
         address feed;
         uint64 strikeTime;
@@ -81,6 +81,10 @@ contract HunchMarketFactory {
     uint64 public constant VOID_TIMEOUT = 72 hours;
     uint256 public constant MAX_WINDOW = 8 days;
     uint128 public constant MIN_SEED_PER_LEG = 1e6;
+    /// @notice The smallest `minEntry` a listed market may have (1 USDG). Every market the
+    ///         factory lists has a floor and a cap on entries, so filling a vintage (at most
+    ///         200 entries per ~12 s block, D9) always costs real capital at risk.
+    uint128 public constant MIN_ENTRY = 1e6;
 
     // ------------------------------------------------------------------ immutables
 
@@ -142,6 +146,8 @@ contract HunchMarketFactory {
     error WindowTooLong();
     error SeedTooSmall();
     error BoundTooLoose();
+    error EntryBoundsTooLoose();
+    error InvalidEntryBounds();
     error TransferFailed();
     error ApprovalFailed();
 
@@ -235,9 +241,11 @@ contract HunchMarketFactory {
     /// @notice List one UP/DOWN market. Only an allow-listed opener may call it; the opener
     ///         pays `2 · seedPerLeg` USDG (it must have approved this factory) and receives
     ///         both seed legs. Checks: feed allow-listed; now < finalTime; strikeTime <
-    ///         finalTime; finalTime − strikeTime ≤ 8 days; seedPerLeg ≥ 1 USDG; each age bound
-    ///         0 (the feed's) or no looser than the feed's. It can never change an existing
-    ///         market, and the factory keeps no tokens or positions afterwards.
+    ///         finalTime; finalTime − strikeTime ≤ 8 days; seedPerLeg ≥ 1 USDG; minEntry ≥
+    ///         1 USDG and 0 < maxEntry, minEntry ≤ maxEntry (`EntryBoundsTooLoose`,
+    ///         `InvalidEntryBounds`); each age bound 0 (the feed's) or no looser than the
+    ///         feed's. It can never change an existing market, and the factory keeps no tokens
+    ///         or positions afterwards.
     /// @return marketId the HunchVPM market
     /// @return specId   its StockRoundResolver spec
     function openUpDown(UpDown calldata p) external onlyOpener returns (uint256 marketId, bytes32 specId) {
@@ -246,6 +254,8 @@ contract HunchMarketFactory {
         if (block.timestamp >= p.finalTime || p.strikeTime >= p.finalTime) revert BadTimes();
         if (p.finalTime - p.strikeTime > MAX_WINDOW) revert WindowTooLong();
         if (p.seedPerLeg < MIN_SEED_PER_LEG) revert SeedTooSmall();
+        if (p.minEntry < MIN_ENTRY || p.maxEntry == 0) revert EntryBoundsTooLoose();
+        if (p.maxEntry < p.minEntry) revert InvalidEntryBounds();
         uint32 strikeAge = _tighten(p.maxStrikeAge, f.maxStrikeAge);
         uint32 finalAge = _tighten(p.maxFinalAge, f.maxFinalAge);
 

@@ -296,10 +296,38 @@ contract HunchMarketFactoryTest is Test {
         p.maxEntry = 10e6;
         uint256 before = usdg.balanceOf(keeper);
         vm.prank(keeper);
-        vm.expectRevert(HunchVPM.InvalidEntryBounds.selector);
+        vm.expectRevert(HunchMarketFactory.InvalidEntryBounds.selector);
         factory.openUpDown(p);
         assertEq(usdg.balanceOf(keeper), before, "nothing moved");
         assertEq(vpm.marketCount(), 0);
+    }
+
+    /// @dev I-3 (independent review): every listed market has an entry floor of at least 1 USDG
+    ///      and a cap, so filling a vintage (D9: 200 entries a block) costs real capital.
+    function test_EveryListedMarketHasAnEntryFloorAndACap() public {
+        assertEq(factory.MIN_ENTRY(), 1e6);
+        HunchMarketFactory.UpDown memory p = _daily();
+        p.minEntry = 1e6 - 1;
+        vm.prank(keeper);
+        vm.expectRevert(HunchMarketFactory.EntryBoundsTooLoose.selector);
+        factory.openUpDown(p);
+        p.minEntry = 0; // "no floor" is not allowed
+        vm.prank(keeper);
+        vm.expectRevert(HunchMarketFactory.EntryBoundsTooLoose.selector);
+        factory.openUpDown(p);
+        p = _daily();
+        p.maxEntry = 0; // "no cap" is not allowed
+        vm.prank(keeper);
+        vm.expectRevert(HunchMarketFactory.EntryBoundsTooLoose.selector);
+        factory.openUpDown(p);
+        assertEq(vpm.marketCount(), 0, "nothing listed");
+
+        p = _daily();
+        p.minEntry = 1e6; // the tightest allowed: exactly 1 USDG, min = max
+        p.maxEntry = 1e6;
+        (uint256 id,) = _open(p);
+        (, uint128 minEntry, uint128 maxEntry) = vpm.marketTerms(id);
+        assertEq(abi.encode(minEntry, maxEntry), abi.encode(uint128(1e6), uint128(1e6)));
     }
 
     // ================================================================== openUpDown: effects
