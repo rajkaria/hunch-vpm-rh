@@ -1,131 +1,102 @@
 # Architecture
 
-Three layers, each usable without the ones above it: a settlement layer on Arc, an indexing
-layer on The Graph, and an identity layer that ties an agent to a human.
+Hunch on Robinhood Chain is three contracts, one price source and a keeper that anyone can
+replace. Every layer above the contracts is a convenience: if the website and the keeper both
+disappeared, every market would still settle from Chainlink rounds and every bettor could
+still collect.
 
 ```
-                         ┌──────────────────────────────────────────┐
-                         │  web surface  ·  demo agent  ·  Arc rail │
-                         │  MCP tools · SKILL · @hunch-rh/client    │
-                         └───────────────┬──────────────────────────┘
-                                         │ reads decisions, not rows
-             ┌───────────────────────────┼───────────────────────────┐
-             │                           │                           │
-     ┌───────▼────────┐        ┌─────────▼─────────┐      ┌──────────▼────────┐
-     │ hunch-vpm      │        │ erc8004-arc       │      │ substreams        │
-     │ subgraph       │        │ subgraph          │      │ package           │
-     │ book, headroom │        │ agent identity    │      │ market + position │
-     │ vesting, spec  │        │ and reputation    │      │ tables            │
-     └───────┬────────┘        └─────────┬─────────┘      └──────────┬────────┘
-             │                           │                           │
-             └───────────────────────────┼───────────────────────────┘
-                                         │ indexes
-   ╔═════════════════════════════════════▼═══════════════════════════════════╗
-   ║  Arc (chain 5042002 testnet / 5042 mainnet) — USDC is the native gas     ║
-   ║                                                                          ║
-   ║   MarketFactory ──opens──► VestedParimutuel ◄──IParimutuelSettler──►     ║
-   ║        │                   ClassicParimutuel                              ║
-   ║        └──registers──► FeedResolver ──reads──► IPriceOracle               ║
-   ║                             ▲                  ├─ StorkOracle            ║
-   ║                    anyone may call             ├─ ChainlinkFeedOracle    ║
-   ║                    once frozen                 └─ (Pyth, RedStone …)     ║
-   ╚══════════════════════════════════════════════════════════════════════════╝
-                                         │
-                              ┌──────────▼──────────┐
-                              │ World AgentBook     │
-                              │ human-backed tiering│
-                              └─────────────────────┘
+                ┌──────────────────────────────────────────────────────────────┐
+                │  rh.playhunch.xyz  (Next.js on Vercel)                       │
+                │  pages · /api reads · /api/relay/enter · /api/cron/[job]     │
+                └───────┬───────────────────────┬───────────────────┬──────────┘
+                        │ view calls             │ signed bets       │ Vercel Cron
+                        │ (@hunch-rh/client)     │ (EIP-3009)        │ (@hunch-rh/keeper)
+                        ▼                        ▼                   ▼
+   ╔══════════════════════════════════════════════════════════════════════════════╗
+   ║  Robinhood Chain mainnet · chain 4663 · Arbitrum Orbit (ArbOS 61) · ETH gas   ║
+   ║                                                                              ║
+   ║    Safe ── owner ──► HunchMarketFactory ──create──► HunchVPM ◄── bettors      ║
+   ║     │                  │  (seed legs to opener)       ▲   enter / signed entry║
+   ║     └ guardian/treasury│ register spec                │   claim / claimFor    ║
+   ║                        ▼                              │                       ║
+   ║                StockRoundResolver ──resolve / void────┘                       ║
+   ║                        │ getRoundData · latestRoundData · oraclePaused        ║
+   ║                        ▼                                                      ║
+   ║      Chainlink stock feeds (NVDA, TSLA, AAPL, COIN) · Robinhood Stock Tokens ║
+   ║      USDG (Paxos, 6 decimals, EIP-3009 signed transfers)                     ║
+   ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-## Settlement
+## Contracts (`contracts/`)
 
-Two settlers sit behind one interface, `IParimutuelSettler`, so a venue switches rule by
-configuration rather than by migration.
+| Contract | Role | Owner | Deployed |
+|---|---|---|---|
+| `HunchVPM` | The settler: the paper's reference `VestedParimutuel` plus seven listed changes (fee on winners' gains, claims delivered to owners by anyone, per-market entry caps, an entries-only pause, gasless signed entry, views, events) | none; a guardian address may pause **new entries** only | yes |
+| `StockRoundResolver` | Settles UP/DOWN from two proven Chainlink rounds: the price in effect at the opening bell and at the closing bell | none | yes |
+| `HunchMarketFactory` | Lists a market in one transaction: pulls the seed, creates the market, registers its spec, hands the seed legs to the opener, keeps an on-chain listing table | the Safe (two-step transfer) | yes |
+| `reference/VestedParimutuel` | The paper's reference implementation, byte for byte | — | no, test oracle |
+| `ClassicParimutuel` | The ordinary pool rule, for the counterfactual column only | — | no |
 
-**`VestedParimutuel`** is the mechanism from the paper, vendored byte-for-byte from its
-reference implementation. Stake vests into the opposing books the moment it lands, and is
-accepted only up to the capacity those books have to cover it. Entries in the same block form
-one vintage and never vest to each other. Payment is pull-based, the residue has a named
-owner fixed at creation, and the market freezes at a timestamp set when it opens and never
-movable. The 118 published conformance vectors run against it in CI; if anyone edits it, they
-stop passing.
+`contracts/DIFF.md` holds the literal diff of `HunchVPM` against the reference; CI fails if a
+hunk appears that is not one of the seven listed changes. The differential suite proves that
+with the fee at zero and no caps, `HunchVPM` and the reference produce identical acceptances,
+payouts, refunds and residue on all 118 published vectors and on fuzzed sequences.
 
-**`ClassicParimutuel`** is the rule the live Hunch product runs today, ported behind the same
-interface: the pool is every stake and each winner takes it pro rata,
-`floor(pool × stake / winningPrincipal)`. It rations nothing. It exists so the same market
-can be shown settled both ways, which is the only honest way to show what the vested rule
-changes.
+### How a market lives
 
-The difference, stated precisely: under the classic rule the payout multiple per unit staked
-is flat across arrival order. Under the vested rule it is strictly decreasing. A unit staked
-seconds before the freeze earns the same multiple as one that carried the risk all day in the
-first case, and cannot in the second.
+1. **Listing.** Before the opening bell the keeper (an allow-listed opener) calls
+   `HunchMarketFactory.openUpDown`: 10 USDG seed on each side, κ = 30, fee 2% of winners'
+   gains, entries capped at 1–100 USDG, freeze at the closing bell, void timeout 72 h. The
+   resolver registers the spec (feed, Stock Token, strike time, final time, staleness bounds);
+   the spec is hashed, so nothing about it can change afterwards.
+2. **Entries.** A bettor signs one USDG `ReceiveWithAuthorization` whose nonce binds the
+   market, side, amount and a salt (`enterNonce`). Anyone (normally the venue's relayer)
+   submits `enterWithAuthorization`; USDG only lets the settler itself pull the funds, and the
+   position belongs to the signer. A bettor with ETH can instead `approve` + `enter`.
+3. **Matching.** Entries in the same Ethereum block number (the chain's `block.number` is the
+   L1 estimate, ~12 s) form one vintage, rationed together and never vesting to each other.
+   The next transaction touching the market finalizes the vintage; the keeper pokes
+   `finalizeVintage` so accrued payouts and any refused remainder show within seconds.
+4. **Resolution.** After the closing bell anyone calls
+   `StockRoundResolver.resolve(specId, strikeRound, finalRound)`. The contract checks that
+   each round is the last one at or before its bell (`updatedAt ≤ T` and the next round is
+   after `T`, or absent and latest), that neither price is older than its bound, and that
+   Robinhood has not paused the token's oracle. Higher close: UP. Lower: DOWN. Same round or
+   same price: FLAT, which voids and refunds everyone. Proven staleness voids through
+   `voidStale`; a corporate-action pause lasting a day voids through `voidPaused`; after 72 h
+   anyone may void through the settler directly.
+5. **Delivery.** The keeper calls `claimFor` for every position with a payout or refund, one
+   transaction each, so a USDG-frozen address fails alone. Funds only ever go to the
+   position's owner. Fees accumulate per token and `sweepFees` sends them to the treasury.
 
-## Resolution
+## Off-chain packages
 
-`FeedResolver` is the market's `resolver`, so no human resolves anything. It reads a price
-through `IPriceOracle` — one method, a price at 8 decimals and the second it was written —
-and anyone may call it once the market has frozen. The caller has no influence on the answer
-and earns nothing for the call.
+| Package | What it is |
+|---|---|
+| `@hunch-rh/client` | Runtime-agnostic TypeScript: chain 4663 definition, ABIs generated from `contracts/out`, the deployment loader, view-call reads (venue, market, positions, prices, proof), the exact bigint mirror of the mechanism (accrued, quote with open-vintage rationing, classic counterfactual), the round finder, the USDG typed-data builder, the NYSE calendar in America/New_York, and the question/rules templates |
+| `@hunch-rh/keeper` | Pure decision functions (open, resolve, deliver, relay validation, health) with a thin runner and a CLI. Every job is idempotent and every action it takes is one anyone can take |
+| `apps/web` | The venue: server-rendered pages from cached view calls, client islands for the wallet and the bet panel, `/api` read endpoints, the relay endpoint and the cron endpoints |
 
-The resolution spec is hashed into its own id, so the feed, strike, direction and staleness
-bound a market settles against cannot be edited after stake is down. If the feed has gone
-quiet past that bound, the market refuses to settle; voiding on that basis is a separate,
-deliberate call, so a keeper retrying through a brief outage cannot accidentally void a good
-market. A voided market refunds accepted principal.
+The web app enumerates markets with view calls only (`listingCount` → `listings` →
+`getMarket` / `getBook` / `marketTerms` → `resolver.getSpec`). Event logs are used for entry
+times and transaction links and degrade gracefully, because the public RPC keeps only about
+ten minutes of historical state and caps `eth_getLogs`.
 
-`MarketFactory` opens the market and registers its spec in one transaction, so there is never
-a window in which stake can land against rules nobody has committed to yet.
+## Addresses
 
-Which oracle ships is a deploy-time choice. Stork is the only provider with a published Arc
-testnet address today; the Chainlink adapter is written and tested and needs only an address.
+`deployments/robinhood-mainnet.json` is the only place an address is written. The client
+imports it; `scripts/wire-deployment.mjs --check` fails the gate if the README's address table
+drifts from it. Until the operator deploys, its `status` is `not-deployed` and every page says
+so.
 
-## Indexing
+## Trust and failure
 
-Agents cannot hammer an RPC to price a book. Two subgraphs and a Substreams package read the
-same contracts three ways.
-
-The `hunch-vpm` subgraph computes the derived quantities **in the mapping**, not in the
-client: headroom per outcome, implied odds from accepted principal rather than from a quoted
-price, vesting to date, and the payout a position would receive if the market resolved now.
-A consumer asking where it can put money gets an answer, not a table to reduce.
-
-The `erc8004-arc` subgraph takes Agent0's standardized ERC-8004 schema — published for
-Ethereum, Base, BSC, Polygon and Monad, but not Arc — and retargets it at Arc's three
-registries. One query pattern then spans agent identity and reputation on Base and on Arc,
-with no new types for anyone already querying the standard schema.
-
-## Continuity
-
-`packages/client/src/rail/` is the adapter that lets the existing product route Arc markets
-through this repository without rewriting its agent surface. `createArcRail` exposes the four
-verbs that API already speaks — research, quote, positions, trade — behind a `SettlementRail`
-interface the Postgres implementation can also satisfy, so the two are swappable by config.
-
-Two behaviours differ and the types make it hard to miss. `quote` answers with the acceptance
-rule rather than a price, so it reports requested, accepted and refused separately and names
-the book that bound it. `trade` returns unsigned calldata and nothing else — the return type
-is a union whose Arc arm is literally tagged `'unsigned-calldata'`, so a caller cannot read it
-as a fill.
-
-## Identity
-
-`@hunch-rh/agentkit-tier` verifies an AgentKit proof against canonical AgentBook and tiers on
-the result: a human-backed agent gets a higher rate limit, the full per-market cap and a badge.
-Anonymous agents keep working. The point is tiering, not exclusion — the failure this is aimed
-at is a farm of wallets claiming to be different people, and refusing anonymous traffic
-outright would cost more honest users than it would stop farms.
-
-The canonical AgentBook address is a placeholder in this tree and the viem-backed verifier
-refuses to start when handed it, so the on-chain half is wired and tested against fixtures but
-has not run against the real registry. Selfie Check is not implemented here at all.
-
-## What is not here
-
-The venue never custodies. `@hunch-rh/client` returns unsigned calldata for the caller's own
-wallet and holds no key. No contract in this repo lets its deployer, the factory or the resolver owner move a user's
-funds. The invariant suite asserts it directly: across 8192 calls per run, an address holding
-no position tries `claim`, `withdrawRefund`, `claimResidue`, `resolve` and `transferPosition`
-on live markets in arbitrary states, and its balance is asserted to stay at zero. The factory
-has its own test that it cannot resolve what it opened, and ends every `open` holding no
-position, no allowance and no balance.
+| If this fails | What happens |
+|---|---|
+| The website | Nothing on-chain changes. Anyone can call `resolve`, `claimFor`, `withdrawRefundFor` from a block explorer |
+| The keeper | Markets settle later. The "Resolve it yourself" button and the 72 h timeout remain |
+| A Chainlink feed goes quiet | The market refunds on proven staleness (26 h bound, 1 h for the refund drill) |
+| Robinhood pauses a token's oracle | Resolution waits; after 24 h the market refunds |
+| Paxos freezes a winner's address | That one claim fails; every other claim is independent |
+| A bug is suspected | The Safe pauses new entries; claims, refunds and settlement keep working |
