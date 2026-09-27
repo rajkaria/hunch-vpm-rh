@@ -30,9 +30,11 @@ interface IERC20 {
 ///         last entry; the reference would then leave that vintage pending, pay its entries
 ///         back as refunds, and let a later `finalizeVintage` vest the same stake into the
 ///         winners again, which drains other markets' escrow (test/SameBlockSettlement.t.sol).
-///         D9: a vintage holds at most MAX_VINTAGE_ENTRIES entries. Finalizing is linear in a
-///         vintage's entries and every path out of a market finalizes first, so an unbounded
-///         vintage could be stuffed past the block gas limit and lock the market for good.
+///         D9: lock prevention. Every path out of a market finalizes its pending vintage
+///         first, so finalizing must always fit in a block and must never revert: a vintage
+///         holds at most MAX_VINTAGE_ENTRIES entries and at most MAX_VINTAGE_WORK
+///         entry-outcome pairs (finalizing is linear in both), and a finite κ is at most
+///         MAX_KAPPA (κ·a at finalization could otherwise overflow and revert every exit).
 /// @dev    Block vintages are applied lazily (design "A" in the README): entries of
 ///         the current block are buffered with their OFFERED amount; the vintage is
 ///         finalized — rationed (§4.4 iii), vested against the vintage-start books
@@ -63,6 +65,13 @@ contract HunchVPM {
     /// @notice D9: the most entries one vintage (one L1 block, ~12 s) may hold, so finalizing a
     ///         vintage always fits in a block (~34,000 gas per entry, under 7.5M gas here).
     uint256 public constant MAX_VINTAGE_ENTRIES = 200;
+    /// @notice D9: the most entry-outcome pairs one vintage may hold (entries × n): finalizing
+    ///         loops over every outcome for every entry, so on a many-outcome market the entry
+    ///         cap alone does not bound its gas. 200 entries up to 64 outcomes, fewer above.
+    uint256 public constant MAX_VINTAGE_WORK = 12_800;
+    /// @notice D9: the largest finite κ `create` accepts (KAPPA_UNBOUNDED is also accepted).
+    ///         κ·a is computed at finalization; a larger κ could overflow there and lock the market.
+    uint256 public constant MAX_KAPPA = 1e9;
 
     // ------------------------------------------------------------------ types
     enum Status {
@@ -177,7 +186,7 @@ contract HunchVPM {
     error EntriesArePaused();     // D4: the guardian has paused new entries
     error NotGuardian();          // D4
     error ZeroAddress();          // D1, D4, D5
-    error VintageFull();          // D9: this block's vintage already holds MAX_VINTAGE_ENTRIES
+    error VintageFull();          // D9: this block's vintage is full (MAX_VINTAGE_ENTRIES or MAX_VINTAGE_WORK)
 
     modifier nonReentrant() {
         if (locked != 1) revert Reentrancy();
@@ -216,7 +225,7 @@ contract HunchVPM {
     ///         refused part of an asymmetric seed never leaves the creator's wallet.
     /// @param  token          transfer-exact settlement asset (§6 a)
     /// @param  seed           offered amount per outcome; length n = |O| ≥ 2
-    /// @param  kappa          capacity coefficient κ ≥ 1, or KAPPA_UNBOUNDED
+    /// @param  kappa          capacity coefficient 1 ≤ κ ≤ MAX_KAPPA, or KAPPA_UNBOUNDED (D9)
     /// @param  resolutionTime the freeze (§12), fixed now and never movable
     /// @param  voidTimeout    seconds after resolutionTime from which anyone may void
     /// @param  resolver       the address allowed to resolve (or void early)
@@ -240,6 +249,7 @@ contract HunchVPM {
     ) external nonReentrant returns (uint256 marketId) {
         if (seed.length < 2 || seed.length > 255) revert InvalidOutcomes(); // D1, D3: `n` inlined (stack)
         if (kappa < 1) revert InvalidKappa();
+        if (kappa > MAX_KAPPA && kappa != KAPPA_UNBOUNDED) revert InvalidKappa(); // D9: κ·a never overflows
         if (resolutionTime <= block.timestamp) revert BadResolutionTime();
         if (feeBps > MAX_FEE_BPS) revert FeeTooHigh(); // D1
         if (maxEntry != 0 && minEntry > maxEntry) revert InvalidEntryBounds(); // D3
@@ -413,7 +423,9 @@ contract HunchVPM {
             m.vintageOpen = true;
             m.vintageBlock = uint64(block.number);
         }
-        if (m.pending.length >= MAX_VINTAGE_ENTRIES) revert VintageFull(); // D9: try the next block
+        if (m.pending.length >= MAX_VINTAGE_ENTRIES || (m.pending.length + 1) * m.n > MAX_VINTAGE_WORK) {
+            revert VintageFull(); // D9: entries and entry-outcome pairs capped; try the next block
+        }
 
         positionId = positions.length;
         positions.push(
