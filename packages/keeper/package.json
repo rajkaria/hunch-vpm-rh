@@ -1,12 +1,13 @@
 {
-  "name": "@hunch-rh/client",
+  "name": "@hunch-rh/keeper",
   "version": "0.1.0",
-  "description": "Typed reads from The Graph and unsigned writes through viem for the Vested Parimutuel on Arc",
+  "description": "The Hunch keeper for Robinhood Chain: pure decisions (open, resolve, deliver, relay, health) and a thin runner",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
   "files": [
     "dist",
+    "calendar",
     "README.md"
   ],
   "main": "./dist/index.js",
@@ -17,19 +18,24 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "hunch-keeper": "./dist/cli.js"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "keeper": "tsx src/cli.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
+    "@hunch-rh/client": "workspace:*",
     "date-fns": "^4.4.0",
-    "viem": "^2.21.0"
+    "viem": "^2.56.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "graphql": "^16.9.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   },
