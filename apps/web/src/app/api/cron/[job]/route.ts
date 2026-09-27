@@ -27,7 +27,9 @@ export async function GET(request: Request, context: { params: Promise<{ job: st
   try {
     const reports = await getKeeper().run(job);
     if (reports.some((report) => report.actions.some((action) => action.status === 'confirmed'))) {
+      // Settled, paid or listed: the next read of any market, the venue or /proof is fresh.
       revalidateTag(TAG.venue, { expire: 0 });
+      revalidateTag(TAG.markets, { expire: 0 });
       revalidateTag(TAG.proof, { expire: 0 });
     }
     return json({ ok: true, job, reports }, { cache: 'none' });

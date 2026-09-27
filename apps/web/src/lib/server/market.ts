@@ -50,7 +50,7 @@ export async function getActivity(marketId: bigint, settled: boolean): Promise<A
   try {
     const snapshot = await cachedRead({
       key: ['activity', deployment.contracts.HunchVPM.address, marketId.toString()],
-      tags: [TAG.market(marketId)],
+      tags: [TAG.market(marketId), TAG.markets],
       revalidate: settled ? 120 : 20,
       read: () => readActivity(serverClient(), deployment, marketId),
     });
@@ -68,7 +68,7 @@ export async function getMarketBundle(marketId: bigint, options: { enhance?: boo
   const deployment = readDeployment();
   const snapshot = await cachedRead({
     key: ['market', deployment.contracts.HunchVPM.address, marketId.toString()],
-    tags: [TAG.market(marketId)],
+    tags: [TAG.market(marketId), TAG.markets],
     revalidate: MARKET_REVALIDATE,
     read: () => readMarket(serverClient(), deployment, marketId),
   });

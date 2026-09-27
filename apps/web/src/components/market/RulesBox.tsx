@@ -1,7 +1,38 @@
+/** The rules box as `@hunch-rh/client`'s `rulesBox(market)` renders it: heading plus bold-aware segments. */
+export interface RulesText {
+  heading: string;
+  segments: readonly { text: string; bold: boolean }[];
+}
+
+/**
+ * A market's own rules box, verbatim from `@hunch-rh/client`'s `rulesBox()` (the template in
+ * docs/spec/04-markets-and-resolution.md filled from the market's on-chain spec: its ticker, its
+ * dates and times in ET, its age bounds and its fee). The outcome words stay bold and coloured.
+ */
+export function MarketRulesBox({ rules, label }: { rules: RulesText; label?: string }) {
+  return (
+    <section aria-label="How this market settles" className="rounded-card border border-edge bg-raised p-4 sm:p-5">
+      {label === undefined ? null : <p className="eyebrow mb-3">{label}</p>}
+      <p className="text-[15px] leading-[1.7] text-muted">
+        <strong className="font-semibold text-paper">{rules.heading}</strong>
+        {rules.segments.map((segment, index) =>
+          segment.bold ? (
+            <strong key={index} className={`font-semibold ${segment.text === 'UP' ? 'text-lime' : segment.text === 'DOWN' ? 'text-coral' : 'text-paper'}`}>
+              {segment.text}
+            </strong>
+          ) : (
+            <span key={index}>{segment.text}</span>
+          ),
+        )}
+      </p>
+    </section>
+  );
+}
+
 /**
  * "How this market settles", the verbatim template from docs/spec/04-markets-and-resolution.md
- * §"What a bettor is told". S7 renders it on every market page with the market's own values;
- * /how-it-works renders it with generic ones. Never truncated, never behind a disclosure.
+ * §"What a bettor is told", with generic values (/how-it-works, the docs). Market pages render
+ * `MarketRulesBox` with the market's own values. Never truncated, never behind a disclosure.
  */
 export function RulesBox({
   ticker,

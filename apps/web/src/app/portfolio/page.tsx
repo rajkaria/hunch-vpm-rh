@@ -1,20 +1,25 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
-// S7: the connected wallet's positions across all markets replace this.
+import { PortfolioView } from '@/components/portfolio/PortfolioView';
+import { Container } from '@/components/ui/Container';
+import { SectionHeading } from '@/components/ui/primitives';
+import { readDeployment } from '@/lib/deployment';
 
-export const metadata: Metadata = { title: 'Portfolio', robots: { index: false } };
+export const metadata: Metadata = { title: 'Your positions', robots: { index: false } };
 
+/** `/portfolio`: the connected wallet's positions across every market (a client island over `/api/positions`). */
 export default function PortfolioPage() {
   return (
-    <section className="py-16">
-      <h1 className="text-2xl">Your portfolio ships with the venue launch.</h1>
-      <p className="mt-3 max-w-prose text-sm text-muted">
-        Once markets are live, every position your wallet holds shows here with what it has earned so far.
-      </p>
-      <Link href="/" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-lime">
-        Back to the home page
-      </Link>
-    </section>
+    <Container className="pb-24 pt-12 sm:pt-16">
+      <SectionHeading
+        as="h1"
+        eyebrow="Portfolio"
+        title="Your positions"
+        lead="Every bet from the connected wallet, what each is worth if its side wins now, and what has been paid. Payouts arrive in your wallet automatically after settlement."
+      />
+      <div className="mt-10">
+        <PortfolioView deploymentOverride={readDeployment()} />
+      </div>
+    </Container>
   );
 }

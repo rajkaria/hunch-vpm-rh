@@ -25,7 +25,7 @@ export function LaunchingState({ deployment, now }: { deployment: Deployment; no
         <div>
           <p className="eyebrow">{deployed ? 'Between markets' : 'Launching'}</p>
           <h3 className="mt-3 text-2xl leading-tight sm:text-[28px]">
-            Markets open at the next opening bell once the venue is live.
+            {deployed ? 'New markets open before the next opening bell.' : 'Markets open at the next opening bell once the venue is live.'}
           </h3>
           <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted">
             {deployed
@@ -69,7 +69,7 @@ export function LaunchingState({ deployment, now }: { deployment: Deployment; no
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-[11px] text-faint">Planned tickers</span>
+            <span className="text-[11px] text-faint">{deployed ? 'Tickers' : 'Planned tickers'}</span>
             {tickers.map((ticker) => (
               <span key={ticker} className="inline-flex items-center gap-1.5 text-xs text-muted">
                 <TickerMark ticker={ticker} size="sm" />
@@ -81,6 +81,11 @@ export function LaunchingState({ deployment, now }: { deployment: Deployment; no
       </div>
     </div>
   );
+}
+
+function nextOpen(now: number): number {
+  const clock = marketClock(now);
+  return (clock.sessionOpen ? currentOrNextSession(clock.session.close + 60) : clock.session).open;
 }
 
 /** When the chain could not be read: say so, with the age of what is shown. Never an empty grid without a reason. */
@@ -113,6 +118,12 @@ export function MarketGrid({
   return (
     <>
       {degraded === 'stale' ? <Degraded kind="stale" readAt={readAt} now={now} /> : null}
+      {markets.some((market) => market.phase === 'opens' || market.phase === 'live') ? null : (
+        <p className="mb-4 rounded-control border border-dashed border-edge-strong px-4 py-3 text-sm text-muted">
+          No market is taking bets right now. New daily markets are listed before each opening bell; the next one rings{' '}
+          <span className="num text-paper">{formatEtDateTime(nextOpen(now))}</span>. Recently settled markets are below.
+        </p>
+      )}
       <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
         {markets.map((market) => (
           <li key={market.id}>

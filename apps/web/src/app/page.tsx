@@ -40,7 +40,8 @@ export default async function LandingPage() {
   const [prices, venue] = await Promise.all([getPrices(), readVenueState(now)]);
   const deployment = readDeployment();
   const proof = selectProof(venue.settled);
-  const live = venue.status === 'deployed' && venue.markets.length > 0;
+  const live = venue.status === 'deployed';
+  const anyOpen = venue.markets.some((market) => market.phase === 'opens' || market.phase === 'live');
 
   return (
     <>
@@ -57,7 +58,7 @@ export default async function LandingPage() {
         <div className="flex flex-wrap items-end justify-between gap-6">
           <SectionHeading
             eyebrow="Markets"
-            title={live ? 'Live markets' : 'Markets'}
+            title={anyOpen ? 'Live markets' : 'Markets'}
             lead="Daily and weekly UP or DOWN markets on Robinhood Stock Tokens, open until the closing bell. Tap a market to see its rules, its price and every bet."
           />
         </div>

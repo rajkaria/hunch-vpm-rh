@@ -89,6 +89,8 @@ export function clearLastGood(): void {
 /** Cache tags. */
 export const TAG = {
   venue: 'venue',
+  /** Every per-market read (the keeper's crons expire it after they settle or pay anything). */
+  markets: 'markets',
   prices: 'prices',
   proof: 'proof',
   market: (id: string | bigint) => `market:${id.toString()}`,

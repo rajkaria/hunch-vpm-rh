@@ -32,7 +32,7 @@ export async function getPortfolio(owner: Address): Promise<PortfolioJson> {
   const deployment = readDeployment();
   const snapshot = await cachedRead<OwnerPortfolio>({
     key: ['positions', deployment.contracts.HunchVPM.address, owner.toLowerCase()],
-    tags: [TAG.positions(owner), TAG.venue],
+    tags: [TAG.positions(owner), TAG.venue, TAG.markets],
     revalidate: 15,
     read: () => readPositionsByOwner(serverClient(), deployment, owner),
   });
