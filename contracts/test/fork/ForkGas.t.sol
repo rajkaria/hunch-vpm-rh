@@ -235,7 +235,7 @@ contract ForkGasTest is ForkBase {
         vm.roll(block.number + 1);
         vm.warp(bell + 60);
         _row(
-            "`StockRoundResolver.resolve` (mock feed: 4 round reads, oraclePaused, settler.resolve finalizing a 1-entry vintage)",
+            "`StockRoundResolver.resolve` (mock feed: both round proofs, oraclePaused, settler.resolve finalizing a 1-entry vintage)",
             _measure(relayer, address(resolver), abi.encodeCall(StockRoundResolver.resolve, (specId, r1, r3))),
             200_000
         );
