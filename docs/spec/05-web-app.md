@@ -128,7 +128,7 @@ curious" glossary, link to the paper, the pre-event provenance note.
    `wallet_switchEthereumChain`, add-then-switch logic). Switching costs nothing.
 3. Place your first bet (link to the soonest-closing market).
 
-## Data layer (`apps/web/src/lib/chain/*`, via `packages/client`)
+## Data layer (`apps/web/src/lib/server/*`, via `packages/client`)
 
 - `publicClient` for chain 4663 with a primary RPC (provider from `08-deployment.md`) and
   the public RPC as fallback (`fallback([...])` transport, 8 s timeout, 2 retries).
@@ -163,7 +163,7 @@ curious" glossary, link to the paper, the pre-event provenance note.
 
 ## Geo and eligibility
 
-- `middleware.ts` reads `x-vercel-ip-country`. For `US`, `CA`, `GB`, `CH`: pages render
+- `src/proxy.ts` (Next 16's name for middleware) reads `x-vercel-ip-country`. For `US`, `CA`, `GB`, `CH`: pages render
   read-only, the bet panel shows "Not available in your country", and
   `/api/*` write helpers (none exist; all writes are wallet-signed) are unaffected.
 - First bet in a session: a one-time checkbox "I am not a resident of the United
