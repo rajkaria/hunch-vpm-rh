@@ -29,6 +29,11 @@ Rows to fill after the operator's deploy (docs/OPERATOR.md), each only with its 
 | The worked example pays Mei 69.17 USDG (3.46×) and Ben 56.25 USDG (1.125×) | `contracts/test/WorkedExample.t.sol` → `contracts/fixtures/worked-example.json` |
 | Only the unique "last round at or before T" pair resolves a market | `contracts/test/StockRoundResolver.t.sol` (property test vs brute force) |
 | With entries paused, every non-entry function still works | `contracts/test/HunchVPM.t.sol` (T2.9) |
+| A used or cancelled USDG authorization cannot book an entry (real USDG does not revert on it) | `contracts/test/fork/ForkE2E.t.sol` against real USDG on a fork of chain 4663 |
+| Nobody can choose which Chainlink phase settles a market | `contracts/test/PhaseOverlap.t.sol`, INV-7 with overlapping aggregators |
+| The resolver reads the real NVDA, TSLA, AAPL and COIN feeds correctly (Fri 2026-09-25 session) | `contracts/test/fork/ResolverFork.t.sol` |
+| The whole launch works on a fork of chain 4663: Safe, deploy, ownership, listing, gasless bet from a wallet with no ETH, replay refused, resolve, delivery, fees, residue | `bash scripts/rehearse-fork.sh` → `REHEARSAL PASSED` |
+| The venue runs the golden path end to end (country block, relayed bet, pay-gas bet, cron resolve and deliver, proof card from the settled market) | `apps/web/scripts/local-venue.ts check` → `ALL CHECKS PASSED` |
 
 ## Not built (roadmap)
 
