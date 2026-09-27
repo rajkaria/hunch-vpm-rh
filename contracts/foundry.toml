@@ -15,11 +15,18 @@ gas_limit = "18446744073709551615"
 memory_limit = 268435456
 fs_permissions = [
   { access = "read", path = "./test/vectors" },
-  # GAS.md: HunchGas.t.sol (the product contracts); GAS-REFERENCE.md: the vendored Gas.t.sol
-  { access = "write", path = "./GAS.md" },
+  # GAS.md: HunchGas.t.sol (the product contracts); GAS-REFERENCE.md: the vendored Gas.t.sol.
+  # test/fork/ForkGas.t.sol reads GAS.md to replace its fork section, and writes GAS-FORK.md
+  { access = "read-write", path = "./GAS.md" },
+  { access = "read-write", path = "./test/fork/GAS-FORK.md" },
   { access = "write", path = "./GAS-REFERENCE.md" },
   # worked-example.json + mechanics-vectors.json, imported by the web and the TS client
   { access = "read-write", path = "./fixtures" },
+  # script/DeployRH.s.sol reads the deployment template and writes the deployment JSON
+  # (DEPLOYMENTS_OUT: robinhood-mainnet.json, or local/robinhood-fork.json in the rehearsal)
+  { access = "read-write", path = "../deployments" },
+  # test/fork/ResolverFork.t.sol reads the NYSE calendar the keeper and the web use
+  { access = "read", path = "../packages/client/src/calendar" },
 ]
 gas_reports = ["HunchVPM", "StockRoundResolver", "HunchMarketFactory", "VestedParimutuel", "NaiveVestedParimutuel"]
 
