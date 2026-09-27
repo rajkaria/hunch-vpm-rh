@@ -160,3 +160,4 @@ venv/
 
 # verify gate scratch
 .slither.log
+contracts/test/audit/
