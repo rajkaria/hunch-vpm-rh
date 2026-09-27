@@ -1,0 +1,4 @@
+{
+  "filter_paths": "src/reference|src/mocks|src/ClassicParimutuel|test|lib",
+  "exclude_dependencies": true
+}

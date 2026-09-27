@@ -11,7 +11,7 @@ not to have changed the mechanism.
 | `src/mocks/MockERC20.sol` | the reference project's transfer-exact test token | no |
 | `test/Vectors.t.sol` | the reference project's differential replay | fixture and import paths only |
 | `test/Mechanism.t.sol` | the reference project's hand-checked paths | import path only |
-| `test/Gas.t.sol` | the reference project's gas measurements | import path only |
+| `test/Gas.t.sol` | the reference project's gas measurements | import path, and its output file (`GAS-REFERENCE.md`; `GAS.md` now holds the product contracts' numbers) |
 | `test/vectors/vpm-vectors.json` | published conformance suite 1.2.0, 118 vectors | no |
 
 The two vendored settler files live under `src/reference/` so that nothing new can be
@@ -19,6 +19,16 @@ mistaken for them. They are test oracles and gas baselines here; neither is depl
 
 `ClassicParimutuel` and `IParimutuelSettler` come from the pre-event Arc venue
 (hunch-vpm @6313376) and are kept for the ordinary-pool counterfactual only.
+
+## What is derived from the vendored settler, not vendored
+
+`src/HunchVPM.sol`, the settler that is deployed, is a copy of
+`src/reference/VestedParimutuel.sol` changed by tagged diffs only: D1 to D7 from
+`docs/spec/03-contracts.md` and two safety fixes for Robinhood Chain (D8, D9).
+`DIFF.md` is the literal `diff -u` with the reason for each diff, regenerated and checked by
+`scripts/diff-reference.sh` in CI, which also requires the mechanism's functions to stay byte
+for byte identical to the reference. `test/Differential.t.sol` proves the two settlers produce
+identical outcomes on the 118 vectors and on fuzzed sequences.
 
 ## How the byte-for-byte claim is enforced
 
