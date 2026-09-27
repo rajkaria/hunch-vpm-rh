@@ -2,40 +2,34 @@
 
 import { useEffect } from 'react';
 
+import { Container } from '@/components/ui/Container';
+import { Button } from '@/components/ui/primitives';
+
 /**
- * What the surface says when a read fails.
- *
- * Two sentences, always in this order: what happened, and what to do about it.
- * An error that gives only the first leaves the reader stuck, and one that
- * gives neither — "Something went wrong" — is worse than a blank page, because
- * it looks like it knows something it is not saying.
+ * What the site says when a page fails to render: what happened, what it means for money, one
+ * action. The message itself is not shown (a stack trace helps nobody and may carry an endpoint);
+ * the digest is, so a report can be matched to the server log.
  */
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    // The digest is what a server log can be matched against; the message
-    // itself is not shown, because a stack trace is not something a reader can
-    // act on and may carry an endpoint we would rather not print.
     console.error('page failed to render', error.digest ?? error.message);
   }, [error]);
 
   return (
-    <div className="lift rounded-card border border-coral/40 bg-raised px-5 py-8">
-      <h1 className="font-display text-xl text-coral">This page could not be read.</h1>
-      <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted">
-        The data source did not answer. Nothing has been sent and no position has changed — every page here
-        only reads. Try again; if it keeps failing, the subgraph this deployment points at is likely down, and
-        the market itself is unaffected either way.
-      </p>
-      {error.digest === undefined ? null : (
-        <p className="num mt-3 text-xs text-faint">reference {error.digest}</p>
-      )}
-      <button
-        type="button"
-        onClick={reset}
-        className="mt-5 rounded-control border border-lime px-4 py-2.5 text-sm font-semibold text-lime transition-colors hover:bg-lime hover:text-ink"
-      >
-        Try again
-      </button>
-    </div>
+    <Container className="py-20 sm:py-28">
+      <div className="max-w-xl rounded-card border border-edge bg-raised p-5 sm:p-7">
+        <h1 className="text-[26px] leading-tight sm:text-3xl">This page could not load.</h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-muted">
+          A read from Robinhood Chain or from this site failed. Nothing was sent and no bet changed: pages only read. Your
+          positions and payouts live on-chain and are unaffected.
+        </p>
+        {error.digest === undefined ? null : <p className="num mt-3 text-xs text-faint">reference {error.digest}</p>}
+        <div className="mt-6">
+          <Button variant="secondary" onClick={reset}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    </Container>
   );
 }

@@ -1,14 +1,12 @@
 /**
- * Render the brand geometry to the raster files a browser and a link preview
- * need: favicons, the app icons, and the OpenGraph card.
+ * Render the brand geometry to the raster files a browser needs: favicons and
+ * the app icons. (The share card is src/app/opengraph-image.tsx, drawn with
+ * next/og at build time from the same staged SVG paths.)
  *
  * The identity is drawn from its own numbers, not traced from a screenshot and
- * not typeset in a substitute font. A half-circle of radius 17 on stroke 12,
- * on a 100-unit grid, driven through the bottom edge of a hard 88x88 block —
- * the same construction the staged SVGs use, evaluated per pixel here. That
- * matters for the OpenGraph card in particular: the logotype is a stroked
- * path, so rendering it as geometry means the wordmark in a link preview is
- * the real wordmark rather than whatever font happened to be available.
+ * not typeset in a substitute font: a half-circle of radius 17 cut through the
+ * bottom edge of a hard 88x88 block on a 100-unit grid, the same construction
+ * the staged SVGs use, evaluated per pixel here.
  *
  * The outputs are committed, so a build never depends on running this. Re-run
  * it with `pnpm --filter @hunch-rh/web icons` if the geometry ever changes.
@@ -52,54 +50,6 @@ function markInside(x, y, opening = 17) {
   const dy = y - cy;
   const inCap = y <= cy && dx * dx + dy * dy <= opening * opening;
   return !(inColumn || inCap);
-}
-
-/**
- * The logotype, as the stroked segments and half-circles it is drawn from.
- * Coordinates are the path's own, before the `translate(101 -10)` the staged
- * SVG applies. Stroke is 12, so a point is inked when it is within 6 of a
- * centreline; the caps are butt caps, which for these shapes is exactly "and
- * within the segment's own extent".
- */
-const HALF_STROKE = 6;
-const R = 17;
-
-const STROKES = [
-  { kind: 'v', x: 14, y0: 14, y1: 90 }, // h — stem
-  { kind: 'arc', cx: 31, cy: 67, side: 'up' }, // h — shoulder
-  { kind: 'v', x: 48, y0: 67, y1: 90 },
-  { kind: 'v', x: 71, y0: 44, y1: 67 }, // u
-  { kind: 'arc', cx: 88, cy: 67, side: 'down' },
-  { kind: 'v', x: 105, y0: 44, y1: 67 },
-  { kind: 'v', x: 128, y0: 67, y1: 90 }, // n
-  { kind: 'arc', cx: 145, cy: 67, side: 'up' },
-  { kind: 'v', x: 162, y0: 67, y1: 90 },
-  { kind: 'h', y: 50, x0: 202, x1: 212 }, // c
-  { kind: 'arc', cx: 202, cy: 67, side: 'left' },
-  { kind: 'h', y: 84, x0: 202, x1: 212 },
-  { kind: 'v', x: 229, y0: 14, y1: 90 }, // h — stem
-  { kind: 'arc', cx: 246, cy: 67, side: 'up' },
-  { kind: 'v', x: 263, y0: 67, y1: 90 },
-];
-
-function logotypeInside(x, y) {
-  for (const stroke of STROKES) {
-    if (stroke.kind === 'v') {
-      if (Math.abs(x - stroke.x) <= HALF_STROKE && y >= stroke.y0 && y <= stroke.y1) return true;
-    } else if (stroke.kind === 'h') {
-      if (Math.abs(y - stroke.y) <= HALF_STROKE && x >= stroke.x0 && x <= stroke.x1) return true;
-    } else {
-      const dx = x - stroke.cx;
-      const dy = y - stroke.cy;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (Math.abs(distance - R) > HALF_STROKE) continue;
-      if (stroke.side === 'up' && dy <= 0) return true;
-      if (stroke.side === 'down' && dy >= 0) return true;
-      if (stroke.side === 'left' && dx <= 0) return true;
-      if (stroke.side === 'right' && dx >= 0) return true;
-    }
-  }
-  return false;
 }
 
 // ------------------------------------------------------------------ raster
@@ -254,33 +204,6 @@ function tile(size, opening = 17) {
   return target;
 }
 
-/**
- * The OpenGraph card: the lockup on the Ink ground, at the proportions the
- * guidelines set, with a single lime rule. No glow, no gradient, no shadow.
- */
-function openGraph() {
-  const width = 1200;
-  const height = 630;
-  const target = canvas(width, height, INK);
-
-  // The lockup is the mark at 0.84 plus the logotype translated by (101, -10),
-  // laid out on the staged 396x84 viewBox. Both axes take the same scale, and
-  // it is centred, which leaves clear space many times the 17 units required.
-  const scale = 1.9;
-  const originX = Math.round((width - 396 * scale) / 2);
-  const originY = Math.round((height - 84 * scale) / 2);
-  paint(target, placed((x, y) => markInside(x, y), originX, originY, 0.84 * scale), LIME);
-  paint(target, placed(logotypeInside, originX + 101 * scale, originY - 10 * scale, scale), LIME);
-
-  // One accent band along the bottom edge. The card carries no typeset text
-  // on purpose: the platform renders the title and description beside it, and
-  // a font substitution here would put a different product's wordmark in a
-  // link preview.
-  paint(target, (x, y) => y >= height - 14, LIME);
-
-  return target;
-}
-
 function write(relative, data) {
   const path = join(ROOT, relative);
   mkdirSync(dirname(path), { recursive: true });
@@ -291,7 +214,7 @@ function write(relative, data) {
 write('public/icon-512.png', toPng(tile(512)));
 write('public/icon-192.png', toPng(tile(192)));
 write('public/apple-icon.png', toPng(tile(180)));
-write('public/og.png', toPng(openGraph()));
+// The share card is src/app/opengraph-image.tsx (next/og), rendered at build time.
 write(
   'src/app/favicon.ico',
   toIco(
