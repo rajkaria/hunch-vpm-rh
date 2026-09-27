@@ -262,10 +262,14 @@ contract DifferentialTest is Test {
         return true;
     }
 
-    /// @dev resolve (70%), resolver void (15%), timeout void by anyone (15%)
+    /// @dev resolve (70%), resolver void (15%), timeout void by anyone (15%), always in a later
+    ///      block than the last entry: the only case the reference was written for (on Ethereum
+    ///      a post-freeze transaction is always in a later block). Settling in the SAME block,
+    ///      which Robinhood Chain's L1 block numbers allow, is where HunchVPM deliberately
+    ///      differs (D8); SameBlockSettlement.t.sol covers it.
     function _settleBoth(Run memory r) internal {
         uint256 how = _pick(r, 20);
-        vm.roll(block.number + _pick(r, 3));
+        vm.roll(block.number + 1 + _pick(r, 3));
         if (how < 14) {
             vm.warp(r.freeze + _pick(r, 3600));
             uint8 winner = uint8(_pick(r, r.n));

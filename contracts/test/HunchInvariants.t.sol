@@ -237,11 +237,14 @@ contract HunchHandler is Test {
     }
 
     /// @notice After the freeze: resolve (mostly) or void a market; market B on both settlers.
+    ///         Markets A and C are sometimes settled in the SAME block.number as their last
+    ///         entry, as Robinhood Chain's L1 block numbers allow (D8); market B always in a later
+    ///         block, the only case the reference it mirrors was written for.
     function settle(uint256 marketSeed, uint8 winner, bool voidIt, uint8 gate) external {
         if (gate % 3 != 0) return; // settle rarely, so markets live long enough to fill
         uint256 k = marketSeed % MARKETS;
         if (settled[k]) return;
-        vm.roll(block.number + 1);
+        if (k == 1 || gate % 2 == 0) vm.roll(block.number + 1);
         if (block.timestamp < freeze) vm.warp(freeze);
         winner = uint8(bound(winner, 0, 1));
         if (voidIt) {

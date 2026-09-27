@@ -10,7 +10,7 @@ interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
-/// @title  HunchVPM — the reference Vested Parimutuel plus diffs D1–D7 and nothing else
+/// @title  HunchVPM — the reference Vested Parimutuel plus diffs D1–D8 and nothing else
 /// @notice One contract, many markets. Implements the mechanism of the paper
 ///         "The Vested Parimutuel" exactly as its reference settler does:
 ///           * Rule 1 (flow vesting) and Rule 2 (capacity matching), §4.1;
@@ -23,7 +23,13 @@ interface IERC20 {
 ///         λ = 1. The product adds, around that unchanged mechanism: D1 a fee on
 ///         winners' gains, D2 claims deliverable by anyone (to the owner only), D3 per-market
 ///         entry bounds, D4 a guardian switch that pauses new entries and nothing else, D5
-///         gasless entry through a signed USDG transfer (EIP-3009), D6 views, D7 events.
+///         gasless entry through a signed USDG transfer (EIP-3009), D6 views, D7 events, and
+///         D8 one safety fix: `resolve` / `voidMarket` finalize the last vintage even when
+///         `block.number` has not advanced. On Robinhood Chain `block.number` is the L1 block
+///         (~12 s) while timestamps are L2, so a market can settle in the same "block" as its
+///         last entry; the reference would then leave that vintage pending, pay its entries
+///         back as refunds, and let a later `finalizeVintage` vest the same stake into the
+///         winners again, which drains other markets' escrow (test/SameBlockSettlement.t.sol).
 /// @dev    Block vintages are applied lazily (design "A" in the README): entries of
 ///         the current block are buffered with their OFFERED amount; the vintage is
 ///         finalized — rationed (§4.4 iii), vested against the vintage-start books
@@ -34,7 +40,7 @@ interface IERC20 {
 ///         in the entry transaction; §6 (c)'s "same-transaction refund" holds only when
 ///         acceptance is knowable in that transaction, which under the §4.4 batching
 ///         rule is never the case for an entry that is not the last of its block.
-///         D1–D7: every line changed relative to src/reference/VestedParimutuel.sol carries
+///         D1–D8: every line changed relative to src/reference/VestedParimutuel.sol carries
 ///         its diff tag; scripts/diff-reference.sh (contracts/DIFF.md) rejects untagged hunks.
 contract HunchVPM {
     // ------------------------------------------------------------------ constants
@@ -512,7 +518,7 @@ contract HunchVPM {
         if (msg.sender != m.resolver) revert NotResolver();
         if (block.timestamp < m.resolutionTime) revert TooEarly();
         if (winner >= m.n) revert InvalidOutcomes();
-        _rollVintage(marketId);
+        if (m.vintageOpen) _finalizeVintage(marketId); // D8: even in the last entry's L1 block
         m.status = Status.Resolved;
         m.winner = winner;
         emit Resolved(marketId, winner);
@@ -529,7 +535,7 @@ contract HunchVPM {
         bool resolverEarly = msg.sender == m.resolver && block.timestamp >= m.resolutionTime;
         bool timedOut = block.timestamp >= uint256(m.resolutionTime) + m.voidTimeout;
         if (!resolverEarly && !timedOut) revert TooEarly();
-        _rollVintage(marketId);
+        if (m.vintageOpen) _finalizeVintage(marketId); // D8: even in the last entry's L1 block
         m.status = Status.Voided;
         emit Voided(marketId);
     }
