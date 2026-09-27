@@ -8,19 +8,24 @@ export function PowersTable() {
   return (
     <div>
       <div className="hidden overflow-hidden rounded-card border border-edge md:block">
-        <table className="data-table">
+        <table className="data-table table-fixed">
           <caption className="sr-only">Every privileged power in the contracts, and what each holder cannot do</caption>
+          <colgroup>
+            <col className="w-[24%]" />
+            <col className="w-[40%]" />
+            <col />
+          </colgroup>
           <thead>
             <tr>
-              <th scope="col" className="w-[24%]">Who</th>
-              <th scope="col" className="w-[40%]">Can</th>
+              <th scope="col">Who</th>
+              <th scope="col">Can</th>
               <th scope="col">Cannot</th>
             </tr>
           </thead>
           <tbody>
             {POWERS.map((row) => (
               <tr key={row.who}>
-                <th scope="row" className="!text-[14px] !font-semibold !normal-case !tracking-normal !text-paper">
+                <th scope="row" className="!whitespace-normal !align-top !text-[14px] !font-semibold !normal-case !tracking-normal !text-paper">
                   {row.who}
                 </th>
                 <td className="text-muted">

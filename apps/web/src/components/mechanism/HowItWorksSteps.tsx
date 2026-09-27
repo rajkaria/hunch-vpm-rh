@@ -1,10 +1,13 @@
+import { readDeployment } from '@/lib/live/deployment';
 import { LATE_RULE } from '@/lib/site';
+import { formatAmount } from '@/lib/units';
 
-/** The three steps (docs/spec/05-web-app.md), numbered, in plain words. */
-export const STEPS = [
+/** The three steps (docs/spec/05-web-app.md), numbered, in plain words. Bet limits come from the deployment. */
+function steps(min: string, max: string) {
+  return [
   {
     title: 'Pick UP or DOWN',
-    body: "Will the Stock Token's price be higher or lower at the closing bell than at the opening bell? Bet 1 to 100 USDG with one signature. No ETH needed.",
+    body: `Will the Stock Token's price be higher or lower at the closing bell than at the opening bell? Bet ${min} to ${max} USDG with one signature. No ETH needed.`,
   },
   {
     title: "The earlier you bet, the more of the other side's money is yours",
@@ -14,9 +17,15 @@ export const STEPS = [
     title: 'The bell settles it',
     body: 'Chainlink decides: its price in effect at the opening bell against its price in effect at the closing bell. Payouts arrive in your wallet automatically.',
   },
-] as const;
+  ];
+}
 
 export function HowItWorksSteps({ showRule = true }: { showRule?: boolean }) {
+  const { params } = readDeployment();
+  const STEPS = steps(
+    formatAmount(BigInt(params.minEntry), { fractionDigits: 0 }),
+    formatAmount(BigInt(params.maxEntry), { fractionDigits: 0 }),
+  );
   return (
     <div>
       <ol className="grid gap-3 md:grid-cols-3 md:gap-4">

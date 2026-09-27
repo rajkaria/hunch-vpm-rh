@@ -20,7 +20,7 @@ function Anchor({ id }: { id: string }) {
 
 export function H2({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <h2 id={id} className="group mt-14 text-[24px] leading-tight text-paper first:mt-0 sm:text-[28px]">
+    <h2 id={id} className="group mt-14 text-[24px] leading-tight text-paper first-of-type:mt-0 sm:text-[28px]">
       {children}
       <Anchor id={id} />
     </h2>

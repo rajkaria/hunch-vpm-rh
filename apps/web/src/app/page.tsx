@@ -96,31 +96,27 @@ export default async function LandingPage() {
       </Section>
 
       <Section>
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-14">
-          <div>
-            <SectionHeading
-              eyebrow="Who can do what"
-              title="Two privileged actions, and neither touches your money"
-              lead="Listing a market and pausing new bets are the only privileged actions. Nobody, Hunch included, can move a stake, set a price, or stop claims, refunds or settlement."
-            />
-            <div className="mt-8">
-              <PowersTable />
-            </div>
-          </div>
+        <SectionHeading
+          eyebrow="Who can do what"
+          title="Two privileged actions, and neither touches your money"
+          lead="Listing a market and pausing new bets are the only privileged actions. Nobody, Hunch included, can move a stake, set a price, or stop claims, refunds or settlement."
+        />
+        <div className="mt-10">
+          <PowersTable />
+        </div>
+        <div className="mt-12 grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-14">
           <div>
             <h3 className="font-body text-[15px] font-semibold tracking-normal text-paper">Contracts on Robinhood Chain</h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
               {deployment.status === 'deployed'
                 ? 'Every address links to its source on Blockscout.'
                 : 'Our contracts are not deployed yet. Their addresses appear here, linked to Blockscout, the moment they are.'}
             </p>
-            <div className="mt-5">
-              <ContractTable rows={contractRows(deployment)} compact />
-            </div>
             <p className="mt-4 text-sm">
               <TextLink href="/proof">Every contract, feed and settlement on the Proof page</TextLink>
             </p>
           </div>
+          <ContractTable rows={contractRows(deployment)} compact />
         </div>
       </Section>
 

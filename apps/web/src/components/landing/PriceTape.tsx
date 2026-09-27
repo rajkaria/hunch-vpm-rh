@@ -128,12 +128,12 @@ export function PriceTape({ initial, now: serverNow }: { initial: PriceSnapshot;
   return (
     <section aria-label="Chainlink prices on Robinhood Chain" className="border-b border-edge bg-ghost">
       <div className="mx-auto flex w-full max-w-[1180px] flex-col lg:flex-row lg:items-stretch lg:px-6">
-        <div className="flex min-h-9 items-center gap-2 border-b border-edge-soft px-4 text-[11px] text-faint sm:px-6 lg:w-[260px] lg:shrink-0 lg:border-b-0 lg:border-r lg:px-0 lg:pr-5">
+        <div className="flex min-h-9 items-center gap-2 border-b border-edge-soft px-4 text-[11px] text-faint sm:px-6 lg:shrink-0 lg:border-b-0 lg:border-r lg:px-0 lg:pr-5">
           <span
             aria-hidden
             className={`h-1.5 w-1.5 shrink-0 rounded-pill ${status.live && !failed ? 'bg-lime motion-safe:animate-pulse' : 'bg-paper/30'}`}
           />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 truncate lg:overflow-visible lg:whitespace-nowrap">
             <span className="font-semibold text-muted">Chainlink prices</span> ·{' '}
             {failed ? 'Price unavailable, retrying' : status.text}
           </span>

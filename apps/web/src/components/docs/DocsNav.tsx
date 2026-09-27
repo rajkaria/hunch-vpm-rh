@@ -81,6 +81,7 @@ export function DocsMobileNav() {
         type="button"
         aria-expanded={open}
         aria-controls="docs-drawer"
+        aria-label={`Docs contents. Current page: ${current?.title ?? 'none'}`}
         onClick={() => setOpen(true)}
         className="flex min-h-12 w-full items-center justify-between gap-3 rounded-control border border-edge bg-raised px-4 text-left text-sm"
       >
