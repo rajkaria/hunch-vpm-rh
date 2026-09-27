@@ -188,12 +188,12 @@ export function Toc({ items, title = 'On this page' }: { items: readonly { id: s
   return (
     <nav aria-label={title}>
       <p className="eyebrow">{title}</p>
-      <ul className="mt-3 grid gap-0.5 border-l border-edge">
+      <ul className="mt-2 grid border-l border-edge">
         {items.map((item) => (
           <li key={item.id}>
             <a
               href={`#${item.id}`}
-              className="-ml-px flex min-h-9 items-center border-l border-transparent pl-3 text-sm text-muted transition-colors hover:border-paper/40 hover:text-paper"
+              className="-ml-px flex min-h-11 items-center border-l border-transparent pl-3 text-sm text-muted transition-colors hover:border-paper/40 hover:text-paper"
             >
               {item.label}
             </a>

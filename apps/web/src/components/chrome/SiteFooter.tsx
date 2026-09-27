@@ -34,10 +34,10 @@ export function SiteFooter() {
 
           <nav aria-label="Venue">
             <h2 className="eyebrow">Venue</h2>
-            <ul className="mt-3 grid gap-0.5">
+            <ul className="mt-2 grid">
               {VENUE.map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="inline-flex min-h-10 items-center text-sm text-muted transition-colors hover:text-paper">
+                  <Link href={item.href} className="inline-flex min-h-11 items-center text-sm text-muted transition-colors hover:text-paper">
                     {item.label}
                   </Link>
                 </li>
@@ -47,14 +47,14 @@ export function SiteFooter() {
 
           <nav aria-label="Hunch family">
             <h2 className="eyebrow">Hunch family</h2>
-            <ul className="mt-3 grid gap-0.5">
+            <ul className="mt-2 grid">
               {FAMILY.map((item) => (
                 <li key={item.href}>
                   <a
                     href={item.href}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="group inline-flex min-h-10 items-baseline gap-2 text-sm text-muted transition-colors hover:text-paper"
+                    className="group inline-flex min-h-11 items-center gap-2 text-sm text-muted transition-colors hover:text-paper"
                   >
                     {item.label}
                     <span className="text-xs text-faint group-hover:text-muted">{item.note}</span>

@@ -148,7 +148,7 @@ function Column({
             href={bettor.txUrl}
             target="_blank"
             rel="noreferrer noopener"
-            className="text-muted underline decoration-edge-strong underline-offset-2 hover:text-paper"
+            className="inline-flex min-h-11 items-center text-muted underline decoration-edge-strong underline-offset-2 hover:text-paper"
           >
             Payout transaction
           </a>
@@ -252,13 +252,13 @@ export function EarlyVsLate({
             ? ' Made-up bettors and the arithmetic the contract runs; a real settled market replaces this once one settles.'
             : null}
         </p>
-        <p className="mt-3 text-sm">
+        <p className="mt-1 text-sm">
           {proof.marketHref === null ? (
-            <Link href="/how-it-works#worked-example" className="font-semibold text-paper underline decoration-paper/25 underline-offset-4 hover:decoration-lime">
+            <Link href="/how-it-works#worked-example" className="inline-flex min-h-11 items-center font-semibold text-paper underline decoration-paper/25 underline-offset-4 hover:decoration-lime">
               How these numbers are worked out
             </Link>
           ) : (
-            <Link href={proof.marketHref} className="font-semibold text-paper underline decoration-paper/25 underline-offset-4 hover:decoration-lime">
+            <Link href={proof.marketHref} className="inline-flex min-h-11 items-center font-semibold text-paper underline decoration-paper/25 underline-offset-4 hover:decoration-lime">
               See every bet in this market
             </Link>
           )}

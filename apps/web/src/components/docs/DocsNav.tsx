@@ -15,7 +15,7 @@ export function DocsNav({ onNavigate }: { onNavigate?: () => void }) {
         {DOC_GROUPS.map((group) => (
           <div key={group}>
             <p className="eyebrow">{group}</p>
-            <ul className="mt-2 grid gap-0.5 border-l border-edge">
+            <ul className="mt-1 grid border-l border-edge">
               {DOCS.filter((doc) => doc.group === group).map((doc) => {
                 const href = docHref(doc.slug);
                 const active = pathname === href;
@@ -25,7 +25,7 @@ export function DocsNav({ onNavigate }: { onNavigate?: () => void }) {
                       href={href}
                       onClick={() => onNavigate?.()}
                       aria-current={active ? 'page' : undefined}
-                      className={`-ml-px flex min-h-10 items-center border-l pl-3 text-sm transition-colors ${
+                      className={`-ml-px flex min-h-11 items-center border-l pl-3 text-sm transition-colors ${
                         active ? 'border-lime font-semibold text-paper' : 'border-transparent text-muted hover:border-paper/40 hover:text-paper'
                       }`}
                     >

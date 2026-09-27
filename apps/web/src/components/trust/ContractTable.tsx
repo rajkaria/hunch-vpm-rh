@@ -16,22 +16,22 @@ export function ContractTable({ rows, compact = false }: { rows: ContractRow[]; 
             <p className="num text-sm font-medium text-paper">{row.name}</p>
             <p className="mt-1 text-xs leading-relaxed text-muted">{row.role}</p>
           </div>
-          <div className="flex min-w-0 flex-col gap-1 sm:items-end">
+          <div className="flex min-w-0 flex-col sm:items-end">
             <AddressLink address={row.address} />
             {compact ? null : (
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-faint sm:justify-end">
+              <div className="flex flex-wrap gap-x-4 text-[11px] text-faint sm:justify-end">
                 {isAddress(row.address) ? (
                   <a
                     href={`${addressUrl(row.address)}?tab=contract`}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="underline decoration-edge-strong underline-offset-2 hover:text-paper"
+                    className="inline-flex min-h-11 items-center underline decoration-edge-strong underline-offset-2 hover:text-paper"
                   >
                     {row.verified === true ? 'Verified source' : row.verified === false ? 'Source not verified' : 'Source on Blockscout'}
                   </a>
                 ) : null}
                 {row.deployTx === null ? null : (
-                  <a href={txUrl(row.deployTx)} target="_blank" rel="noreferrer noopener" className="num underline decoration-edge-strong underline-offset-2 hover:text-paper">
+                  <a href={txUrl(row.deployTx)} target="_blank" rel="noreferrer noopener" className="num inline-flex min-h-11 items-center underline decoration-edge-strong underline-offset-2 hover:text-paper">
                     deploy {shortHex(row.deployTx)}
                   </a>
                 )}

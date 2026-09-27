@@ -40,7 +40,7 @@ export function AddressLink({
       target="_blank"
       rel="noreferrer noopener"
       title={address}
-      className={`num break-all text-sm text-muted underline decoration-edge-strong underline-offset-4 transition-colors hover:text-paper hover:decoration-paper/40 ${className}`}
+      className={`num inline-flex min-h-11 items-center break-all text-sm text-muted underline decoration-edge-strong underline-offset-4 transition-colors hover:text-paper hover:decoration-paper/40 ${className}`}
     >
       {text}
     </a>
