@@ -1,22 +1,18 @@
-// TODO(S7): replace with @hunch-rh/client readVenue/readPrices (and add the other GET routes).
 /**
  * GET /api/prices: the latest Chainlink reading for every ticker on the tape.
  *
- * Read-only, no secrets, cached for 15 s at the edge. The body is a `PriceSnapshot`: answers are
- * 8-decimal integers as strings, times are unix seconds. A failed chain read still answers 200
- * with the last good snapshot and `status: "stale-cache"` (or `"unavailable"`), because the tape
- * must degrade to "retrying" rather than go blank.
+ * Read-only, no secrets, cached 15 s. The body is a `PriceSnapshot`: answers are 8-decimal
+ * integers as strings, times are unix seconds. A failed chain read still answers 200 with the
+ * last good snapshot and `status: "stale-cache"` (or `"unavailable"`), because the tape must
+ * degrade to "retrying" rather than go blank.
  */
 
-import { NextResponse } from 'next/server';
+import { json } from '@/lib/api/http';
+import { getPrices } from '@/lib/server/prices';
 
-import { readPrices } from '@/lib/live/prices';
+export const dynamic = 'force-dynamic';
 
-export const revalidate = 15;
-
-export async function GET() {
-  const snapshot = await readPrices();
-  return NextResponse.json(snapshot, {
-    headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45' },
-  });
+export async function GET(): Promise<Response> {
+  const snapshot = await getPrices();
+  return json(snapshot, { cache: { sMaxAge: 15, swr: 45 } });
 }
