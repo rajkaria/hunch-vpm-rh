@@ -98,7 +98,10 @@ he gets his stake back plus a share of the one opposing bet that came after him.
 ordinary pool Ben would have taken 106.25 of a 170 pool and Mei 42.50.
 
 A unit test (`test/WorkedExample.t.sol`) pins this table exactly, so the numbers in the
-docs and on the landing page cannot drift from the contract.
+docs and on the landing page cannot drift from the contract. The table above rounds to the
+nearest cent; the contract pays Mei exactly 69.166666 USDG (3.4583×) and the seed UP leg
+44.583333 USDG. The website floors money to the cent and never rounds a payout up, so it
+shows Mei as 69.16 USDG (3.45×).
 
 ## Partial fills (Rule 2), how the UI explains them
 
