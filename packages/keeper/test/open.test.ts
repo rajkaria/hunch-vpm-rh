@@ -5,7 +5,9 @@ import { decideOpen, planRefundDrill, type ExistingListing, type OpenInput } fro
 const d = loadDeployment({ env: {} });
 const params = deploymentParams(d);
 const utc = (y: number, m: number, day: number, h: number, min = 0) => Date.UTC(y, m - 1, day, h, min) / 1000;
-const liveFeeds: FeedConfig[] = d.feeds; // NVDA TSLA AAPL + COIN (pendingFlatRateCheck)
+// COIN passed its FLAT-rate check on 2026-09-28 and is live in the deployment; these tests pin it
+// back to pending so the hold-back path stays covered.
+const liveFeeds: FeedConfig[] = d.feeds.map((f) => (f.ticker === 'COIN' ? { ...f, pendingFlatRateCheck: true } : f));
 
 function input(nowSec: number, over: Partial<OpenInput> = {}): OpenInput {
   return { nowSec, feeds: liveFeeds, listings: [], corporateActions: [], params, ...over };

@@ -15,6 +15,8 @@ export type WalletProblemKind =
   | 'too-large'
   | 'wrong-network'
   | 'pending-request'
+  | 'authorization-used'
+  | 'not-paid'
   | 'unknown';
 
 export interface WalletProblem {
@@ -62,6 +64,8 @@ export function describeWalletError(error: unknown): WalletProblem {
   if (codeOf(error) === -32002) return { kind: 'pending-request', message: 'Your wallet already has a request open. Check it, then try again.' };
   if (/VintageFull/.test(text)) return { kind: 'busy', message: 'Busy: many bets landed in the last few seconds. Retrying in a few seconds.' };
   if (/EntriesArePaused/.test(text)) return { kind: 'paused', message: 'New bets are paused right now. Claims and payouts are not affected.' };
+  if (/AuthorizationUsed|AuthorizationAlreadyUsed/.test(text)) return { kind: 'authorization-used', message: 'This signed bet was already used or cancelled. Sign a new bet.' };
+  if (/NotPaid/.test(text)) return { kind: 'not-paid', message: 'USDG did not move for this bet, so it was not placed. Check your balance and try again.' };
   if (/\bFrozen\b|NotOpen|market is no longer/i.test(text)) return { kind: 'closed', message: 'This market is no longer taking bets.' };
   if (/AddressFrozen|account is frozen|frozen address/i.test(text)) return { kind: 'frozen-address', message: 'USDG has frozen this wallet, so it cannot bet.' };
   if (/EntryTooSmall/.test(text)) return { kind: 'too-small', message: 'This bet is below the market minimum.' };

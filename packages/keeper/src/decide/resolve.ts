@@ -67,7 +67,7 @@ export function decideResolve(c: ResolveCandidate, nowSec: number): ResolveActio
       kind: 'page',
       why:
         c.rounds.problem === 'phase-boundary'
-          ? `${c.ticker} market ${c.marketId}: the round in effect at a bell is in an earlier feed phase (PhaseBoundary). Not voiding; the 72 h settler timeout is the backstop.`
+          ? `${c.ticker} market ${c.marketId}: the round in effect at a bell is more than 8 feed phases back (PhaseBoundary, should never happen). Not voiding; page an operator; the 72 h settler timeout is the backstop.`
           : `${c.ticker} market ${c.marketId}: no provable round (${c.rounds.problem}). Not voiding.`,
     };
   }

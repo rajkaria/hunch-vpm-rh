@@ -235,6 +235,8 @@ const REVERT_WORDS: Record<string, string> = {
   AuthorizationExpired: 'This authorization has expired. Sign again.',
   AuthorizationNotYetValid: 'This authorization is not valid yet. Check your device clock and sign again.',
   AuthorizationAlreadyUsed: 'This authorization was already used. Sign a new bet.',
+  AuthorizationUsed: 'This signed bet was already used or cancelled. Sign a new bet.',
+  NotPaid: 'USDG did not move for this bet, so it was not placed. Check your balance and sign again.',
   InsufficientBalance: 'Not enough USDG in this wallet on Robinhood Chain.',
 };
 

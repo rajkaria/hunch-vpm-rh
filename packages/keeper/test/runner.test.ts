@@ -51,7 +51,7 @@ describe('T9 · runner', () => {
     expect(report!.dryRun).toBe(true);
     expect(report!.actions.map((a) => `${a.status} ${a.kind}`)).toEqual([
       'planned approve',
-      ...Array.from({ length: 6 }, () => 'planned openUpDown'),
+      ...Array.from({ length: 8 }, () => 'planned openUpDown'), // 4 tickers × daily + weekly
     ]);
     expect(chain.simulated).toEqual([]);
     expect(formatReports([report!])).toContain('Will NVDA close UP today? · Mon Oct 5');
@@ -63,9 +63,9 @@ describe('T9 · runner', () => {
     const w = wallet();
     const [report] = await runJob('open', ctxOf(d, chain.client(), { walletClient: w }));
     expect(report!.actions.every((a) => a.status === 'confirmed')).toBe(true);
-    expect(chain.simulated[0]).toMatchObject({ address: d.usdg, functionName: 'approve', args: [FACTORY, 6n * 20_000_000n] });
-    expect(chain.simulated.slice(1).map((c) => c.functionName)).toEqual(Array.from({ length: 6 }, () => 'openUpDown'));
-    expect(w.sent.length).toBe(7);
+    expect(chain.simulated[0]).toMatchObject({ address: d.usdg, functionName: 'approve', args: [FACTORY, 8n * 20_000_000n] });
+    expect(chain.simulated.slice(1).map((c) => c.functionName)).toEqual(Array.from({ length: 8 }, () => 'openUpDown'));
+    expect(w.sent.length).toBe(9);
   });
 
   it('open (live): skips the approval when the allowance covers the seeds; pages when the float is short', async () => {
@@ -74,8 +74,8 @@ describe('T9 · runner', () => {
     chain.allowances.set(`${KEEPER.toLowerCase()}:${FACTORY.toLowerCase()}`, 10n ** 12n);
     const [report] = await runJob('open', ctxOf(d, chain.client(), { walletClient: wallet() }));
     expect(chain.simulated.map((c) => c.functionName)).toEqual(['openUpDown', 'openUpDown']);
-    expect(report!.actions.filter((a) => a.status === 'skipped').length).toBe(4);
-    expect(report!.pages[0]).toMatch(/covers 2 of 6 markets/);
+    expect(report!.actions.filter((a) => a.status === 'skipped').length).toBe(6);
+    expect(report!.pages[0]).toMatch(/covers 2 of 8 markets/);
   });
 
   it('open (live): pages instead of sending when the keeper is not an opener', async () => {
@@ -156,10 +156,10 @@ describe('T9 · health', () => {
     chain.usdgBalances.set(KEEPER.toLowerCase(), keeperUsdgFloor(d));
     let h = evaluateHealth(await readKeeperState(chain.client(), d), d);
     expect(h.checks.find((c) => c.name === 'todays-markets')).toMatchObject({ ok: false });
-    expect(h.checks.find((c) => c.name === 'todays-markets')!.detail).toMatch(/NVDA, TSLA, AAPL/);
+    expect(h.checks.find((c) => c.name === 'todays-markets')!.detail).toMatch(/NVDA, TSLA, AAPL, COIN/);
     expect(h.checks.find((c) => c.name === 'keeper-usdg')!.ok).toBe(true);
     expect(h.checks.find((c) => c.name === 'keeper-eth')!.ok).toBe(true);
-    for (const f of d.feeds.slice(0, 3)) chain.open({ feed: f.feed, strikeTime: openingBell('2026-09-25'), finalTime: closingBell('2026-09-25') });
+    for (const f of d.feeds) chain.open({ feed: f.feed, strikeTime: openingBell('2026-09-25'), finalTime: closingBell('2026-09-25') });
     // An old market nobody resolved:
     chain.open({ feed: d.feeds[0]!.feed, strikeTime: openingBell('2026-09-24'), finalTime: closingBell('2026-09-24') });
     h = evaluateHealth(await readKeeperState(chain.client(), d), d);
@@ -167,7 +167,7 @@ describe('T9 · health', () => {
     expect(h.checks.find((c) => c.name === 'settlement')).toMatchObject({ ok: false });
     expect(h.ok).toBe(false);
     chain.l1 = 50n;
-    chain.resolve(3, UP);
+    chain.resolve(4, UP);
     h = evaluateHealth(await readKeeperState(chain.client(), d), d);
     expect(h.checks.find((c) => c.name === 'settlement')!.ok).toBe(true);
     expect(h.checks.find((c) => c.name === 'delivery')).toMatchObject({ ok: false }); // the seed UP leg is undelivered
