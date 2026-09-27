@@ -6,7 +6,7 @@ import { formatAmount, formatMultiple } from '@/lib/units';
 export function WorkedExampleBets() {
   return (
     <div className="scroll-x rounded-card border border-edge">
-      <table className="data-table min-w-[420px]">
+      <table className="data-table min-w-[300px]">
         <caption className="sr-only">The bets in the worked example, in the order they landed</caption>
         <thead>
           <tr>
@@ -19,7 +19,7 @@ export function WorkedExampleBets() {
         <tbody>
           <tr>
             <td className="text-muted">At listing</td>
-            <td className="text-muted">Hunch opening seed</td>
+            <td className="text-muted">Hunch seed</td>
             <td className="text-xs">
               <SideWord side="UP" /> <span className="text-faint">and</span> <SideWord side="DOWN" />
             </td>
