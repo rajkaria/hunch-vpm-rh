@@ -83,8 +83,8 @@ market that is open now, and writes an env file; `check` then drives a running b
 relayed bet, the country gate, a pay-gas bet, the bell, the resolve and deliver crons, and reads
 the settlement back. A build with `NEXT_PUBLIC_E2E=1` adds a "Mock Connector" wallet (anvil's
 unlocked accounts) so the whole flow also works in a browser without an extension. The steps are
-in the script's header. Production builds never set `NEXT_PUBLIC_E2E`; a test asserts the mock
-wallet is off by default.
+in the script's header. `next.config.mjs` bakes `NEXT_PUBLIC_E2E` in at build time, so a normal
+build can never switch the mock wallet on; a test asserts it is off by default.
 
 ## Copy rules, enforced
 

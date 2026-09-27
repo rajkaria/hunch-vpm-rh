@@ -25,7 +25,7 @@ export function ProofCounters({ counters, deployed }: { counters: ProofCounter[]
           <dt className="eyebrow">{counter.label}</dt>
           <dd className="mt-3 text-2xl leading-none text-paper sm:text-[28px]">
             {counter.value === null ? (
-              <span className="text-sm text-faint">{deployed ? 'Reading…' : 'Not deployed yet'}</span>
+              <span className="text-sm text-faint">{deployed ? 'Not read just now' : 'Not deployed yet'}</span>
             ) : counter.unit === 'USDG' ? (
               <span className="num">
                 {formatAmount(counter.value)} <span className="text-sm text-faint">USDG</span>
@@ -69,7 +69,7 @@ export function SafePanel({ safe }: { safe: SafeInfo }) {
           <p className="text-[11px] text-faint">Signatures required</p>
           <p className="num mt-1 text-sm text-paper">
             {safe.threshold === null || safe.owners === null ? (
-              <span className="font-body text-faint">{safe.address === null ? 'Not yet deployed' : 'Reading…'}</span>
+              <span className="font-body text-faint">{safe.address === null ? 'Not yet deployed' : 'Not read just now'}</span>
             ) : (
               `${safe.threshold} of ${safe.owners}`
             )}
