@@ -5,48 +5,86 @@ Tokens, in USDG on Robinhood Chain (chain 4663), settled from Chainlink rounds. 
 `rh.playhunch.xyz` once the domain is attached.
 
 Next.js 16 App Router, React 19, Tailwind v4, TypeScript, Vitest. Server components by default;
-client code only where something moves (the price tape, countdowns, the menus, copy buttons,
+client code only where something moves (the trading islands on `/m/[id]` and `/portfolio`, the price tape, countdowns, the menus, copy buttons,
 the add-network button).
 
 ```sh
-pnpm --filter @hunch-rh/web dev        # http://localhost:3000
+pnpm --filter @hunch-rh/web dev        # builds @hunch-rh/client and @hunch-rh/keeper, then next dev
 pnpm --filter @hunch-rh/web test       # vitest + testing-library (jsdom)
-pnpm --filter @hunch-rh/web typecheck  # next typegen && tsc --noEmit
-pnpm --filter @hunch-rh/web build      # next build
+pnpm --filter @hunch-rh/web typecheck  # next typegen && tsc (workspace packages from source)
+pnpm --filter @hunch-rh/web build      # builds the workspace packages, then next build
 ```
 
 ## Routes
 
-| Route | What it is | Built in |
-| --- | --- | --- |
-| `/` | Hero, live Chainlink price tape, the early-vs-late proof card, the markets grid (or the honest launching state), how it works, why early pays more, the powers table, contracts, why Robinhood Chain, FAQ, the country notice | S8 |
-| `/how-it-works` | The plain explanation, the worked example, the rules box, what the rule does not do, "For the curious", provenance | S8 |
-| `/start` | Get set up in 2 minutes: USDG via Across, other routes, add Robinhood Chain, first bet | S8 |
-| `/proof` | Verify it yourself: contracts, feeds, the Safe, powers, settled markets, refund drill, fees, counters | S8 shell, S7 data |
-| `/docs/**` | Eleven pages of documentation with a sidebar, a mobile drawer and prev/next | S8 |
-| `/m/[id]`, `/portfolio` | Placeholders until the market page and portfolio ship | S7 |
-| `/api/prices` | The tape's snapshot (temporary reader) | S8, S7 re-points it |
-| `/opengraph-image`, `/twitter-image`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest` | Share card and SEO | S8 |
+| Route | What it is |
+| --- | --- |
+| `/` | Hero, the live Chainlink price tape, the early-vs-late proof card (the latest settled weekly, else daily, else the worked example labelled "Illustration"), the markets grid (or the honest launching state), how it works, why early pays more, the powers table, contracts, why Robinhood Chain, FAQ, the country notice. ISR, 15 s. |
+| `/m/[id]` | One market, trust before movement: question, ticker and status; the verbatim rules box; the prices (opening price with its round, latest price with its age, change in words, countdown); the bet panel; your positions; every bet; after the bell the settlement with "Resolve it yourself". Rendered per request from cached reads; 404 for an id Hunch never listed. |
+| `/portfolio` | The connected wallet's positions across every market, totals, and claim buttons for anyone who would rather not wait for delivery. |
+| `/proof` | Verify it yourself: contracts (Blockscout verification read live), feeds, the Safe (threshold and owners read on chain), powers, settled markets with their rounds and settlement txs, the refund drill, fee sweeps, live counters with the call each came from. ISR, 60 s. |
+| `/how-it-works`, `/start`, `/docs/**` | The explanation, getting set up (add-then-switch through the wallet connection), the documentation. |
+| `/api/**` | See `/docs/api`: markets, one market, positions, prices, proof, health, the relay, the cron jobs. |
 
-## Data, and what is temporary
+## Data
 
-Everything under `src/lib/live/` is a stand-in until the web reads through `@hunch-rh/client`
-(every file carries `TODO(S7)`):
+`src/lib/server/*` reads the chain through `@hunch-rh/client` (view calls only, batched through
+Multicall3): `readVenue`, `readMarket`, `readPositionsByOwner`, `readPrices`, `readProof`, with
+logs (`readMarketActivity`, the resolver's events, fee sweeps) as an enhancement that degrades to
+nothing. One public client: `RH_RPC_URL` first, the public RPC as the fallback transport; the
+keyed URL never reaches the browser or a response.
 
-- `prices.ts` reads `latestRoundData` from the four Chainlink proxies in one multicall, through
-  `RH_RPC_URL` if set and the public RPC otherwise; a failed read returns the last good snapshot
-  with its age (`stale-cache`) rather than a blank.
-- `deployment.ts` reads the deployment JSON from `HUNCH_DEPLOYMENT_JSON` /
-  `NEXT_PUBLIC_HUNCH_DEPLOYMENT_JSON` and otherwise returns "not deployed", with the planned
-  venue parameters and the four feeds.
-- `venue.ts` returns no markets and no settled market before deployment, so the landing page
-  shows the launching state and the worked example labelled "Illustration".
-- `proof.ts` returns the /proof page's rows with every counter unread (never zero).
-- `types.ts` holds the typed props every data-driven component renders.
+Every read goes through Next's data cache (`unstable_cache`, tagged): venue and prices 15 s,
+markets 5 s, positions 15 s, proof 60 s, settled logs longer. A confirmed bet expires its market
+at once (the relay route, or a server action after a pay-gas bet), and the cron jobs expire every
+market after they settle or pay anything, so a hard refresh shows what the chain holds. If a read
+fails the last good value is served with its age ("Price unavailable, retrying"); with nothing
+ever read the page says so rather than showing an empty grid.
 
-`src/content/worked-example.ts` replays the spec's worked example with the contract's own
-fixed-point arithmetic; `test/worked-example.test.ts` pins it to the spec table and to
-`contracts/fixtures/worked-example.json`. It is the only static set of numbers the site shows.
+`src/lib/api/shapes.ts` maps the client's view models to the documented JSON (bigints as decimal
+strings); the market page's client islands start from the server's read and poll the same API.
+
+## Wallets
+
+wagmi 2, loaded on demand: static pages ship no wallet code (the header's Connect button loads it
+when pressed, or at once if this browser was connected before). Browser wallets are discovered
+over EIP-6963; WalletConnect appears when `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is set; Coinbase
+Wallet (EOA). Wrong network means "Switch to Robinhood Chain", which adds the chain first and then
+switches (wallets that never answer 4902 still get the add).
+
+The bet panel's primary button walks connect → switch → sign one USDG authorization (gasless, the
+default; relayed by `/api/relay/enter`) → receipt → refresh, or "Pay gas yourself": approve the
+exact amount → `enter` → receipt → refresh. A full batch (`VintageFull`) is retried automatically;
+every error is a sentence with the next step.
+
+Analytics: Vercel Web Analytics page views and six custom events (`connect_wallet`,
+`switch_chain`, `quote_shown`, `bet_submitted`, `bet_confirmed`, `resolve_clicked`). No address,
+hash or signature is ever sent.
+
+## Country gate
+
+`src/proxy.ts` (Next 16's name for middleware) reads `x-vercel-ip-country`. For the US, Canada,
+the UK and Switzerland every page still renders; the bet panel says "Not available in your
+country" and the relay refuses (the keeper checks the same header). Claims, refunds and "Resolve
+it yourself" stay available: they move no new stake. It is a front-end control; the contracts are
+permissionless.
+
+## Crons
+
+`vercel.json` schedules `/api/cron/open` (`*/10 12-13 * * 1-5`), `/api/cron/resolve`
+(`*/2 20-21 * * 1-5` and hourly at :07) and `/api/cron/deliver` (`*/5 * * * *`). Each requires
+`Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends it) and runs `keeper.run(job)`.
+
+## Local rehearsal (E2E)
+
+`scripts/local-venue.ts` deploys the compiled contracts on a local anvil with chain id 4663 (MockUSDG
+at USDG's address, so the real EIP-712 domain verifies), funds anvil's first two accounts, lists a
+market that is open now, and writes an env file; `check` then drives a running build through a
+relayed bet, the country gate, a pay-gas bet, the bell, the resolve and deliver crons, and reads
+the settlement back. A build with `NEXT_PUBLIC_E2E=1` adds a "Mock Connector" wallet (anvil's
+unlocked accounts) so the whole flow also works in a browser without an extension. The steps are
+in the script's header. Production builds never set `NEXT_PUBLIC_E2E`; a test asserts the mock
+wallet is off by default.
 
 ## Copy rules, enforced
 
@@ -55,19 +93,25 @@ fails on an em dash, a hype word, or YES/NO; it also fails if the mechanism's ow
 (vested, parimutuel, vintage, κ, accumulator) appears on any button or on the first screen of
 `/`. The hero's words are pinned by an inline snapshot in `test/landing-hero.test.tsx`.
 
+## Tests
+
+`pnpm --filter @hunch-rh/web test` (T10): the bet panel's state machine on both paths with a
+mocked wallet and relay (connect → switch → sign → relayed → confirmed; connect → switch →
+approve → enter → confirmed), automatic retry on a full batch, the pay-gas offer when the relay is
+down, the quote block against the client's `quoteForMarket` on real-shaped markets (built with
+the client's contract mirror), the country gate, the API routes (relay error mapping, cron 401,
+health 503), the proof card from a settled market, the data layer's last-good fallback, the
+wallet helpers (add-then-switch, error words, analytics scrubbing, E2E off by default), the copy
+lint and the hero snapshot.
+
 ## Design
 
 The Hunch design system (tokens in `src/app/globals.css`): ink ground, white-alpha surfaces,
 0.08 hairlines, lime `#C8F04F` for UP and the one primary action per view, coral `#FF6B7A` for
 DOWN, Archivo 800 display, Inter body, JetBrains Mono for every number. No glows, no gradient
-fills, no blur. Motion is the price tape's drift, a one-time bar growth and a price flash, all
-off under `prefers-reduced-motion`. Mobile first: 375 px with a 16 px gutter and no horizontal
-scroll.
-
-`scripts/generate-icons.mjs` renders the favicon and app icons from the identity's geometry;
-the share card is `src/app/opengraph-image.tsx`.
+fills, no blur. Mobile first: 375 px with a 16 px gutter and no horizontal scroll.
 
 ## Environment
 
-See `.env.example`. None is required for the static pages. `RH_RPC_URL` is server-only;
-nothing secret is ever a `NEXT_PUBLIC_` variable.
+See `.env.example` (names only). `RH_RPC_URL`, `KEEPER_PRIVATE_KEY` and `CRON_SECRET` are
+server-only; nothing secret is ever a `NEXT_PUBLIC_` variable.
