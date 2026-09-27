@@ -48,6 +48,9 @@ export const stockTokenAbi = parseAbi([
   'function oraclePaused() view returns (bool)',
   'function paused() view returns (bool)',
   'function uiMultiplier() view returns (uint256)',
+  // Topics verified in the Stock implementation's bytecode (0xb35490d6…5aE2) on 2026-09-28.
+  'event OraclePaused()',
+  'event OracleUnpaused()',
 ]);
 
 /** Multicall3 (canonical address). `getBlockNumber()` returns `block.number` = the L1 block estimate on 4663. */
