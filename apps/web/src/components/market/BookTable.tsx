@@ -2,7 +2,7 @@ import { formatBps, formatMultiple, formatUsdg } from '@hunch-rh/client';
 
 import { SideWord } from '@/components/ui/primitives';
 import { formatEtDayTime } from '@/lib/et';
-import type { LiveMarket, LivePosition } from '@/lib/market/model';
+import { matchStateOf, type LiveMarket, type LivePosition } from '@/lib/market/model';
 import { shortAddress } from '@/lib/units';
 
 /** The ordinary pool's payout after the same fee on winnings this market charges (floored). */
@@ -107,7 +107,21 @@ export function BookTable({ market, explorer, viewer }: { market: LiveMarket; ex
                     <td className="num whitespace-nowrap text-right text-paper">
                       {formatUsdg(stake)}
                       {p.accepted !== null && p.accepted < p.offered ? <span className="block text-[11px] text-faint">of {formatUsdg(p.offered)}</span> : null}
-                      {p.accepted === null ? <span className="block font-body text-[11px] text-faint">matching</span> : null}
+                      {p.accepted === null ? (
+                        (() => {
+                          // Once its Ethereum block has passed the match is final (it is written on chain
+                          // by the next transaction); show it instead of a bare "matching".
+                          const m = matchStateOf(market, p);
+                          return m.kind === 'closed' && m.accepted !== null ? (
+                            <span className="block font-body text-[11px] text-faint">
+                              matched {formatUsdg(m.accepted)}
+                              {m.refused !== null && m.refused > 0n ? `, ${formatUsdg(m.refused)} back` : ''}
+                            </span>
+                          ) : (
+                            <span className="block font-body text-[11px] text-faint">matching</span>
+                          );
+                        })()
+                      ) : null}
                     </td>
                     <td className="num whitespace-nowrap text-right text-paper">
                       {value === null ? (

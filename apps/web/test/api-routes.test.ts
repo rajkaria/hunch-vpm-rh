@@ -8,6 +8,12 @@ vi.mock('next/cache', () => ({
   unstable_cache: <T,>(fn: T) => fn,
   updateTag: vi.fn(),
 }));
+// `after` needs a live request scope; collect the callbacks and run them by hand.
+const afterCallbacks: (() => Promise<void>)[] = [];
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: (fn: () => Promise<void>) => void afterCallbacks.push(fn),
+}));
 
 import { GET as cron } from '@/app/api/cron/[job]/route';
 import { GET as health } from '@/app/api/health/route';
@@ -19,12 +25,19 @@ import { setKeeper } from '@/lib/server/keeper';
 const TX = `0x${'cd'.repeat(32)}` as const;
 const SIGNATURE = `0x${'5a'.repeat(65)}`;
 
-function fakeKeeper(overrides: Partial<Keeper> = {}): Keeper & { relay: ReturnType<typeof vi.fn>; run: ReturnType<typeof vi.fn>; health: ReturnType<typeof vi.fn> } {
+function fakeKeeper(overrides: Partial<Keeper> = {}): Keeper & { relay: ReturnType<typeof vi.fn>; run: ReturnType<typeof vi.fn>; health: ReturnType<typeof vi.fn>; finalizeSoon: ReturnType<typeof vi.fn> } {
   return {
     relay: vi.fn(async (): Promise<RelayResult> => ({ ok: true, txHash: TX, nonce: `0x${'01'.repeat(32)}` })),
     run: vi.fn(async (job: string) => [{ job, deployed: true, dryRun: false, nowSec: 1, actions: [], notes: ['nothing to do'], pages: [] }]),
     health: vi.fn(async () => ({ ok: true, deployed: true, nowSec: 1, checks: [{ name: 'rpc-head', ok: true, detail: 'latest block is 1 s old' }] })),
-    clients: { publicClient: { waitForTransactionReceipt: vi.fn(async () => ({ status: 'success' })) } },
+    clients: {
+      publicClient: {
+        waitForTransactionReceipt: vi.fn(async () => ({ status: 'success', logs: [] })),
+        getBlock: vi.fn(async () => ({ number: 100n, timestamp: 1n })),
+        multicall: vi.fn(async () => [{ status: 'success', result: 42n }, { status: 'success', result: 1n }]),
+      },
+    },
+    finalizeSoon: vi.fn(async () => ({ status: 'finalized', txHash: `0x${'cd'.repeat(32)}` })),
     ...overrides,
   } as never;
 }
@@ -104,6 +117,10 @@ describe('POST /api/relay/enter', () => {
     const logged = info.mock.calls.flat().join(' ');
     expect(logged).not.toContain(SIGNATURE);
     expect(logged).toContain('0x5a5a');
+    // After the response: the batch is written on chain once its Ethereum block passes.
+    expect(afterCallbacks).toHaveLength(1);
+    await afterCallbacks.pop()!();
+    expect(keeper.finalizeSoon).toHaveBeenCalledWith(12n, 42n, { maxWaitMs: 40_000 });
   });
 
   it('refuses a blocked country with 403 and plain words', async () => {

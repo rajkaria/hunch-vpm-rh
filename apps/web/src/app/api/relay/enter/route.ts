@@ -9,6 +9,9 @@
  */
 
 import { revalidateTag } from 'next/cache';
+import { after } from 'next/server';
+import { hunchVpmAbi, readChainHead } from '@hunch-rh/client';
+import { parseEventLogs, type TransactionReceipt } from 'viem';
 
 import { json } from '@/lib/api/http';
 import { relayHttp, shortSignature, type RelayErrorBody, type RelaySuccessBody } from '@/lib/api/relay';
@@ -18,7 +21,9 @@ import { COUNTRY_HEADER, clientIp } from '@/lib/server/geo';
 import { getKeeper } from '@/lib/server/keeper';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+// The response returns after the receipt (≤ 10 s); `after` then writes the batch on chain once its
+// Ethereum block passes (~12 s), inside this budget.
+export const maxDuration = 60;
 
 const RECEIPT_WAIT_MS = 10_000;
 
@@ -65,12 +70,31 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   let receipt: RelaySuccessBody['receipt'] = 'pending';
+  let mined: TransactionReceipt | null = null;
   if (result.ok) {
     try {
-      const mined = await keeper.clients.publicClient.waitForTransactionReceipt({ hash: result.txHash, timeout: RECEIPT_WAIT_MS });
+      mined = await keeper.clients.publicClient.waitForTransactionReceipt({ hash: result.txHash, timeout: RECEIPT_WAIT_MS });
       receipt = mined.status === 'success' ? 'confirmed' : 'reverted';
     } catch {
       receipt = 'pending';
+    }
+    if (receipt === 'confirmed' && typeof b.marketId === 'string' && /^\d+$/.test(b.marketId)) {
+      // The bet is matched when its Ethereum block passes; write that match on chain right away
+      // so the book and refunds show it within ~15 s instead of at the next bet or deliver run.
+      const marketId = BigInt(b.marketId);
+      const k = keeper;
+      after(async () => {
+        try {
+          // The batch id is the Ethereum block estimate the entry landed in (Entered.vintage).
+          const entered = mined === null ? [] : parseEventLogs({ abi: hunchVpmAbi, logs: mined.logs, eventName: 'Entered' });
+          const vintage = entered[0]?.args.vintage ?? (await readChainHead(k.clients.publicClient)).l1BlockNumber;
+          const out = await k.finalizeSoon(marketId, BigInt(vintage), { maxWaitMs: 40_000 });
+          if (out.status === 'finalized') revalidateTag(TAG.market(String(marketId)), { expire: 0 });
+          else if (out.status === 'failed') console.warn(`[relay] finalize market ${marketId}: ${out.reason}`);
+        } catch (error) {
+          console.warn(`[relay] finalize market ${marketId}: ${redactError(error)}`);
+        }
+      });
     }
     if (typeof b.marketId === 'string' && /^\d+$/.test(b.marketId)) revalidateTag(TAG.market(b.marketId), { expire: 0 });
     if (typeof b.from === 'string') revalidateTag(TAG.positions(b.from), { expire: 0 });

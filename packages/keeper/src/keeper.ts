@@ -5,6 +5,7 @@ import { checkHealth, type HealthReport } from './health.js';
 import { chainRelayReads, defaultRelayLimiter, relayEnter, walletRelaySender, type RateLimiter, type RelayResult } from './relay.js';
 import { consoleLogger, runDrill, runJob, type JobName, type JobReport, type Logger } from './runner.js';
 import { makeKeeperClients, type EnvLike, type KeeperClients } from './wallet.js';
+import { finalizeWhenDue, type FinalizeOptions, type FinalizeOutcome } from './finalize.js';
 
 /**
  * One object for route handlers (apps/web `/api/cron/[job]`, `/api/relay/enter`,
@@ -25,6 +26,8 @@ export interface Keeper {
   health(options?: { nowSec?: number }): Promise<HealthReport>;
   planDrill(options?: { ticker?: string; nowSec?: number }): Promise<JobReport>;
   openDrill(options?: { ticker?: string; nowSec?: number; dryRun?: boolean }): Promise<JobReport>;
+  /** After a bet: write the market's open batch on chain once its Ethereum block has passed. */
+  finalizeSoon(marketId: bigint, l1BlockAtEntry: bigint, options?: FinalizeOptions): Promise<FinalizeOutcome>;
 }
 
 export function createKeeper(env: EnvLike = (globalThis as { process?: { env?: EnvLike } }).process?.env ?? {}, options: { deployment?: Deployment; log?: Logger } = {}): Keeper {
@@ -70,5 +73,6 @@ export function createKeeper(env: EnvLike = (globalThis as { process?: { env?: E
         { ...base, walletClient: o.dryRun === true ? null : clients.walletClient, dryRun: o.dryRun === true, ...(o.nowSec === undefined ? {} : { nowSec: o.nowSec }) },
         { ...(o.ticker === undefined ? {} : { ticker: o.ticker }) },
       ),
+    finalizeSoon: (marketId, l1BlockAtEntry, o = {}) => finalizeWhenDue(clients.publicClient, clients.walletClient, deployment, marketId, l1BlockAtEntry, o),
   };
 }

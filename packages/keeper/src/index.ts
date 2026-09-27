@@ -16,3 +16,4 @@ export * from './runner.js';
 export * from './wallet.js';
 export * from './alerts.js';
 export * from './keeper.js';
+export * from './finalize.js';
