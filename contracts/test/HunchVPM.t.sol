@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {HunchBase, MockSmartWallet} from "./utils/HunchBase.sol";
 import {HunchVPM, IERC20} from "../src/HunchVPM.sol";
 import {MockUSDG} from "../src/mocks/MockUSDG.sol";
+import {IEIP3009} from "../src/interfaces/IEIP3009.sol";
 
 /// @title T2 · HunchVPM: every diff D1–D7 against the reference, one behaviour per test
 /// @notice The mechanism itself (Rule 1, Rule 2, vintages, seed clamp, freeze) is proven
@@ -565,6 +566,12 @@ contract HunchVPMTest is HunchBase {
     }
 
     // ================================================================== D5 · signed USDG entry
+
+    /// @dev The overload USDG routes on chain 4663 (verified with getFacet), which also takes
+    ///      ERC-1271 signatures.
+    function test_D5_PullsWithTheBytesSignatureOverloadUsdgRoutes() public pure {
+        assertEq(IEIP3009.receiveWithAuthorization.selector, bytes4(0x88b7ab63));
+    }
 
     function test_D5_EnterNonceBindsChainContractMarketSideAmountAndSalt() public view {
         bytes32 expected = keccak256(

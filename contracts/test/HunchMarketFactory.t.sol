@@ -6,6 +6,7 @@ import {HunchVPM, IERC20} from "../src/HunchVPM.sol";
 import {StockRoundResolver} from "../src/StockRoundResolver.sol";
 import {HunchMarketFactory} from "../src/HunchMarketFactory.sol";
 import {IERC20Like} from "../src/interfaces/IERC20Like.sol";
+import {IHunchSettler} from "../src/interfaces/IHunchSettler.sol";
 import {MockUSDG} from "../src/mocks/MockUSDG.sol";
 import {MockAggregator} from "../src/mocks/MockAggregator.sol";
 import {MockStockToken} from "../src/mocks/MockStockToken.sol";
@@ -436,6 +437,14 @@ contract HunchMarketFactoryTest is Test {
         vm.prank(address(factory));
         vm.expectRevert(StockRoundResolver.AlreadyRegistered.selector);
         resolver.register(spec); // not even as its creator
+    }
+
+    /// @dev HunchVPM does not inherit IHunchSettler (it stays line-for-line comparable to the
+    ///      reference), so this is what keeps the resolver's view of it honest.
+    function test_TheResolversSettlerInterfaceMatchesHunchVPM() public pure {
+        assertEq(IHunchSettler.getMarket.selector, HunchVPM.getMarket.selector);
+        assertEq(IHunchSettler.resolve.selector, HunchVPM.resolve.selector);
+        assertEq(IHunchSettler.voidMarket.selector, HunchVPM.voidMarket.selector);
     }
 
     // ================================================================== end to end

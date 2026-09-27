@@ -11,7 +11,7 @@ The vendored reference settler's own measurements are in `GAS-REFERENCE.md` (tes
 
 | call | gas | budget | | reference |
 |---|---:|---:|---|---|
-| `openUpDown` (pull seed, create, register spec, hand over both legs, list) | 1091085 | 900000 | OVER | create 639,707 |
+| `openUpDown` (pull seed, create, register spec, hand over both legs, list) | 1091059 | 900000 | OVER | create 639,707 |
 | `enter`, first entry after creation (opens a vintage, nothing to finalize) | 167051 | - |  | 169,548 |
 | `enter`, first in a new block (finalizes the previous 1-entry vintage, opens one) | 227493 | 240000 | within | 212,890 |
 | `enter`, joining the open vintage, worst case (its id opens a new slot of the market's id list) | 164081 | 150000 | OVER | 129,628 |

@@ -331,7 +331,10 @@ contract HunchMarketFactory {
         settler.transferPosition(firstSeed + 1, msg.sender);
         if (!usdg.approve(address(settler), 0)) revert ApprovalFailed();
         uint256 left = usdg.balanceOf(address(this));
-        if (left != 0 && !usdg.transfer(msg.sender, left)) revert TransferFailed();
+        if (left > 0) {
+            bool sent = usdg.transfer(msg.sender, left);
+            if (!sent) revert TransferFailed();
+        }
     }
 
     function _list(UpDown calldata p, uint256 marketId, bytes32 specId, uint32 strikeAge, uint32 finalAge) internal {
