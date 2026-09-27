@@ -3,6 +3,7 @@ import {
   DOWN,
   KAPPA_UNBOUNDED,
   MARKET_STATUS,
+  MAX_VINTAGE_WORK,
   SCALE,
   UP,
   accrued,
@@ -23,6 +24,7 @@ import {
   simSettle,
   simVoid,
   simulateMarket,
+  vintageFull,
   workedExample,
   SimRevert,
   type Book,
@@ -251,6 +253,23 @@ describe('D1 fee and settlement', () => {
     expect(quoteEntry({ ...base, l1Block: 3n }).problem).toBe('vintage-full');
     expect(quoteEntry({ ...base, l1Block: 4n }).problem).toBeNull(); // the next block starts a new vintage
     simEnter(sim, { outcome: UP, amount: 1n * U, block: 4n });
+  });
+
+  it('D9: many-outcome vintages are capped by entry-outcome pairs (12,800), as HunchVPM', () => {
+    expect(MAX_VINTAGE_WORK).toBe(12_800);
+    for (const [n, k] of [
+      [2, 200],
+      [64, 200],
+      [65, 196],
+      [110, 116],
+      [255, 50],
+    ] as const) {
+      const sim = simCreate(Array.from({ length: n }, () => 1n), KAPPA_UNBOUNDED);
+      for (let i = 0; i < k; i++) simEnter(sim, { outcome: i % n, amount: 1n, block: 3n });
+      expect(() => simEnter(sim, { outcome: 0, amount: 1n, block: 3n }), `n=${n}`).toThrow('VintageFull');
+      expect(vintageFull(k - 1, n)).toBe(false);
+      expect(vintageFull(k, n)).toBe(true);
+    }
   });
 
   it('settlementOf is zero once claimed and refund-only while open', () => {

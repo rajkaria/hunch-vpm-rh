@@ -43,6 +43,19 @@ export const stockRoundResolverAbiGenerated = [
   },
   {
     "type": "function",
+    "name": "MAX_PHASE_SPAN",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "PAUSE_GRACE",
     "inputs": [],
     "outputs": [

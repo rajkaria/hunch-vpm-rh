@@ -44,6 +44,13 @@ export const emptyBook = (): Book => ({ principal: 0n, acc: 0n, capacity: 0n, ve
 
 /** HunchVPM D9: `enter` reverts `VintageFull` once the current L1 block's vintage holds this many entries. */
 export const MAX_VINTAGE_ENTRIES = 200;
+/** HunchVPM D9: ... or once one more entry would take it past this many entry-outcome pairs (entries × n): 200 entries up to 64 outcomes. */
+export const MAX_VINTAGE_WORK = 12_800;
+
+/** HunchVPM D9: whether a vintage already holding `pending` entries is full for a market with `n` outcomes. */
+export function vintageFull(pending: number, n: number): boolean {
+  return pending >= MAX_VINTAGE_ENTRIES || (pending + 1) * n > MAX_VINTAGE_WORK;
+}
 
 // ------------------------------------------------------------------ primitives
 
@@ -245,7 +252,7 @@ export function quoteEntry(input: EntryQuoteInput): Quote {
     const queued = input.pending.filter((p) => p.outcome !== opp).reduce((s, p) => s + p.offered, 0n);
     const q = quote({ ...input, openVintageDemand: queued });
     // D9: this L1 block's vintage is full; the entry would revert (it can go in the next block).
-    if (input.pending.length >= MAX_VINTAGE_ENTRIES && q.problem === null) {
+    if (vintageFull(input.pending.length, input.books.length) && q.problem === null) {
       return { ...q, accepted: 0n, refused: q.offered, floorIfWin: 0n, problem: 'vintage-full' };
     }
     return q;
@@ -418,7 +425,7 @@ export function simEnter(
   if (entry.outcome < 0 || entry.outcome >= sim.books.length || entry.amount === 0n) throw new SimRevert('InvalidOutcomes');
   if (sim.vintageOpen && entry.block < sim.vintageBlock) throw new SimRevert('block went backwards');
   simRoll(sim, entry.block);
-  if (sim.vintageOpen && sim.pending.length >= MAX_VINTAGE_ENTRIES) throw new SimRevert('VintageFull'); // D9
+  if (sim.vintageOpen && vintageFull(sim.pending.length, sim.books.length)) throw new SimRevert('VintageFull'); // D9
   return simEnterRaw(sim, entry.outcome, entry.amount, entry.owner ?? ZERO_ADDRESS, entry.block, entry.label);
 }
 

@@ -74,6 +74,19 @@ export const hunchMarketFactoryAbiGenerated = [
   },
   {
     "type": "function",
+    "name": "MIN_ENTRY",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint128",
+        "name": "",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MIN_SEED_PER_LEG",
     "inputs": [],
     "outputs": [
@@ -697,7 +710,17 @@ export const hunchMarketFactoryAbiGenerated = [
   },
   {
     "type": "error",
+    "name": "EntryBoundsTooLoose",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "FeedNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidEntryBounds",
     "inputs": []
   },
   {
