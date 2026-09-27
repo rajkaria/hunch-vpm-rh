@@ -8,6 +8,7 @@ import {
   decodeTerms,
   enterNonce,
   enterWithAuthorizationCall,
+  hunchMarketFactoryAbi,
   hunchVpmAbi,
   isDeployed,
   isRestrictedCountry,
@@ -161,7 +162,7 @@ export interface RelayMarket {
 }
 
 export interface RelayChain {
-  /** null when the market does not exist. */
+  /** null when the market does not exist or was not listed by the Hunch factory. */
   market(marketId: bigint): Promise<RelayMarket | null>;
   entriesPaused(): Promise<boolean>;
   authorizationUsed(from: Address, nonce: Hex): Promise<boolean>;
@@ -179,8 +180,12 @@ export function chainRelayReads(client: PublicClient, d: Deployment, relayer?: A
   const vpm = d.contracts.HunchVPM.address;
   return {
     async market(marketId) {
-      const [count] = await callMany(client, [{ address: vpm, abi: hunchVpmAbi, functionName: 'marketCount' }]);
-      if (marketId >= must<bigint>(count, 'marketCount')) return null;
+      // Only markets the Hunch factory listed: HunchVPM is permissionless, and the relayer
+      // must not spend the keeper's gas on (or lend the venue's name to) anyone else's market.
+      const [index] = await callMany(client, [
+        { address: d.contracts.HunchMarketFactory.address, abi: hunchMarketFactoryAbi, functionName: 'listingIndexOf', args: [marketId] },
+      ]);
+      if (must<bigint>(index, 'listingIndexOf') === 0n) return null;
       const r = await callMany(client, [
         { address: vpm, abi: hunchVpmAbi, functionName: 'getMarket', args: [marketId] },
         { address: vpm, abi: hunchVpmAbi, functionName: 'marketTerms', args: [marketId] },
