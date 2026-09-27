@@ -1,0 +1,165 @@
+@import 'tailwindcss';
+
+/*
+ * The Hunch design system, v2.0, as tokens — read off the shipped product at
+ * playhunch.xyz rather than reconstructed from memory.
+ *
+ * What changed from v1.0, and why: v1.0 committed to square corners on the
+ * argument that "a rounded panel next to the mark reads as a different
+ * product". The shipped product disagrees with that argument — it runs a four
+ * step radius scale (tag 6, control 12, card 16, pill) on every surface it
+ * has. This file follows the product.
+ *
+ * The second change is that surfaces are no longer opaque. Hunch builds depth
+ * by layering white at very low alpha over the ink ground, so a panel inside a
+ * panel is legibly one step up without either one being a different colour.
+ * That is why --color-raised is an alpha, not a hex: nesting is supposed to
+ * accumulate.
+ *
+ * The palette is still closed. Lime is YES and UP, coral is NO and DOWN,
+ * violet and sky are the product's two neutral tag accents and carry no
+ * directional meaning. Gold and amber belong to other surfaces in the family
+ * and are declared so nothing else drifts into their slot.
+ */
+@theme {
+  /* Ground. The one opaque colour under everything. */
+  --color-ink: #08080a;
+
+  /* Surfaces: white over ink, at the product's own three alphas. */
+  --color-raised: rgba(255, 255, 255, 0.03);
+  --color-raised-2: rgba(255, 255, 255, 0.05);
+  --color-ghost: rgba(255, 255, 255, 0.02);
+
+  /* Edges. 0.08 is the hairline that carries almost the whole product. */
+  --color-edge: rgba(255, 255, 255, 0.08);
+  --color-edge-strong: rgba(255, 255, 255, 0.14);
+  --color-edge-soft: rgba(255, 255, 255, 0.05);
+
+  /* Text. */
+  --color-paper: #f4f4f2;
+  --color-muted: rgba(244, 244, 242, 0.7);
+  --color-faint: rgba(244, 244, 242, 0.45);
+
+  /* Accents. Two directional, two not. */
+  --color-lime: #c8f04f;
+  --color-coral: #ff6b7a;
+  --color-violet: #8b87ff;
+  --color-sky: #7dd3fc;
+
+  /* Declared so nothing drifts into their slot, not for use here. */
+  --color-gold: #f3cc6b;
+  --color-amber: #fcd34d;
+
+  --font-display: var(--font-archivo), 'Helvetica Neue', Arial, sans-serif;
+  --font-body: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /*
+   * Four steps, each with one job. A tag is 6, anything you can click or that
+   * holds a single value is 12, a panel is 16, and a pill is a pill. There is
+   * no fifth value to reach for.
+   */
+  --radius-tag: 6px;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-pill: 9999px;
+}
+
+/*
+ * This surface commits to one look. The brand is a dark ground and a light
+ * mark; there is no light variant of it to switch to, so the page declares
+ * its scheme rather than inheriting the viewer's and painting half of it.
+ */
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background-color: var(--color-ink);
+  /* The countdown and the bars move; nothing else should, and an anchor jump
+     that animates is a page that feels slower than it is. */
+  scroll-behavior: auto;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+ * Numerals are mono and tabular everywhere they appear; prose never is. A
+ * column of amounts whose digits are different widths cannot be read down,
+ * and a value that changes width when it updates drags its row with it.
+ */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  /* 800 is the ceiling. There is no 900 in this system. */
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * The display sizes the product actually uses. -0.03em at 72px is measured off
+ * playhunch.xyz's own h1, and tracking has to tighten as the size grows or the
+ * word looks like it is coming apart.
+ */
+.display-xl {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+/*
+ * One hairline of light along the top edge of a raised surface. This is the
+ * whole depth model: no shadows, no blur, one highlight that says a panel is
+ * in front of the ground rather than cut into it.
+ */
+.lift {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* One focus treatment, on the accent, visible against every surface here. */
+:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 2px;
+  border-radius: var(--radius-tag);
+}
+
+::selection {
+  background: var(--color-lime);
+  color: var(--color-ink);
+}
+
+/*
+ * Motion is a transition on a bar width, a hover on a card, and nothing else.
+ * Someone who has asked their system not to animate gets the end state
+ * immediately.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Wide content scrolls inside its own box; the page body never does. */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}

@@ -1,0 +1,14 @@
+{
+  "agents": [
+    {
+      "id": "eip155:5042002/agent/42",
+      "agentId": "42",
+      "owner": "0x5555555555555555555555555555555555555555",
+      "agentWallet": null,
+      "feedbackCount": "5",
+      "activeFeedbackCount": "4",
+      "scoreSum": "360",
+      "averageScore": "90"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }   # contracts/lib/forge-std is a pinned submodule
+      - uses: foundry-rs/foundry-toolchain@v1
+        with: { version: stable }
+      - name: forge fmt --check
+        run: forge fmt --check --root contracts
+      - name: forge build
+        run: forge build --root contracts --sizes
+      - name: forge test
+        run: forge test --root contracts -vvv
+        env:
+          FOUNDRY_PROFILE: ci
+
+  workspace:
+    name: workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No `version:` here on purpose — the action reads `packageManager` from the
+      # root package.json, and pinning it in both places is an error, not a default.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --if-present typecheck
+      - run: pnpm -r --if-present test
+      - run: pnpm -r --if-present build
+
+  substreams:
+    name: substreams
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: substreams
+      - name: cargo fmt --check
+        run: cargo fmt --manifest-path substreams/Cargo.toml --check
+      - name: cargo clippy
+        run: cargo clippy --manifest-path substreams/Cargo.toml --target wasm32-unknown-unknown -- -D warnings
+      # --lib explicitly: the crate is cdylib + rlib, and a bare `cargo test` reports the
+      # empty doc-test target last, which reads as "0 passed" and hides all 91 unit tests.
+      - name: cargo test
+        run: cargo test --manifest-path substreams/Cargo.toml --lib
+      - name: cargo build
+        run: cargo build --manifest-path substreams/Cargo.toml --release --target wasm32-unknown-unknown

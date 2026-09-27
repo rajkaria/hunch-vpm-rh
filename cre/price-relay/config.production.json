@@ -1,0 +1,15 @@
+{
+	"schedule": "0 */5 * * * *",
+	"source": {
+		"chainSelectorName": "ethereum-testnet-sepolia",
+		"feeds": [
+			{ "description": "ETH / USD", "address": "0x694AA1769357215DE4FAC081bf1f309aDC325306" },
+			{ "description": "BTC / USD", "address": "0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43" }
+		]
+	},
+	"target": {
+		"chainSelectorName": "arc-testnet",
+		"oracleAddress": "0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621",
+		"gasLimit": "300000"
+	}
+}

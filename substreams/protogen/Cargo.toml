@@ -1,0 +1,18 @@
+# Standalone helper crate, deliberately outside the substreams package's workspace: it
+# builds for the host, not for wasm, and none of its dependencies belong in the module's
+# dependency tree. `make protogen` runs it.
+[workspace]
+
+[package]
+name = "hunch-vpm-protogen"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Regenerates src/pb from proto/ without a system protoc."
+publish = false
+
+[dependencies]
+prost-build = "0.13"
+# Ships a protoc binary per host triple, so regenerating the protobuf bindings needs no
+# system protoc and no substreams CLI.
+protoc-bin-vendored = "3"

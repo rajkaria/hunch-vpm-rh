@@ -1,0 +1,50 @@
+{
+  "chainId": 5042002,
+  "vestedParimutuel": "0xC743940C75619f65F6178b7e49c0C3A0bE012Eec",
+  "classicParimutuel": "0x21603b2176aB8495A81fF3B3bE853C64f3860D57",
+  "priceOracle": "0x5938F12246642aE8E6A47Efbaa72a454EafD4287",
+  "feedResolver": "0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3",
+  "marketFactory": "0x0380C6FC136AE64432558e407706a5C7E7652f07",
+  "chainlinkCreOracle": "0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621",
+  "creForwarder": "0x76c9cf548b4179F8901cda1f8623568b58215E62",
+  "startBlocks": {
+    "vestedParimutuel": 61840931,
+    "classicParimutuel": 61840931,
+    "feedResolver": 61840931,
+    "marketFactory": 61840932
+  },
+  "markets": [
+    {
+      "id": "0xc743940c75619f65f6178b7e49c0c3a0be012eec-0",
+      "marketId": 0,
+      "specId": "0x49a5f58c7fbcedaabffd3862c6c48d0c3a243eec0da9c76ad800fd1440c4c0ff",
+      "question": "BTC / USD at or above $77,000 at 2026-09-15 16:00 UTC",
+      "oracle": "chainlinkCreOracle",
+      "feed": "BTC / USD",
+      "strike8": "7700000000000",
+      "direction": 0,
+      "resolutionTime": 1789488000,
+      "voidTimeout": 259200,
+      "maxStaleness": 5400,
+      "seed": ["2000000", "2000000"],
+      "kappa": 30,
+      "openTx": "0x04a95d1b68080f1cf36e71542cfc27d0c791e5d5fe969470565d502bd2d713f5"
+    },
+    {
+      "id": "0xc743940c75619f65f6178b7e49c0c3a0be012eec-1",
+      "marketId": 1,
+      "specId": "0xa89bf6c8dc17ce643c844e70478e93b7c8e341fcc76ac4acef6f79aaac8070dc",
+      "question": "ETH / USD at or above $2,500 at 2026-09-20 16:00 UTC",
+      "oracle": "chainlinkCreOracle",
+      "feed": "ETH / USD",
+      "strike8": "250000000000",
+      "direction": 0,
+      "resolutionTime": 1789920000,
+      "voidTimeout": 259200,
+      "maxStaleness": 5400,
+      "seed": ["2000000", "2000000"],
+      "kappa": 30,
+      "openTx": "0xd3c7c248456b665054367a60489a226f1909942117a933d5ba3bdb2feb05c781"
+    }
+  ]
+}

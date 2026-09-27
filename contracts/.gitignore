@@ -1,0 +1,7 @@
+out/
+cache/
+lib/
+!lib/forge-std
+# `**`, not `*`: forge nests dry-runs two levels deep (broadcast/<Script>/<chainId>/dry-run/),
+# which a single `*` never matched.
+broadcast/**/dry-run/

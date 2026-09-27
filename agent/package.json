@@ -1,0 +1,38 @@
+{
+  "name": "@hunch-vpm/agent",
+  "version": "0.1.0",
+  "description": "Demo agent for the Vested Parimutuel: reads the book through The Graph, decides, and settles in USDC on Arc through a Circle Agent Wallet.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "hunch-agent": "./dist/cli/main.js",
+    "hunch-keeper": "./dist/keeper/main.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "fixtures",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo": "node dist/cli/main.js run"
+  },
+  "dependencies": {
+    "@hunch-vpm/client": "workspace:*",
+    "viem": "^2.56.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

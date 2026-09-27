@@ -1,0 +1,141 @@
+{
+  "$comment": [
+    "Fixture book states for the dry-run agent and the test suite.",
+    "Times are relative so the fixtures never go stale: openedSecondsAgo and freezeInSeconds",
+    "are offsets from whatever 'now' the loader is given.",
+    "Amounts ending in Usdc are decimal USDC; price8 and strike8 are 8-decimal integers,",
+    "the IPriceOracle convention FeedResolver reads.",
+    "Between them these six markets exercise every branch of the decision procedure."
+  ],
+  "markets": [
+    {
+      "id": "btc-72k",
+      "question": "BTC at or above $72,000 at the freeze",
+      "kappa": "30",
+      "openedSecondsAgo": 7200,
+      "freezeInSeconds": 86400,
+      "flowPerTickUsdc": "400",
+      "spec": { "feedKey": "BTCUSD", "strike8": "7200000000000", "direction": 0, "maxStaleness": 3600 },
+      "intel": {
+        "price8": "7430000000000",
+        "volAnnualised": 0.5,
+        "driftPerTick": 0.004,
+        "source": "stork:BTCUSD"
+      },
+      "outcomes": [
+        { "label": "above", "principalUsdc": "4200", "vestedUsdc": "6100", "trust": 0.68, "holders": 11 },
+        { "label": "below", "principalUsdc": "5800", "vestedUsdc": "4900", "trust": 0.71, "holders": 14 }
+      ]
+    },
+    {
+      "id": "eth-3200-late",
+      "question": "ETH at or above $3,200 at the freeze",
+      "kappa": "30",
+      "openedSecondsAgo": 86000,
+      "freezeInSeconds": 240,
+      "flowPerTickUsdc": "50",
+      "spec": { "feedKey": "ETHUSD", "strike8": "320000000000", "direction": 0, "maxStaleness": 3600 },
+      "intel": {
+        "price8": "351000000000",
+        "volAnnualised": 0.62,
+        "driftPerTick": 0.0,
+        "source": "stork:ETHUSD"
+      },
+      "outcomes": [
+        { "label": "above", "principalUsdc": "900", "vestedUsdc": "1400", "trust": 0.55, "holders": 6 },
+        { "label": "below", "principalUsdc": "1600", "vestedUsdc": "1100", "trust": 0.49, "holders": 8 }
+      ]
+    },
+    {
+      "id": "sol-180-full",
+      "question": "SOL at or above $180 at the freeze",
+      "kappa": "30",
+      "openedSecondsAgo": 20000,
+      "freezeInSeconds": 60000,
+      "flowPerTickUsdc": "0",
+      "spec": { "feedKey": "SOLUSD", "strike8": "18000000000", "direction": 0, "maxStaleness": 3600 },
+      "intel": {
+        "price8": "21500000000",
+        "volAnnualised": 0.85,
+        "driftPerTick": 0.0,
+        "source": "stork:SOLUSD"
+      },
+      "outcomes": [
+        {
+          "label": "above",
+          "principalUsdc": "700",
+          "vestedUsdc": "21000",
+          "capacityUsdc": "21000",
+          "trust": 0.6,
+          "holders": 9
+        },
+        {
+          "label": "below",
+          "principalUsdc": "700",
+          "vestedUsdc": "21000",
+          "capacityUsdc": "21000",
+          "trust": 0.6,
+          "holders": 9
+        }
+      ]
+    },
+    {
+      "id": "xau-2400-anon",
+      "question": "Gold at or above $2,400 at the freeze",
+      "kappa": "30",
+      "openedSecondsAgo": 3600,
+      "freezeInSeconds": 172800,
+      "flowPerTickUsdc": "80",
+      "spec": { "feedKey": "XAUUSD", "strike8": "240000000000", "direction": 0, "maxStaleness": 7200 },
+      "intel": {
+        "price8": "243500000000",
+        "volAnnualised": 0.16,
+        "driftPerTick": 0.0,
+        "source": "stork:XAUUSD"
+      },
+      "outcomes": [
+        { "label": "above", "principalUsdc": "2500", "vestedUsdc": "1900", "trust": 0.0, "holders": 3 },
+        { "label": "below", "principalUsdc": "500", "vestedUsdc": "2400", "trust": 0.0, "holders": 2 }
+      ]
+    },
+    {
+      "id": "eur-ranked-3way",
+      "question": "Which of three tiers the EUR/USD fix lands in",
+      "kappa": "unbounded",
+      "openedSecondsAgo": 1800,
+      "freezeInSeconds": 43200,
+      "flowPerTickUsdc": "60",
+      "spec": { "feedKey": "EURUSD", "strike8": "10800000", "direction": 0, "maxStaleness": 3600 },
+      "intel": {
+        "price8": "10850000",
+        "volAnnualised": 0.07,
+        "driftPerTick": 0.0,
+        "source": "stork:EURUSD"
+      },
+      "outcomes": [
+        { "label": "low", "principalUsdc": "400", "vestedUsdc": "800", "trust": 0.4, "holders": 3 },
+        { "label": "mid", "principalUsdc": "700", "vestedUsdc": "500", "trust": 0.44, "holders": 5 },
+        { "label": "high", "principalUsdc": "300", "vestedUsdc": "900", "trust": 0.38, "holders": 2 }
+      ]
+    },
+    {
+      "id": "btc-68k-short",
+      "question": "BTC at or above $68,000 at the freeze",
+      "kappa": "30",
+      "openedSecondsAgo": 600,
+      "freezeInSeconds": 5400,
+      "flowPerTickUsdc": "600",
+      "spec": { "feedKey": "BTCUSD", "strike8": "6800000000000", "direction": 0, "maxStaleness": 3600 },
+      "intel": {
+        "price8": "7430000000000",
+        "volAnnualised": 0.5,
+        "driftPerTick": 0.001,
+        "source": "stork:BTCUSD"
+      },
+      "outcomes": [
+        { "label": "above", "principalUsdc": "1500", "vestedUsdc": "1200", "trust": 0.66, "holders": 7 },
+        { "label": "below", "principalUsdc": "1500", "vestedUsdc": "1200", "trust": 0.64, "holders": 7 }
+      ]
+    }
+  ]
+}

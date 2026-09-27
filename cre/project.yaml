@@ -1,0 +1,17 @@
+# CRE project settings. Public RPCs only — nothing here is a secret.
+#
+#   ethereum-testnet-sepolia  where the Chainlink Data Feeds are read
+#   arc-testnet               where ChainlinkCreOracle receives them
+staging-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
+    - chain-name: arc-testnet
+      url: https://rpc.testnet.arc.io
+
+production-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
+    - chain-name: arc-testnet
+      url: https://rpc.testnet.arc.io

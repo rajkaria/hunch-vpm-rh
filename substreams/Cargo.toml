@@ -1,0 +1,39 @@
+[package]
+name = "hunch-vpm-substreams"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Substreams package over the Hunch VPM settlers: market, position and book tables."
+repository = "https://github.com/rajkaria/hunch-vpm"
+publish = false
+
+[lib]
+# cdylib is what the Substreams runtime loads. rlib is what `cargo test` links
+# against, so the pure logic below the handlers is testable on the host target.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1"
+# Abigen's output calls into ethabi by name, so it has to be a direct dependency even
+# though no hand-written code in this crate mentions it.
+ethabi = "17"
+hex = "0.4"
+num-bigint = "0.4"
+num-traits = "0.2"
+prost = "0.13"
+prost-types = "0.13"
+substreams = "0.7.6"
+substreams-database-change = "4.0.0"
+substreams-ethereum = "0.11.1"
+
+[build-dependencies]
+anyhow = "1"
+substreams-ethereum = "0.11.1"
+
+[profile.release]
+# The runtime charges by wasm size and instruction count, so optimise for both.
+lto = true
+opt-level = "s"
+strip = "debuginfo"
+codegen-units = 1
+panic = "abort"

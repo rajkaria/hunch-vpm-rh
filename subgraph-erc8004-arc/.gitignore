@@ -1,0 +1,13 @@
+# graph codegen / graph build output (also covered by the repo root .gitignore)
+generated/
+build/
+
+# matchstick run state
+tests/matchstick/.latest.json
+
+# Snapshot left behind if tools/with-network.mjs is interrupted mid-build.
+subgraph.yaml.orig
+
+# This package pins its toolchain with exact versions in package.json. The repo installs with
+# pnpm from the root, so an npm lockfile here would be a second source of truth.
+package-lock.json

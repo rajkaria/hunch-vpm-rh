@@ -1,0 +1,53 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+evm_version = "cancun"
+# the vector replay is one long test: lift the per-test gas and memory ceilings
+gas_limit = "18446744073709551615"
+memory_limit = 268435456
+fs_permissions = [
+  { access = "read", path = "./test/vectors" },
+  { access = "write", path = "./GAS.md" },
+]
+gas_reports = ["VestedParimutuel", "NaiveVestedParimutuel"]
+
+[profile.default.fuzz]
+runs = 512
+
+[profile.default.invariant]
+runs = 128
+depth = 64
+fail_on_revert = false
+
+[profile.ci.fuzz]
+runs = 2048
+
+[rpc_endpoints]
+arc_testnet = "${ARC_TESTNET_RPC_URL}"
+arc_mainnet = "${ARC_MAINNET_RPC_URL}"
+
+# No [etherscan] entry for Arc, on purpose. Arcscan is a Blockscout instance:
+# verification needs `--verifier blockscout --verifier-url https://testnet.arcscan.app/api/`
+# and NO API key (docs.arc.io, "Deploy on Arc"). The old entry here demanded an
+# ARCSCAN_API_KEY that does not exist, and the preflight only passed --verify when
+# it was set — so verification would have been skipped silently on every deploy.
+# The verifier flags go on the command line; scripts/preflight-deploy.sh prints them.
+
+# The vendored reference implementation and its suite must stay byte-for-byte
+# identical to what was published with the paper — the formatter never touches them.
+[fmt]
+ignore = [
+  "src/VestedParimutuel.sol",
+  "src/NaiveVestedParimutuel.sol",
+  "src/mocks/MockERC20.sol",
+  "test/Vectors.t.sol",
+  "test/Mechanism.t.sol",
+  "test/Gas.t.sol",
+]

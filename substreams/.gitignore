@@ -1,0 +1,7 @@
+# Cargo output. The repo-root .gitignore already covers substreams/target and *.wasm;
+# this file keeps the package self-contained if it is ever moved or vendored elsewhere.
+target/
+protogen/target/
+
+# Packed modules, built from source by `make pack`.
+*.spkg

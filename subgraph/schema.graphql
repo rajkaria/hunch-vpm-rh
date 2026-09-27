@@ -1,0 +1,243 @@
+# The Hunch VPM index.
+#
+# Every field a client would otherwise have to derive is derived here instead, so a
+# front end never has to reimplement the settlement rule to draw a book. See README.md
+# for what each derived field means and where the sentinels appear.
+
+enum SettlerKind {
+  "VestedParimutuel: stake vests into the opposing books on arrival and is rationed against their headroom."
+  VESTED
+  "ClassicParimutuel: every unit pays the same multiple regardless of when it landed."
+  CLASSIC
+}
+
+enum MarketStatus {
+  OPEN
+  RESOLVED
+  VOIDED
+}
+
+enum FeedDirection {
+  "direction 0: outcome 0 wins at or above the strike."
+  ABOVE
+  "direction 1: outcome 0 wins below the strike."
+  BELOW
+}
+
+type Protocol @entity(immutable: false) {
+  "Always \"1\"."
+  id: ID!
+  marketCount: BigInt!
+  positionCount: BigInt!
+  "Sum of accepted principal across every market and both settlers."
+  totalAccepted: BigInt!
+  "Sum of settlement payouts actually claimed. Refunds of refused stake are not counted."
+  totalClaimed: BigInt!
+  agentCount: BigInt!
+}
+
+type Market @entity(immutable: false) {
+  "<settler address>-<marketId>. Market ids are per settler contract, not global."
+  id: ID!
+  settler: Bytes!
+  settlerKind: SettlerKind!
+  marketId: BigInt!
+  token: Bytes
+  "Whoever called create() on the settler. Under MarketFactory that is the factory contract, not a wallet — see opener."
+  creator: Bytes
+  "The wallet that opened the market through MarketFactory and funded the seed. Null for a market created directly on a settler."
+  opener: Bytes
+  "The address the settler will accept a resolve() from. Under the factory this is the FeedResolver."
+  resolver: Bytes
+  residueOwner: Bytes
+  "Capacity coefficient. UNBOUNDED_SENTINEL (-1) when kappa is 2^256-1; read kappaIsUnbounded first."
+  kappa: BigInt!
+  kappaIsUnbounded: Boolean!
+  "|O|, the number of outcomes."
+  n: Int!
+  "The freeze. Entries at or after this timestamp are refused."
+  resolutionTime: BigInt!
+  "Seconds after the freeze from which anyone may void."
+  voidTimeout: BigInt!
+  status: MarketStatus!
+  "Winning outcome index, set when status is RESOLVED."
+  winner: Int
+  "Pi: the sum of accepted principal over all books."
+  acceptedPool: BigInt!
+  "Settlement payouts claimed so far."
+  paidOut: BigInt!
+  "What the residue owner is owed: acceptedPool - paidOut on a RESOLVED market, 0 on any other. Exact only once every winning position has claimed."
+  residue: BigInt!
+  residueClaimed: Boolean!
+  createdAt: BigInt!
+  createdBlock: BigInt!
+  resolvedAt: BigInt
+  books: [Book!]! @derivedFrom(field: "market")
+  positions: [Position!]! @derivedFrom(field: "market")
+  "Empty for CLASSIC markets: a classic pool has no notion of when a stake arrived."
+  vintages: [Vintage!]! @derivedFrom(field: "market")
+  dayStats: [MarketDayStat!]! @derivedFrom(field: "market")
+  "The vintage buffered but not yet finalized, if any."
+  openVintage: Vintage
+
+  # ---- resolution spec, from FeedResolver / MarketFactory
+  specId: Bytes
+  "Threshold at 8 decimals."
+  strike: BigInt
+  direction: FeedDirection
+  oracle: Bytes
+  "Adapter-defined feed identifier: a feed address for Chainlink, a price id for Stork."
+  feedKey: Bytes
+  "Seconds beyond which the market voids instead of resolving."
+  maxStaleness: BigInt
+  "The reading the market settled on, at 8 decimals."
+  resolvedPrice: BigInt
+  "When the oracle last wrote that reading."
+  priceUpdatedAt: BigInt
+  "Age of the reading that triggered a stale void, in seconds. Null unless voidStale fired."
+  voidedStaleAge: BigInt
+}
+
+type Book @entity(immutable: false) {
+  "<market id>-<outcome>"
+  id: ID!
+  market: Market!
+  outcome: Int!
+  "P_w: accepted principal on this outcome."
+  principal: BigInt!
+  "V_w: total accepted stake vested INTO this book. Always 0 for CLASSIC."
+  vested: BigInt!
+  "C_w = kappa * P_w. UNBOUNDED_SENTINEL (-1) when unbounded; check capacityIsUnbounded."
+  capacity: BigInt!
+  capacityIsUnbounded: Boolean!
+  "H_w = C_w - V_w, floored at 0. UNBOUNDED_SENTINEL (-1) when capacity is unbounded."
+  headroom: BigInt!
+  "principal / market.acceptedPool. Derived from accepted principal, never from a quoted price."
+  impliedOdds: BigDecimal!
+  positionCount: BigInt!
+  "A_w: the reward-per-share accumulator, fixed point at 1e18. Always 0 for CLASSIC."
+  acc: BigInt!
+}
+
+type Vintage @entity(immutable: false) {
+  "<market id>-<block number>. Vintage 0 is the reserved seed vintage."
+  id: ID!
+  market: Market!
+  "The block number that is this vintage's id."
+  block: BigInt!
+  "Sum of stake offered by the entries in this vintage."
+  offered: BigInt!
+  "Sum of stake the books accepted from them."
+  accepted: BigInt!
+  "offered - accepted: the capacity refusal, made visible."
+  rationed: BigInt!
+  entryCount: BigInt!
+  finalized: Boolean!
+  finalizedAt: BigInt
+  entries: [Position!]! @derivedFrom(field: "vintage")
+  "Position ids still awaiting finalization. Cleared when the vintage finalizes."
+  pending: [String!]!
+}
+
+type Position @entity(immutable: false) {
+  "<settler address>-<positionId>"
+  id: ID!
+  positionId: BigInt!
+  market: Market!
+  owner: Agent!
+  outcome: Int!
+  "c_k: what the entry offered."
+  offered: BigInt!
+  "s_i: what the book accepted. Known only once the vintage is finalized."
+  accepted: BigInt!
+  "offered - accepted: refused for want of headroom, refundable."
+  refused: BigInt!
+  finalized: Boolean!
+  "Null for CLASSIC positions."
+  vintage: Vintage
+  "A_o at entry, fixed point at 1e18. Always 0 for CLASSIC."
+  entryAcc: BigInt!
+  refundWithdrawn: Boolean!
+  claimed: Boolean!
+  "Settlement actually paid. 0 until claimed."
+  payout: BigInt!
+  "What claim() would pay if the market resolved right now to this position's own outcome."
+  previewPayout: BigInt!
+  createdAt: BigInt!
+  createdBlock: BigInt!
+  "The transaction the Entered log came from. A transfer inside it is a hand-over, not a sale."
+  createdTx: Bytes!
+  claims: [Claim!]! @derivedFrom(field: "position")
+}
+
+type Claim @entity(immutable: true) {
+  "<tx hash>-<log index>"
+  id: ID!
+  position: Position!
+  market: Market!
+  to: Bytes!
+  "Settlement paid by this call, including a void's refund of accepted principal. 0 when the call was a bare refund withdrawal."
+  payout: BigInt!
+  "Refused remainder paid by this call. Always 0 for CLASSIC, where nothing is ever refused."
+  refund: BigInt!
+  timestamp: BigInt!
+  block: BigInt!
+  txHash: Bytes!
+}
+
+type Agent @entity(immutable: false) {
+  "The wallet address, lowercase hex."
+  id: ID!
+  "ERC-8004 identity, when one is known. Populated by the erc8004 subgraph, not by this one."
+  erc8004Id: BigInt
+  "Whether an ERC-8004 reputation attestation has been seen for this wallet. See README."
+  agentBookVerified: Boolean!
+  positions: [Position!]! @derivedFrom(field: "owner")
+  "Distinct markets this wallet currently holds a position in. Transferring away the last position in a market takes it off this count."
+  marketsEntered: BigInt!
+  totalOffered: BigInt!
+  totalAccepted: BigInt!
+  "Settlement payouts claimed. Refunds of refused stake are not counted."
+  totalClaimed: BigInt!
+  "Sum over claimed positions of (payout - accepted principal)."
+  realizedPnl: BigInt!
+  firstSeenAt: BigInt!
+}
+
+type MarketDayStat @entity(immutable: false) {
+  "<market id>-<day index>"
+  id: ID!
+  market: Market!
+  "Unix seconds at UTC midnight."
+  date: Int!
+  offered: BigInt!
+  accepted: BigInt!
+  rationed: BigInt!
+  entries: BigInt!
+  uniqueAgents: BigInt!
+}
+
+# ---- bookkeeping entities. Not interesting to query; they exist so the mappings can
+# ---- answer "how many of this pair have I counted?" in O(1) instead of scanning an array.
+# ---- Each carries a count rather than existing as a bare marker, because a position can
+# ---- move to another wallet and the count has to come back down again.
+
+type AgentMarket @entity(immutable: false) {
+  "<agent id>-<market id>"
+  id: ID!
+  "Positions this wallet currently holds in this market. The row is deleted at zero."
+  positions: BigInt!
+}
+
+type DayAgent @entity(immutable: false) {
+  "<market day stat id>-<agent id>"
+  id: ID!
+  "Entries this wallet is credited with in this market-day. The row is deleted at zero."
+  entries: BigInt!
+}
+
+type SpecLink @entity(immutable: true) {
+  "The FeedResolver specId. Lets a Resolved(specId) event find its market without a contract call."
+  id: ID!
+  market: Market!
+}

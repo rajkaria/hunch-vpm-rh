@@ -1,0 +1,312 @@
+# ERC-8004 standardized schema.
+#
+# Entity and field names are held identical to the Agent0 ERC-8004 subgraphs on Ethereum,
+# Base, BSC, Polygon and Monad so that one GraphQL document runs against any of them. Fields
+# specific to the Arc deployment are additive only: nothing standard was renamed or dropped,
+# because a consumer that already reads Base reputation must not have to branch on chain.
+#
+# Every id is prefixed with the CAIP-2 chain id. Agent ids are small integers that restart
+# from 0 on every chain, so an unprefixed id would collide the moment two chains are merged
+# into one client-side cache.
+
+enum ValidationStatus {
+  REQUESTED
+  RESPONDED
+}
+
+"One row per indexed chain. Holds the chain-level aggregates."
+type Registry @entity(immutable: false) {
+  "CAIP-2 chain id, e.g. eip155:5042002"
+  id: ID!
+  chainId: BigInt!
+  "The Graph network slug this deployment was built for, e.g. arc-testnet"
+  network: String!
+
+  identityRegistry: Bytes!
+  reputationRegistry: Bytes!
+  validationRegistry: Bytes!
+
+  agentCount: BigInt!
+  "Agents whose identity NFT has not been burned."
+  liveAgentCount: BigInt!
+
+  feedbackCount: BigInt!
+  activeFeedbackCount: BigInt!
+  revokedFeedbackCount: BigInt!
+  feedbackResponseCount: BigInt!
+
+  validationRequestCount: BigInt!
+  validationResponseCount: BigInt!
+
+  clientCount: BigInt!
+  validatorCount: BigInt!
+
+  "Mean of every non-revoked feedback score on this chain. See Feedback.score for the caveat."
+  averageScore: BigDecimal!
+  "Sum behind averageScore. Kept so a revocation is an O(1) correction rather than a re-scan."
+  scoreSum: BigDecimal!
+  "Mean of every ValidationResponse.response on this chain, 0-100."
+  averageValidationResponse: BigDecimal!
+  "Sum behind averageValidationResponse."
+  validationResponseSum: BigInt!
+
+  lastUpdatedAt: BigInt!
+  lastUpdatedBlock: BigInt!
+
+  agents: [Agent!]! @derivedFrom(field: "registry")
+  capabilityStats: [CapabilityStat!]! @derivedFrom(field: "registry")
+  dayData: [RegistryDayData!]! @derivedFrom(field: "registry")
+}
+
+"An ERC-8004 agent identity. One identity NFT in the IdentityRegistry."
+type Agent @entity(immutable: false) {
+  "<caip2>/agent/<agentId>"
+  id: ID!
+  registry: Registry!
+  chainId: BigInt!
+
+  "The on-chain agent id. Equals tokenId in this implementation; both are kept because the two are separate concepts in the spec."
+  agentId: BigInt!
+  tokenId: BigInt!
+
+  "Current holder of the identity NFT."
+  owner: Bytes!
+  "The agentWallet metadata entry. The address the agent signs and transacts as, which may differ from the NFT holder."
+  agentWallet: Bytes
+  "Operator approved for this single token via ERC-721 approve."
+  approved: Bytes
+
+  "tokenURI: the agent card. Off-chain document, not resolved by this subgraph."
+  metadataURI: String!
+  name: String
+  description: String
+
+  endpoints: [Endpoint!]! @derivedFrom(field: "agent")
+  capabilities: [Capability!]! @derivedFrom(field: "agent")
+  metadata: [AgentMetadata!]! @derivedFrom(field: "agent")
+
+  registeredAt: BigInt!
+  registeredAtBlock: BigInt!
+  registeredTx: Bytes!
+  updatedAt: BigInt!
+
+  "True once the identity NFT is transferred to the zero address."
+  burned: Boolean!
+
+  feedbackCount: BigInt!
+  activeFeedbackCount: BigInt!
+  revokedFeedbackCount: BigInt!
+  "Sum of non-revoked scores. Kept so revocation is an O(1) correction rather than a re-scan."
+  scoreSum: BigDecimal!
+  averageScore: BigDecimal!
+  lastFeedbackAt: BigInt
+
+  validationCount: BigInt!
+  validationResponseCount: BigInt!
+  validationResponseSum: BigInt!
+  averageValidationResponse: BigDecimal!
+
+  feedback: [Feedback!]! @derivedFrom(field: "agent")
+  validations: [Validation!]! @derivedFrom(field: "agent")
+  transfers: [AgentTransfer!]! @derivedFrom(field: "agent")
+}
+
+"A service endpoint advertised by an agent, from a metadata key of the form endpoint.<protocol> or endpoints.<protocol>."
+type Endpoint @entity(immutable: false) {
+  "<agent.id>/endpoint/<protocol>"
+  id: ID!
+  agent: Agent!
+  "Lower-cased protocol name taken from the metadata key suffix, e.g. mcp, a2a, oasf."
+  protocol: String!
+  uri: String!
+  updatedAt: BigInt!
+}
+
+"A capability an agent advertises. Per-agent edge; see CapabilityStat for the chain roll-up."
+type Capability @entity(immutable: false) {
+  "<agent.id>/capability/<name>"
+  id: ID!
+  agent: Agent!
+  name: String!
+  "Metadata value decoded as UTF-8, when the key carried one. Empty for entries from a comma-separated `capabilities` list."
+  value: String!
+  addedAt: BigInt!
+  updatedAt: BigInt!
+}
+
+"How many agents on this chain advertise a given capability."
+type CapabilityStat @entity(immutable: false) {
+  "<caip2>/capability/<name>"
+  id: ID!
+  registry: Registry!
+  name: String!
+  agentCount: BigInt!
+}
+
+"Raw MetadataSet entry, kept verbatim so consumers can read keys this mapping does not interpret."
+type AgentMetadata @entity(immutable: false) {
+  "<agent.id>/metadata/<key>"
+  id: ID!
+  agent: Agent!
+  key: String!
+  value: Bytes!
+  "value decoded as UTF-8. Empty string when the bytes are not valid UTF-8."
+  valueString: String!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+"""
+One feedback entry. Keyed by (agent, client, index): the registry lets a client rate the same
+agent repeatedly and indexes are 1-based per pair.
+"""
+type Feedback @entity(immutable: false) {
+  "<agent.id>/feedback/<author>/<index>"
+  id: ID!
+  agent: Agent!
+  registry: Registry!
+  chainId: BigInt!
+
+  "clientAddress in the NewFeedback event. The registry rejects feedback from the agent's own owner or operators."
+  author: Bytes!
+  client: Client!
+  index: BigInt!
+
+  """
+  value rescaled by valueDecimals. ERC-8004 does not fix a scale, so this is only comparable
+  within a tag: one client may post 87 with 0 decimals where another posts 0.87 with 2. Filter
+  by tag before averaging across authors.
+  """
+  score: BigDecimal!
+  "Raw int128 from the event, before rescaling."
+  value: BigInt!
+  valueDecimals: Int!
+
+  "[tag1, tag2] with empty entries removed."
+  tags: [String!]!
+  tag1: String!
+  tag2: String!
+
+  "Which of the agent's endpoints the feedback is about. Free-form string, not a reference."
+  endpoint: String!
+  "feedbackURI: off-chain document, not resolved by this subgraph."
+  uri: String!
+  feedbackHash: Bytes!
+
+  revoked: Boolean!
+  revokedAt: BigInt
+  revokedAtBlock: BigInt
+
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  createdTx: Bytes!
+
+  responseCount: BigInt!
+  responses: [FeedbackResponse!]! @derivedFrom(field: "feedback")
+}
+
+"A reply appended to a feedback entry. Anyone may append; the agent owner usually does."
+type FeedbackResponse @entity(immutable: true) {
+  "<feedback.id>/response/<txHash>-<logIndex>"
+  id: ID!
+  feedback: Feedback!
+  agent: Agent!
+  responder: Bytes!
+  uri: String!
+  responseHash: Bytes!
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  createdTx: Bytes!
+}
+
+"""
+A validation, covering both halves of the two-step flow. Created by validationRequest and
+completed in place by validationResponse, because the registry keys both on requestHash.
+"""
+type Validation @entity(immutable: false) {
+  "<caip2>/validation/<requestHash>"
+  id: ID!
+  agent: Agent!
+  registry: Registry!
+  chainId: BigInt!
+
+  validator: Validator!
+  validatorAddress: Bytes!
+  requestHash: Bytes!
+
+  "requestURI: off-chain document, not resolved by this subgraph."
+  request: String!
+  requestedAt: BigInt!
+  requestedAtBlock: BigInt!
+  requestedTx: Bytes!
+
+  "0-100. Null until the validator responds. The registry rejects values above 100."
+  response: Int
+  responseURI: String
+  responseHash: Bytes
+  tag: String
+  respondedAt: BigInt
+  respondedAtBlock: BigInt
+  respondedTx: Bytes
+
+  status: ValidationStatus!
+}
+
+"An address that has given feedback, aggregated across every agent it rated on this chain."
+type Client @entity(immutable: false) {
+  "<caip2>/client/<address>"
+  id: ID!
+  registry: Registry!
+  address: Bytes!
+  feedbackCount: BigInt!
+  activeFeedbackCount: BigInt!
+  revokedFeedbackCount: BigInt!
+  agentsRated: BigInt!
+  firstSeenAt: BigInt!
+  lastSeenAt: BigInt!
+  feedback: [Feedback!]! @derivedFrom(field: "client")
+}
+
+"An address named as validator on at least one request, aggregated across this chain."
+type Validator @entity(immutable: false) {
+  "<caip2>/validator/<address>"
+  id: ID!
+  registry: Registry!
+  address: Bytes!
+  requestCount: BigInt!
+  responseCount: BigInt!
+  responseSum: BigInt!
+  averageResponse: BigDecimal!
+  firstSeenAt: BigInt!
+  lastSeenAt: BigInt!
+  validations: [Validation!]! @derivedFrom(field: "validator")
+}
+
+"Per-chain daily roll-up, keyed on UTC midnight."
+type RegistryDayData @entity(immutable: false) {
+  "<caip2>/day/<dayStartUnix>"
+  id: ID!
+  registry: Registry!
+  date: Int!
+
+  agentsRegistered: BigInt!
+  feedbackGiven: BigInt!
+  feedbackRevoked: BigInt!
+  validationsRequested: BigInt!
+  validationsResponded: BigInt!
+
+  "Cumulative agent count at the end of this day."
+  totalAgents: BigInt!
+}
+
+"An ownership move of the identity NFT, including the mint and any burn."
+type AgentTransfer @entity(immutable: true) {
+  "<caip2>/transfer/<txHash>-<logIndex>"
+  id: ID!
+  agent: Agent!
+  from: Bytes!
+  to: Bytes!
+  timestamp: BigInt!
+  block: BigInt!
+  tx: Bytes!
+}

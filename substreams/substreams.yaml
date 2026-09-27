@@ -1,0 +1,146 @@
+specVersion: v0.1.0
+
+package:
+  name: hunch_vpm
+  version: v0.1.0
+  url: https://github.com/rajkaria/hunch-vpm
+  description: >-
+    Market, position and headroom tables for the Hunch VPM settlers, with a db_out module
+    for a hosted SQL sink.
+  # No `doc:` here: `substreams pack` deprecated the field and picks up README.md, which
+  # is where the open Firehose dependency and the accuracy caveats are written down.
+
+# Arc testnet. The Graph's network slug for it is `arc-testnet` (eip155:5042002); Arc
+# mainnet is `arc` (eip155:5042).
+#
+# `substreams pack` warns that this is "not a known Firehose network registry ID or
+# alias", and it is right: neither Arc network is in the registry yet. The package packs
+# and the warning is the honest state of the world, not a mistake to paper over by
+# declaring a network that does exist. See README.md.
+network: arc-testnet
+
+protobuf:
+  files:
+    - hunch_vpm.proto
+    # Vendored upstream schema for db_out's output type, so packing needs no network.
+    # `make verify-vendored-proto` checks it against the crate the wasm encodes with.
+    - sink/database_changes.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/hunch_vpm_substreams.wasm
+
+# Nothing is deployed on Arc yet, so every address here is the zero address and is
+# PLACEHOLDER ONLY: as written this package matches no log and produces no rows. Override
+# at run time rather than editing this file, so one .spkg serves testnet and mainnet:
+#
+#   substreams run substreams.yaml db_out \
+#     -p map_markets="vested=0xABC...&classic=0xDEF...&factory=0x123...&resolver=0x456..." \
+#     -p map_positions="vested=0xABC...&classic=0xDEF...&factory=0x123...&resolver=0x456..."
+#
+# Both modules take the same string. Leave a key out to skip that contract entirely.
+params:
+  map_markets: "vested=0x0000000000000000000000000000000000000000&classic=0x0000000000000000000000000000000000000000&factory=0x0000000000000000000000000000000000000000&resolver=0x0000000000000000000000000000000000000000"
+  map_positions: "vested=0x0000000000000000000000000000000000000000&classic=0x0000000000000000000000000000000000000000&factory=0x0000000000000000000000000000000000000000&resolver=0x0000000000000000000000000000000000000000"
+
+modules:
+  # MarketCreated / Resolved / Voided from either settler, MarketOpened from the factory,
+  # and the resolver's SpecRegistered / Resolved / VoidedStale.
+  - name: map_markets
+    kind: map
+    # 0 until the contracts are deployed. Set it to the deployment block then: an indexer
+    # that starts before the first contract exists just burns through empty blocks.
+    initialBlock: 0
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:hunch_vpm.v1.Markets
+
+  # Entered / VintageFinalized / Claimed / PositionTransferred / ResidueClaimed.
+  - name: map_positions
+    kind: map
+    initialBlock: 0
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:hunch_vpm.v1.Positions
+
+  # Each market's creation shape — n, kappa, settlement rule — which is what the book
+  # accounting needs and what only MarketCreated carries. Not the live status; that is a
+  # column of the `market` table.
+  - name: store_markets
+    kind: store
+    updatePolicy: set
+    valueType: proto:hunch_vpm.v1.Market
+    inputs:
+      - map: map_markets
+
+  # The market and outcome behind each position id, so a Claimed log — which carries only
+  # the id — can have its refund attributed back to a book.
+  - name: store_positions
+    kind: store
+    updatePolicy: set
+    valueType: proto:hunch_vpm.v1.PositionRef
+    inputs:
+      - map: map_positions
+
+  # Per-outcome principal, vested and capacity. Additive, so it is parallelisable; see
+  # src/books.rs for what these numbers are and are not.
+  - name: store_books
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_positions
+      - store: store_markets
+        mode: get
+      - store: store_positions
+        mode: get
+
+  # Headroom over time: one row per book per block in which that book moved. Reads the
+  # store's deltas for the movement and the store itself for the running totals, so each
+  # row is a full snapshot rather than something a consumer has to difference.
+  - name: map_book_deltas
+    kind: map
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - store: store_books
+        mode: deltas
+      - store: store_books
+        mode: get
+      - store: store_markets
+        mode: get
+    output:
+      type: proto:hunch_vpm.v1.BookDeltas
+
+  # The sink entry point. schema.sql is the matching DDL.
+  - name: db_out
+    kind: map
+    inputs:
+      - map: map_markets
+      - map: map_positions
+      - map: map_book_deltas
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+
+# Which module a SQL sink consumes and how to prepare the database for it. Without this
+# block the packed .spkg carries the module but no sink config and, more to the point, no
+# copy of schema.sql: `substreams pack` inlines the file named here into the package, which
+# is how `substreams-sink-sql setup` and `substreams alpha service deploy` find the DDL
+# without being handed it separately. `substreams info <spkg>` prints it back as
+# "schema: (N bytes) ... [LOADED_FILE]"; if that line is missing, the deploy path is broken.
+#
+# No frontend is enabled. postgraphile/hasura/rest would each publish a public read API
+# over the sink database, which is a deployment decision rather than a property of the
+# package, and every one of them defaults to off.
+sink:
+  module: db_out
+  type: sf.substreams.sink.sql.service.v1.Service
+  config:
+    schema: "./schema.sql"
+    engine: postgres

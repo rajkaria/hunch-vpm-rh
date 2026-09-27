@@ -1,0 +1,33 @@
+{
+  "name": "@hunch-vpm/subgraph-erc8004-arc",
+  "version": "0.1.0",
+  "description": "Agent0's standardized ERC-8004 subgraph schema, retargeted at Arc's identity, reputation and validation registries",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph codegen && graph build",
+    "build:arc": "graph codegen && node tools/with-network.mjs arc build",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "//": "test runs both suites because `pnpm -r --if-present test` invokes test and nothing else: leaving matchstick out would hide every mapping handler from CI. codegen comes first because generated/ is not committed, and `graph test` fetches a platform-specific matchstick binary on first run, so a cold job needs network here.",
+    "test": "graph codegen && vitest run && graph test",
+    "test:node": "vitest run",
+    "test:matchstick": "graph test",
+    "test:matchstick:coverage": "graph test -c",
+    "deploy:arc-testnet": "node tools/with-network.mjs arc-testnet deploy erc-8004-arc-testnet --node https://api.studio.thegraph.com/deploy/",
+    "deploy:arc": "node tools/with-network.mjs arc deploy erc8004-arc --node https://api.studio.thegraph.com/deploy/"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.97.1",
+    "@graphprotocol/graph-ts": "0.38.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "assemblyscript": "0.19.23",
+    "matchstick-as": "0.6.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5",
+    "yaml": "^2.9.1"
+  }
+}

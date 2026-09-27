@@ -1,0 +1,38 @@
+{
+  "arc-testnet": {
+    "VestedParimutuel": {
+      "address": "0xC743940C75619f65F6178b7e49c0C3A0bE012Eec",
+      "startBlock": 61840931
+    },
+    "ClassicParimutuel": {
+      "address": "0x21603b2176aB8495A81fF3B3bE853C64f3860D57",
+      "startBlock": 61840931
+    },
+    "FeedResolver": {
+      "address": "0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3",
+      "startBlock": 61840931
+    },
+    "MarketFactory": {
+      "address": "0x0380C6FC136AE64432558e407706a5C7E7652f07",
+      "startBlock": 61840932
+    }
+  },
+  "arc": {
+    "VestedParimutuel": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "ClassicParimutuel": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "FeedResolver": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "MarketFactory": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    }
+  }
+}

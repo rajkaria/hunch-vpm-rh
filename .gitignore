@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+.next/
+out/
+cache/
+artifacts/
+contracts/out/
+contracts/cache/
+contracts/lib/
+!contracts/lib/forge-std
+subgraph/generated/
+subgraph/build/
+subgraph-erc8004-arc/generated/
+subgraph-erc8004-arc/build/
+substreams/target/
+*.wasm
+# CRE CLI compile outputs (cre workflow simulate / deploy)
+cre/**/.cre_build_tmp.js
+cre/**/*.wasm.br.b64
+
+# Tests
+coverage/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Tooling
+.vercel
+.DS_Store
+*.log
+
+# Working notes. This repo is public; drafts, planning and scratch files stay local.
+internal/
+notes/
+private/
+scratch/
+*.internal.md
+*.private.md
+
+# Local tooling state
+.ocean/
+.burn-rate/
+
+# Internal docs. Submission, demo script, runbook, research, sponsor notes and agent context stay
+# local; the public docs are README.md, docs/ARCHITECTURE.md and the package READMEs.
+**/CLAUDE.md
+**/AGENTS.md
+.claude/
+docs/*
+!docs/ARCHITECTURE.md

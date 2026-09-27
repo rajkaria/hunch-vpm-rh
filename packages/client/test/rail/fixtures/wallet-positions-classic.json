@@ -1,0 +1,77 @@
+{
+  "_meta": {
+    "block": {
+      "number": 2600
+    },
+    "hasIndexingErrors": false
+  },
+  "positions": [
+    {
+      "id": "0x2222222222222222222222222222222222222222-4",
+      "positionId": "4",
+      "owner": {
+        "id": "0x4444444444444444444444444444444444444444"
+      },
+      "outcome": 0,
+      "offered": "2000000",
+      "accepted": "2000000",
+      "refused": "0",
+      "entryAcc": "0",
+      "vintage": null,
+      "finalized": true,
+      "refundWithdrawn": false,
+      "claimed": false,
+      "previewPayout": "3333333",
+      "market": {
+        "id": "0x2222222222222222222222222222222222222222-1",
+        "settler": "0x2222222222222222222222222222222222222222",
+        "settlerKind": "CLASSIC",
+        "marketId": "1",
+        "token": "0x3600000000000000000000000000000000000000",
+        "creator": "0x9999999999999999999999999999999999999999",
+        "opener": "0x2222222222222222222222222222222222222222",
+        "resolver": "0x3333333333333333333333333333333333333333",
+        "residueOwner": "0x2222222222222222222222222222222222222222",
+        "n": 2,
+        "kappa": "-1",
+        "kappaIsUnbounded": true,
+        "resolutionTime": "1700000000",
+        "voidTimeout": "86400",
+        "status": "RESOLVED",
+        "winner": 0,
+        "acceptedPool": "10000000",
+        "paidOut": "0",
+        "residue": "0",
+        "residueClaimed": false,
+        "createdAt": "1699395200",
+        "specId": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "strike": "300000000000",
+        "direction": "ABOVE",
+        "oracle": "0xacc0a0cf13571d30b4b8637996f5d6d774d4fd62",
+        "feedKey": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "maxStaleness": "300",
+        "resolvedPrice": "310000000000",
+        "priceUpdatedAt": "1700000100",
+        "voidedStaleAge": null,
+        "books": [
+          {
+            "outcome": 0,
+            "principal": "6000000",
+            "vested": "0",
+            "capacity": "-1",
+            "capacityIsUnbounded": true,
+            "acc": "0"
+          },
+          {
+            "outcome": 1,
+            "principal": "4000000",
+            "vested": "0",
+            "capacity": "-1",
+            "capacityIsUnbounded": true,
+            "acc": "0"
+          }
+        ]
+      }
+    }
+  ]
+}

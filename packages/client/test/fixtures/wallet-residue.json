@@ -1,0 +1,104 @@
+{
+  "markets": [
+    {
+      "id": "0x1111111111111111111111111111111111111111-5",
+      "settler": "0x1111111111111111111111111111111111111111",
+      "settlerKind": "VESTED",
+      "marketId": "5",
+      "token": "0x3600000000000000000000000000000000000000",
+      "creator": "0x2222222222222222222222222222222222222222",
+      "opener": null,
+      "resolver": "0x3333333333333333333333333333333333333333",
+      "residueOwner": "0x2222222222222222222222222222222222222222",
+      "n": 2,
+      "kappa": "30",
+      "kappaIsUnbounded": false,
+      "resolutionTime": "1700000000",
+      "voidTimeout": "86400",
+      "status": "RESOLVED",
+      "winner": 0,
+      "acceptedPool": "107000000",
+      "paidOut": "88333333",
+      "residue": "18666667",
+      "residueClaimed": false,
+      "createdAt": "1699395200",
+      "specId": null,
+      "strike": null,
+      "direction": null,
+      "oracle": null,
+      "feedKey": null,
+      "maxStaleness": null,
+      "resolvedPrice": "310000000000",
+      "priceUpdatedAt": "1700000100",
+      "voidedStaleAge": null,
+      "books": [
+        {
+          "outcome": 0,
+          "principal": "6000000",
+          "vested": "101000000",
+          "capacity": "180000000",
+          "capacityIsUnbounded": false,
+          "acc": "17666666666666666666"
+        },
+        {
+          "outcome": 1,
+          "principal": "101000000",
+          "vested": "6000000",
+          "capacity": "3030000000",
+          "capacityIsUnbounded": false,
+          "acc": "6000000000000000000"
+        }
+      ]
+    },
+    {
+      "id": "0x1111111111111111111111111111111111111111-6",
+      "settler": "0x1111111111111111111111111111111111111111",
+      "settlerKind": "VESTED",
+      "marketId": "6",
+      "token": "0x3600000000000000000000000000000000000000",
+      "creator": "0x2222222222222222222222222222222222222222",
+      "opener": null,
+      "resolver": "0x3333333333333333333333333333333333333333",
+      "residueOwner": "0x2222222222222222222222222222222222222222",
+      "n": 2,
+      "kappa": "30",
+      "kappaIsUnbounded": false,
+      "resolutionTime": "1700000000",
+      "voidTimeout": "86400",
+      "status": "RESOLVED",
+      "winner": 0,
+      "acceptedPool": "107000000",
+      "paidOut": "106999999",
+      "residue": "1",
+      "residueClaimed": false,
+      "createdAt": "1699395200",
+      "specId": null,
+      "strike": null,
+      "direction": null,
+      "oracle": null,
+      "feedKey": null,
+      "maxStaleness": null,
+      "resolvedPrice": "310000000000",
+      "priceUpdatedAt": "1700000100",
+      "voidedStaleAge": null,
+      "books": [
+        {
+          "outcome": 0,
+          "principal": "6000000",
+          "vested": "101000000",
+          "capacity": "180000000",
+          "capacityIsUnbounded": false,
+          "acc": "17666666666666666666"
+        },
+        {
+          "outcome": 1,
+          "principal": "101000000",
+          "vested": "6000000",
+          "capacity": "3030000000",
+          "capacityIsUnbounded": false,
+          "acc": "6000000000000000000"
+        }
+      ]
+    }
+  ]
+}

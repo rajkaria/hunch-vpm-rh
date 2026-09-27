@@ -1,0 +1,188 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "resolver_",
+        "type": "address",
+        "internalType": "contract FeedResolver"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "open",
+    "inputs": [
+      {
+        "name": "terms",
+        "type": "tuple",
+        "internalType": "struct MarketFactory.Terms",
+        "components": [
+          {
+            "name": "settler",
+            "type": "address",
+            "internalType": "contract IParimutuelSettler"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "contract IERC20"
+          },
+          {
+            "name": "seed",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "kappa",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "resolutionTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "voidTimeout",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "residueOwner",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "feed",
+        "type": "tuple",
+        "internalType": "struct MarketFactory.Feed",
+        "components": [
+          {
+            "name": "oracle",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "feedKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "strike",
+            "type": "int256",
+            "internalType": "int256"
+          },
+          {
+            "name": "direction",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "maxStaleness",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "specId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resolver",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract FeedResolver"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "MarketOpened",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "settler",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "specId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "opener",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "seed",
+        "type": "uint256[]",
+        "indexed": false,
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "kappa",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "resolutionTime",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ApprovalFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadResolver",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadSettler",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  }
+]

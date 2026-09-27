@@ -1,0 +1,10 @@
+{
+  "// why not ../tsconfig.base.json": [
+    "The mappings are AssemblyScript, not TypeScript: they use i32/u64/f64, changetype<T>,",
+    "and the graph-ts globals. The repo's base config targets ES2022 TypeScript and would",
+    "reject all of it. Type checking for this package is `graph codegen && graph build`,",
+    "which compiles the mappings to wasm through asc; this file exists for editor support."
+  ],
+  "extends": "@graphprotocol/graph-ts/types/tsconfig.base.json",
+  "include": ["src", "tests"]
+}

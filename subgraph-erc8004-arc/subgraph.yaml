@@ -1,0 +1,117 @@
+# Default build target is arc-testnet, where the ERC-8004 registries are actually deployed.
+# `graph build --network arc` swaps in the mainnet entry from networks.json; that entry is a
+# zero-address placeholder until the registries exist on Arc mainnet.
+#
+# The ABIs under abis/ were pulled from the verified implementation contracts behind the three
+# ERC-1967 proxies, so the event signatures below are the deployed ones, not spec-derived ones.
+specVersion: 1.2.0
+description: >-
+  ERC-8004 agent identity, reputation and validation on Arc, indexed under Agent0's standardized
+  schema so one query spans Arc and the chains Agent0 already covers.
+repository: https://github.com/hunch-vpm/hunch-vpm
+schema:
+  file: ./schema.graphql
+
+indexerHints:
+  prune: auto
+
+dataSources:
+  - kind: ethereum/contract
+    name: IdentityRegistry
+    network: arc-testnet
+    source:
+      address: "0x8004A818BFB912233c491871b3d84c89A494BD9e"
+      abi: IdentityRegistry
+      # Proxy creation block, tx 0xba8c33e2...3cca02.
+      startBlock: 29241340
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/identity.ts
+      entities:
+        - Registry
+        - Agent
+        - Endpoint
+        - Capability
+        - CapabilityStat
+        - AgentMetadata
+        - AgentTransfer
+        - RegistryDayData
+      abis:
+        - name: IdentityRegistry
+          file: ./abis/IdentityRegistry.json
+      eventHandlers:
+        - event: Registered(indexed uint256,string,indexed address)
+          handler: handleRegistered
+        - event: URIUpdated(indexed uint256,string,indexed address)
+          handler: handleURIUpdated
+        # The second parameter is the same key, indexed, so it arrives as a topic hash rather
+        # than a string. The readable key is the third parameter.
+        - event: MetadataSet(indexed uint256,indexed string,string,bytes)
+          handler: handleMetadataSet
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+        - event: Approval(indexed address,indexed address,indexed uint256)
+          handler: handleApproval
+
+  - kind: ethereum/contract
+    name: ReputationRegistry
+    network: arc-testnet
+    source:
+      address: "0x8004B663056A597Dffe9eCcC1965A193B7388713"
+      abi: ReputationRegistry
+      # Proxy creation block, tx 0x45f4a218...88f4.
+      startBlock: 29241344
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/reputation.ts
+      entities:
+        - Registry
+        - Agent
+        - Feedback
+        - FeedbackResponse
+        - Client
+        - RegistryDayData
+      abis:
+        - name: ReputationRegistry
+          file: ./abis/ReputationRegistry.json
+      eventHandlers:
+        - event: NewFeedback(indexed uint256,indexed address,uint64,int128,uint8,indexed
+            string,string,string,string,string,bytes32)
+          handler: handleNewFeedback
+        - event: FeedbackRevoked(indexed uint256,indexed address,indexed uint64)
+          handler: handleFeedbackRevoked
+        - event: ResponseAppended(indexed uint256,indexed address,uint64,indexed address,string,bytes32)
+          handler: handleResponseAppended
+
+  - kind: ethereum/contract
+    name: ValidationRegistry
+    network: arc-testnet
+    source:
+      address: "0x8004Cb1BF31DAf7788923b405b754f57acEB4272"
+      abi: ValidationRegistry
+      # Proxy creation block, tx 0xac802302...9ec7.
+      startBlock: 29241349
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/validation.ts
+      entities:
+        - Registry
+        - Agent
+        - Validation
+        - Validator
+        - RegistryDayData
+      abis:
+        - name: ValidationRegistry
+          file: ./abis/ValidationRegistry.json
+      eventHandlers:
+        - event: ValidationRequest(indexed address,indexed uint256,string,indexed bytes32)
+          handler: handleValidationRequest
+        - event: ValidationResponse(indexed address,indexed uint256,indexed
+            bytes32,uint8,string,bytes32,string)
+          handler: handleValidationResponse

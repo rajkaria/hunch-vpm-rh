@@ -1,0 +1,26 @@
+{
+  "name": "hunch-price-relay",
+  "private": true,
+  "type": "module",
+  "description": "CRE workflow: Chainlink Data Feeds from Ethereum Sepolia onto Arc testnet, for the venue's FeedResolver.",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "bun x cre-setup",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "simulate": "cre workflow simulate . --target staging-settings",
+    "deploy": "cre workflow deploy . --target production-settings"
+  },
+  "dependencies": {
+    "@chainlink/cre-sdk": "1.20.0",
+    "viem": "2.54.2",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.21",
+    "typescript": "5.7.3"
+  },
+  "engines": {
+    "bun": ">=1.2.21"
+  }
+}

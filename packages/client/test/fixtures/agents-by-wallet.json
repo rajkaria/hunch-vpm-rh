@@ -1,0 +1,14 @@
+{
+  "agents": [
+    {
+      "id": "eip155:5042002/agent/17",
+      "agentId": "17",
+      "owner": "0x7777777777777777777777777777777777777777",
+      "agentWallet": "0x4444444444444444444444444444444444444444",
+      "feedbackCount": "2",
+      "activeFeedbackCount": "2",
+      "scoreSum": "100",
+      "averageScore": "50"
+    }
+  ]
+}

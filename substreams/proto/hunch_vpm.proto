@@ -1,0 +1,227 @@
+syntax = "proto3";
+
+package hunch_vpm.v1;
+
+// Amounts are decimal strings, not fixed-width integers: the settler's principal,
+// capacity and vested totals are uint256 on chain and capacity is kappa * principal,
+// so a market that would fit in uint128 still overflows every protobuf integer type
+// once kappa multiplies it. Consumers parse them as arbitrary-precision decimals.
+// USDC on Arc has 6 decimals, so the strings are integer micro-USDC.
+
+// Which settlement rule a market runs under. The two settlers share an interface and
+// most of their event set; they are told apart by which contract emitted the log, not
+// by anything inside the log.
+enum SettlementRule {
+  SETTLEMENT_RULE_UNSPECIFIED = 0;
+  SETTLEMENT_RULE_VESTED = 1;
+  SETTLEMENT_RULE_CLASSIC = 2;
+}
+
+enum MarketStatus {
+  MARKET_STATUS_UNSPECIFIED = 0;
+  MARKET_STATUS_OPEN = 1;
+  MARKET_STATUS_RESOLVED = 2;
+  MARKET_STATUS_VOIDED = 3;
+}
+
+// Which columns of a market row the emitting event actually knows. A Resolved log
+// carries the winner and nothing else, so the sink must update rather than replace.
+enum MarketOp {
+  MARKET_OP_UNSPECIFIED = 0;
+  MARKET_OP_CREATE = 1;
+  MARKET_OP_LINK_SPEC = 2;
+  MARKET_OP_RESOLVE = 3;
+  MARKET_OP_VOID = 4;
+}
+
+enum PositionOp {
+  POSITION_OP_UNSPECIFIED = 0;
+  POSITION_OP_ENTER = 1;
+  POSITION_OP_TRANSFER = 2;
+  POSITION_OP_SETTLE = 3;
+}
+
+// Where a row came from, so a row can be traced back to its log.
+message Meta {
+  uint64 block_number = 1;
+  uint64 timestamp = 2;
+  string tx_hash = 3;
+  uint64 log_index = 4;
+  // The substreams ordinal of the log within the block. Used as the change ordinal in
+  // db_out so two updates to the same row in one block are applied in log order.
+  uint64 ordinal = 5;
+}
+
+message Markets {
+  repeated Market markets = 1;
+  repeated ResolutionSpec specs = 2;
+  repeated FeedReading readings = 3;
+}
+
+message Market {
+  string id = 1; // "{settler}-{market_id}"
+  MarketOp op = 2;
+  SettlementRule rule = 3;
+  string settler = 4;
+  uint64 market_id = 5;
+  string creator = 6;
+  uint32 outcomes = 7; // n = |O|
+  string kappa = 8;
+  // kappa == 2^256-1 is the settler's sentinel for an unbounded capacity coefficient,
+  // which is the prescription for n-way markets. A book with it never refuses stake.
+  bool kappa_unbounded = 9;
+  uint64 resolution_time = 10;
+  MarketStatus status = 11;
+  int32 winner = 12; // -1 until resolved
+  string spec_id = 13; // set when the market was opened through MarketFactory
+  string opener = 14;
+  repeated string seed = 15; // offered per outcome, from MarketFactory.MarketOpened
+  Meta meta = 16;
+}
+
+message ResolutionSpec {
+  string id = 1; // specId, the hash of the whole spec
+  string settler = 2;
+  uint64 market_id = 3;
+  string market = 4; // "{settler}-{market_id}"
+  string oracle = 5;
+  string feed_key = 6;
+  string strike = 7; // int256 at 8 decimals
+  uint32 direction = 8; // 0 = above (inclusive of the strike), 1 = below
+  uint64 resolution_time = 9;
+  uint64 max_staleness = 10;
+  string resolver = 11; // the FeedResolver that holds the spec
+  Meta meta = 12;
+}
+
+// What the resolver read when it settled or voided. Kept separate from the market row
+// because a stale feed voids the market, and the age that caused it is worth auditing.
+message FeedReading {
+  string id = 1; // "{spec_id}-{block_number}-{log_index}"
+  string spec_id = 2;
+  string resolver = 3;
+  // VoidedStale(bytes32 specId, uint256 age) carries neither of the next two: the whole
+  // point of that event is that the reading could not be trusted. market_id stays 0 and
+  // winner is the -1 sentinel, and db_out writes neither column, because 0 is a real
+  // market id and a real outcome.
+  uint64 market_id = 4;
+  bool voided_stale = 5;
+  int32 winner = 6; // -1 on a stale void
+  string price = 7; // int256 at 8 decimals; empty on a stale void
+  uint64 updated_at = 8; // the feed's own timestamp; 0 and unwritten on a stale void
+  uint64 age = 9; // seconds, only on a stale void
+  Meta meta = 10;
+}
+
+message Positions {
+  repeated Position positions = 1;
+  repeated Vintage vintages = 2;
+  repeated Settlement settlements = 3;
+  repeated Residue residues = 4;
+}
+
+message Position {
+  string id = 1; // "{settler}-{position_id}"
+  PositionOp op = 2;
+  SettlementRule rule = 3;
+  string settler = 4;
+  uint64 position_id = 5;
+  string market = 6;
+  uint64 market_id = 7;
+  string owner = 8;
+  uint32 outcome = 9;
+  string offered = 10; // c_k, the amount offered at entry
+  uint64 vintage = 11; // the block number whose entries share a vintage
+  bool seed = 12; // vintage 0, the creator's leg, posted inside create()
+  // POSITION_OP_SETTLE only, and per-log rather than cumulative: db_out accumulates
+  // them into the position's totals. There is deliberately no "claimed" flag — a
+  // Claimed log with payout 0 is either a losing position settling or a refused
+  // remainder being withdrawn, and nothing in the log tells the two apart.
+  string payout = 13;
+  string refund = 14; // offered - accepted, the part a book refused
+  // The seed legs are logged in the same transaction as MarketCreated, so a book has to
+  // be opened before any store has seen the market. These carry n and kappa forward from
+  // the same block; they are empty for an entry into a market created earlier.
+  uint32 outcomes_hint = 16;
+  string kappa_hint = 17;
+  Meta meta = 18;
+}
+
+// A vintage is the set of entries sharing a block. They never vest into each other, and
+// the settler finalizes them lazily, so meta here is the FINALIZING block, not the
+// vintage block. `vintage` is the vintage block number.
+message Vintage {
+  string id = 1; // "{settler}-{market_id}-{vintage}"
+  string market = 2;
+  string settler = 3;
+  uint64 market_id = 4;
+  uint64 vintage = 5;
+  uint64 entries = 6;
+  Meta meta = 7;
+}
+
+// An append-only ledger of Claimed logs. A position emits at most two: withdrawRefund
+// pays the refused remainder alone, claim pays the settlement and any remainder left.
+message Settlement {
+  string id = 1; // "{settler}-{position_id}-{block_number}-{log_index}"
+  string position = 2;
+  string settler = 3;
+  uint64 position_id = 4;
+  string to = 5;
+  string payout = 6;
+  string refund = 7;
+  Meta meta = 8;
+}
+
+message Residue {
+  string id = 1; // "{settler}-{market_id}"
+  string market = 2;
+  string settler = 3;
+  uint64 market_id = 4;
+  string to = 5;
+  string amount = 6;
+  Meta meta = 7;
+}
+
+// Held by store_positions so store_books can attribute a Claimed log, which carries only
+// a position id, back to the book whose principal that refund has to come out of.
+message PositionRef {
+  string settler = 1;
+  uint64 market_id = 2;
+  uint32 outcome = 3;
+  string offered = 4;
+}
+
+message BookDeltas {
+  repeated BookDelta deltas = 1;
+}
+
+// One row per book per block in which that book moved. headroom = capacity - vested is
+// the room the book still has to accept stake; when it runs out a stake is refused and
+// refunded rather than reverted.
+message BookDelta {
+  string id = 1; // "{book}-{block_number}"
+  string book = 2; // "{settler}-{market_id}-{outcome}"
+  string market = 3;
+  string settler = 4;
+  uint64 market_id = 5;
+  uint32 outcome = 6;
+  string principal = 7; // P_w
+  string vested = 8; // V_w
+  // C_w = kappa * P_w and H_w = C_w - V_w, floored at 0. Both are empty — NULL at the
+  // sink — when there is no finite capacity to report: kappa unbounded, the classic
+  // rule, or a market whose creation is behind the start block so its kappa is unknown.
+  // Zero headroom is the state in which a book refuses stake, so it cannot double as
+  // "not known".
+  string capacity = 9;
+  string headroom = 10;
+  bool unbounded = 11;
+  string principal_delta = 12;
+  string vested_delta = 13;
+  // The classic rule has neither vesting nor capacity, so a classic book carries a
+  // principal and nothing else. The rule says which columns mean anything.
+  SettlementRule rule = 15;
+  // A book moves as an aggregate of every log in the block, so meta here carries the
+  // block and its timestamp; tx_hash and log_index are empty.
+  Meta meta = 14;
+}

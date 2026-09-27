@@ -1,0 +1,8 @@
+# Pinned so the wasm a reviewer builds is the wasm CI builds. `stable` rather than a
+# specific version because nothing here depends on a recent feature; bump it only if a
+# dependency raises its minimum.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

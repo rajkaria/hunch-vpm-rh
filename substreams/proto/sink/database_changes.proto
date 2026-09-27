@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+// Vendored so `substreams pack` can resolve db_out's output type without fetching a
+// remote .spkg. This is the schema substreams-sink-sql consumes; it is upstream's, not
+// ours, and must not be edited. `make verify-vendored-proto` regenerates Rust from this
+// file and diffs it against the substreams-database-change crate's own bindings, which
+// fails if the two ever drift.
+package sf.substreams.sink.database.v1;
+
+message DatabaseChanges {
+  repeated TableChange table_changes = 1;
+}
+
+message TableChange {
+  string table = 1;
+  oneof primary_key {
+    string pk = 2;
+    CompositePrimaryKey composite_pk = 6;
+  }
+  uint64 ordinal = 3;
+  Operation operation = 4;
+  repeated Field fields = 5;
+
+  enum Operation {
+    OPERATION_UNSPECIFIED = 0;
+    OPERATION_CREATE = 1;
+    OPERATION_UPDATE = 2;
+    OPERATION_DELETE = 3;
+    OPERATION_UPSERT = 4;
+  }
+}
+
+message CompositePrimaryKey {
+  map<string, string> keys = 1;
+}
+
+message Field {
+  string name = 1;
+  string value = 2;
+  UpdateOp update_op = 4;
+
+  enum UpdateOp {
+    UPDATE_OP_UNSPECIFIED = 0;
+    UPDATE_OP_SET = 1;
+    UPDATE_OP_ADD = 2;
+    UPDATE_OP_MAX = 3;
+    UPDATE_OP_MIN = 4;
+    UPDATE_OP_SET_IF_NULL = 5;
+  }
+}
