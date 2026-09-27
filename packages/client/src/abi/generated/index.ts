@@ -2,8 +2,6 @@
 // run `forge build --root contracts && pnpm exec node scripts/gen-abis.mjs`.
 
 export { hunchVpmAbiGenerated as hunchVpmAbi } from './HunchVPM.js';
-// StockRoundResolver: not in contracts/out yet, the hand-written frozen interface is exported instead.
-export { stockRoundResolverAbiHandwritten as stockRoundResolverAbi } from '../handwritten.js';
-// HunchMarketFactory: not in contracts/out yet, the hand-written frozen interface is exported instead.
-export { hunchMarketFactoryAbiHandwritten as hunchMarketFactoryAbi } from '../handwritten.js';
-export const GENERATED_FROM_CONTRACTS_OUT = ["HunchVPM"] as const;
+export { stockRoundResolverAbiGenerated as stockRoundResolverAbi } from './StockRoundResolver.js';
+export { hunchMarketFactoryAbiGenerated as hunchMarketFactoryAbi } from './HunchMarketFactory.js';
+export const GENERATED_FROM_CONTRACTS_OUT = ["HunchMarketFactory","HunchVPM","StockRoundResolver"] as const;

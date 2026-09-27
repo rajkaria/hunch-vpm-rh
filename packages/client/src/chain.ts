@@ -51,6 +51,8 @@ export interface PublicClientOptions {
   retryCount?: number | undefined;
   /** Aggregate concurrent `readContract` calls into Multicall3 (default true). */
   multicallBatch?: boolean | undefined;
+  /** Polling for receipts and watchers (default 250 ms: blocks come every ~100 ms). */
+  pollingIntervalMs?: number | undefined;
 }
 
 /** The ordered, de-duplicated RPC list a client built with `options` will use. */
@@ -84,6 +86,7 @@ export function makePublicClient(options: PublicClientOptions = {}): HunchPublic
     chain: robinhoodChain,
     transport,
     batch: options.multicallBatch === false ? undefined : { multicall: { wait: 0, batchSize: 4096 } },
+    pollingInterval: options.pollingIntervalMs ?? 250,
   }) as HunchPublicClient;
 }
 

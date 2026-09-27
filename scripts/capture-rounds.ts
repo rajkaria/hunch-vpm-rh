@@ -6,6 +6,7 @@
  *   pnpm exec tsx scripts/capture-rounds.ts                 # NVDA TSLA AAPL COIN SPY
  *   pnpm exec tsx scripts/capture-rounds.ts NVDA TSLA       # a subset
  *   RH_RPC_URL=<keyed rpc> pnpm exec tsx scripts/capture-rounds.ts
+ *   pnpm exec tsx scripts/capture-rounds.ts --multicall3-only  # just Multicall3's runtime code
  *
  * Every round of the proxy's CURRENT phase is captured (1 … latest), so the binary search
  * in `findLastAtOrBefore` replays against exactly what the chain would answer. SPY's
@@ -40,11 +41,22 @@ async function main() {
   const d = loadDeployment();
   const rpc = process.env.RH_RPC_URL;
   const client = makePublicClient({ rpcUrl: rpc, multicallBatch: false });
-  const wanted = process.argv.slice(2).map((t) => t.toUpperCase());
+  const wanted = process.argv.slice(2).filter((t) => !t.startsWith('--')).map((t) => t.toUpperCase());
   const feeds = [...d.feeds.map((f) => ({ ticker: f.ticker, feed: f.feed, stockToken: f.stockToken })), SPY].filter(
     (f) => wanted.length === 0 || wanted.includes(f.ticker),
   );
   mkdirSync(OUT, { recursive: true });
+
+  // Multicall3's runtime code (canonical address), so local anvil tests can place it where
+  // the client expects it without touching the network.
+  const mc3 = await client.getCode({ address: '0xcA11bde05977b3631167028862bE2a173976CA11' });
+  const mcBlock = await client.getBlock({ blockTag: 'latest' });
+  writeFileSync(
+    join(OUT, 'multicall3-runtime.json'),
+    `${JSON.stringify({ address: '0xcA11bde05977b3631167028862bE2a173976CA11', chainId: 4663, capturedAt: new Date(Number(mcBlock.timestamp) * 1000).toISOString(), rpc: redactRpcUrl(rpc ?? 'https://rpc.mainnet.chain.robinhood.com'), code: mc3 })}\n`,
+  );
+  console.log(`Multicall3 runtime code: ${((mc3?.length ?? 2) - 2) / 2} bytes`);
+  if (process.argv.includes('--multicall3-only')) return;
 
   for (const f of feeds) {
     const head = await client.getBlock({ blockTag: 'latest' });
