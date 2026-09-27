@@ -272,14 +272,17 @@ contract HunchMarketFactory {
 
     // ================================================================== views
 
+    /// @notice How many feeds have ever been configured (allowed or not); read `feeds(feedAt(i))`.
     function feedCount() external view returns (uint256) {
         return feedList.length;
     }
 
+    /// @notice The i-th configured feed, in the order it was first set.
     function feedAt(uint256 i) external view returns (address) {
         return feedList[i];
     }
 
+    /// @notice How many markets this factory has listed; read each with `listings(i)`.
     function listingCount() external view returns (uint256) {
         return listings.length;
     }
