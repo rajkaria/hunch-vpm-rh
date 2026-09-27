@@ -25,6 +25,7 @@ cre/**/*.wasm.br.b64
 
 # Tests
 coverage/
+deployments/local/
 
 # Secrets
 .env
