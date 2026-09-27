@@ -164,9 +164,11 @@ you want previews to read chain data). Secrets are **Sensitive**:
 | `RH_RPC_URL` | your Alchemy URL | Sensitive |
 | `KEEPER_PRIVATE_KEY` | the keeper private key from step 1 (0x…) | Sensitive |
 | `CRON_SECRET` | `openssl rand -hex 32` | Sensitive |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your Reown project id | Plain |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your Reown project id (without it the WalletConnect option is hidden) | Plain |
 | `NEXT_PUBLIC_SITE_URL` | `https://rh.playhunch.xyz` | Plain |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | optional keeper alerts | Sensitive |
+| `RH_FALLBACK_RPC_URL` | optional second keyed RPC (another provider); the keeper's stale double-check reads it | Sensitive |
+| `NEXT_PUBLIC_RH_RPC_URL` | optional browser RPC; defaults to the public RPC (never put a keyed URL here: it ships to browsers) | Plain |
 
 Or from the CLI in the repo root: `vercel env add KEEPER_PRIVATE_KEY production` (it prompts
 for the value; nothing lands in history).
