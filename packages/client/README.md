@@ -1,4 +1,4 @@
-# @hunch-vpm/client
+# @hunch-rh/client
 
 Typed reads from The Graph and unsigned writes through viem, for the Vested Parimutuel on Arc.
 
@@ -28,20 +28,20 @@ it becomes refundable. `bestHeadroom` exists so you never have to find that out 
 
 ## Install
 
-**This package is not published to npm.** `pnpm add @hunch-vpm/client` answers 404 from the
+**This package is not published to npm.** `pnpm add @hunch-rh/client` answers 404 from the
 registry. Publishing has not been done, and until it is, install from a checkout.
 
 Inside this workspace, which is how `agent`, `packages/mcp` and `apps/web` consume it:
 
 ```jsonc
 // package.json
-"dependencies": { "@hunch-vpm/client": "workspace:*" }
+"dependencies": { "@hunch-rh/client": "workspace:*" }
 ```
 
 From a repository of your own, build it once and add it by path:
 
 ```bash
-pnpm --filter @hunch-vpm/client build          # writes dist/, which is gitignored
+pnpm --filter @hunch-rh/client build          # writes dist/, which is gitignored
 cd ../your-product && pnpm add file:../hunch-vpm/packages/client
 ```
 
@@ -51,7 +51,7 @@ The build is not optional — `files` ships only `dist` and this README, and the
 ## Configuration
 
 ```ts
-import { createHunchClient, arcTestnet } from '@hunch-vpm/client';
+import { createHunchClient, arcTestnet } from '@hunch-rh/client';
 
 const client = createHunchClient({
   // Either a full endpoint...
@@ -103,7 +103,7 @@ Every token amount is a `bigint` in the asset's smallest unit. Nothing is ever c
 money. Formatting is done by digit surgery and loses nothing:
 
 ```ts
-import { formatUsdc, parseUsdc } from '@hunch-vpm/client';
+import { formatUsdc, parseUsdc } from '@hunch-rh/client';
 
 formatUsdc(107_000000n);                        // "107"
 formatUsdc(1_500000n, { trailingZeros: true }); // "1.500000"
@@ -460,9 +460,9 @@ rather than wrong about it.
 ## Development
 
 ```bash
-pnpm --filter @hunch-vpm/client typecheck
-pnpm --filter @hunch-vpm/client test
-pnpm --filter @hunch-vpm/client build
+pnpm --filter @hunch-rh/client typecheck
+pnpm --filter @hunch-rh/client test
+pnpm --filter @hunch-rh/client build
 ```
 
 Tests run entirely against recorded fixture responses in `test/fixtures/`. The fixture transport

@@ -1,5 +1,5 @@
 /**
- * The live data source: the same interface, backed by `@hunch-vpm/client`.
+ * The live data source: the same interface, backed by `@hunch-rh/client`.
  *
  * Two things about this file are deliberate.
  *
@@ -138,7 +138,7 @@ interface ClientSurface {
   positions(wallet: string): Promise<ClientWalletPositions>;
 }
 
-/** The part of `@hunch-vpm/client` this source calls, for a test to stand in for. */
+/** The part of `@hunch-rh/client` this source calls, for a test to stand in for. */
 export type LiveClient = ClientSurface;
 
 interface ClientModule {
@@ -160,7 +160,7 @@ export interface LiveSourceOptions {
   wallet?: string | null;
   /** Which Arc the subgraph indexes. Decides the client's chain and the addresses shown. Default testnet. */
   network?: NetworkId;
-  /** Build the client from its config. Defaults to loading `@hunch-vpm/client`; tests pass a stand-in. */
+  /** Build the client from its config. Defaults to loading `@hunch-rh/client`; tests pass a stand-in. */
   createClient?: (config: Record<string, unknown>) => LiveClient;
 }
 
@@ -181,7 +181,7 @@ let clientModule: Promise<ClientModule> | null = null;
 function loadClient(): Promise<ClientModule> {
   if (clientModule === null) {
     // @ts-ignore -- deliberately untyped here; `tsc` may run before the client's `dist` exists.
-    clientModule = import('@hunch-vpm/client') as Promise<ClientModule>;
+    clientModule = import('@hunch-rh/client') as Promise<ClientModule>;
   }
   return clientModule;
 }

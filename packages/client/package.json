@@ -1,5 +1,5 @@
 {
-  "name": "@hunch-vpm/client",
+  "name": "@hunch-rh/client",
   "version": "0.1.0",
   "description": "Typed reads from The Graph and unsigned writes through viem for the Vested Parimutuel on Arc",
   "license": "MIT",

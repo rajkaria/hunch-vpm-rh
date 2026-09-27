@@ -1,8 +1,8 @@
 {
-  "name": "hunch-vpm",
+  "name": "hunch-vpm-rh",
   "version": "0.1.0",
   "private": true,
-  "description": "The Vested Parimutuel, live on Arc",
+  "description": "Hunch on Robinhood Chain: prediction markets on Robinhood Stock Tokens that pay an early call more than a late one",
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -10,10 +10,6 @@
   },
   "scripts": {
     "verify": "bash scripts/verify.sh",
-    "preflight:testnet": "bash scripts/preflight-deploy.sh arc-deployer testnet",
-    "wire:testnet": "node scripts/wire-deployment.mjs testnet",
-    "wire:mainnet": "node scripts/wire-deployment.mjs mainnet",
-    "wire:check": "node scripts/wire-deployment.mjs --check",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts"
   },

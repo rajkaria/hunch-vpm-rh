@@ -11,7 +11,7 @@
  * the real wordmark rather than whatever font happened to be available.
  *
  * The outputs are committed, so a build never depends on running this. Re-run
- * it with `pnpm --filter @hunch-vpm/web icons` if the geometry ever changes.
+ * it with `pnpm --filter @hunch-rh/web icons` if the geometry ever changes.
  *
  * Rules obeyed here, from the brand guidelines: no glow, no gradient, no
  * shadow on an identity element; the block's corners are never rounded (the

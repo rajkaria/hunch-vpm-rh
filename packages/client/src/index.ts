@@ -1,5 +1,5 @@
 /**
- * @hunch-vpm/client — typed reads from The Graph and unsigned writes through viem.
+ * @hunch-rh/client — typed reads from The Graph and unsigned writes through viem.
  *
  * This package never holds a private key and never signs a transaction. The
  * write helpers return calldata for the caller's own wallet to sign and send.

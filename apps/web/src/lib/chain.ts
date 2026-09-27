@@ -1,7 +1,7 @@
 /**
  * Chain facts and explorer links.
  *
- * These are duplicated from `@hunch-vpm/client` rather than imported, because
+ * These are duplicated from `@hunch-rh/client` rather than imported, because
  * this app has to typecheck and build before that package has been compiled —
  * which is the state on a fresh clone, and the state in CI, where `typecheck`
  * runs before `build`. The live data adapter loads the client at runtime; see

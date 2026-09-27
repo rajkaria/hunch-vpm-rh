@@ -1,7 +1,7 @@
 /*
  * The slices of each ABI this surface encodes against.
  *
- * Copied from `contracts/src` the same way `@hunch-vpm/client` copies them, and
+ * Copied from `contracts/src` the same way `@hunch-rh/client` copies them, and
  * for the same reason `lib/chain.ts` duplicates the chain facts: this app has to
  * typecheck and build before that package has been compiled, which is the state
  * on a fresh clone and in CI. `as const` so viem infers argument types.

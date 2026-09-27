@@ -1,7 +1,7 @@
 /**
  * The shapes every page reads.
  *
- * These mirror `@hunch-vpm/client`'s public types field for field wherever the
+ * These mirror `@hunch-rh/client`'s public types field for field wherever the
  * two overlap, and add the handful of things a screen needs that an indexer
  * does not hold — an outcome's human label, the name of a feed behind a feed
  * key, the sampled history a curve is drawn from. They are declared here
@@ -227,7 +227,7 @@ export interface ClaimableView {
  * Everything the pages read. One interface, two implementations: the fixture
  * source that ships with the app and renders every screen with no network and
  * no deployed contracts, and the live source that goes through
- * `@hunch-vpm/client`. Switching between them is one line in
+ * `@hunch-rh/client`. Switching between them is one line in
  * `src/lib/data/index.ts`.
  */
 export interface DataSource {

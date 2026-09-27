@@ -38,7 +38,7 @@ export interface GraphQLErrorEntry {
  * shape of a structural word like `api`, `subgraphs`, `id` — and only if the segment
  * before it does not name a credential. Userinfo and any query string go entirely.
  *
- * Six duplicated lines are the price of not making `@hunch-vpm/client` depend on another
+ * Six duplicated lines are the price of not making `@hunch-rh/client` depend on another
  * package for this; the agent carries its own copy in `agent/src/redact.ts`.
  */
 const STRUCTURAL_SEGMENT = /^[a-z][a-z0-9-]{0,15}$/;

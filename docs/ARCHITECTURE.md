@@ -6,7 +6,7 @@ layer on The Graph, and an identity layer that ties an agent to a human.
 ```
                          ┌──────────────────────────────────────────┐
                          │  web surface  ·  demo agent  ·  Arc rail │
-                         │  MCP tools · SKILL · @hunch-vpm/client    │
+                         │  MCP tools · SKILL · @hunch-rh/client    │
                          └───────────────┬──────────────────────────┘
                                          │ reads decisions, not rows
              ┌───────────────────────────┼───────────────────────────┐
@@ -110,7 +110,7 @@ as a fill.
 
 ## Identity
 
-`@hunch-vpm/agentkit-tier` verifies an AgentKit proof against canonical AgentBook and tiers on
+`@hunch-rh/agentkit-tier` verifies an AgentKit proof against canonical AgentBook and tiers on
 the result: a human-backed agent gets a higher rate limit, the full per-market cap and a badge.
 Anonymous agents keep working. The point is tiering, not exclusion — the failure this is aimed
 at is a farm of wallets claiming to be different people, and refusing anonymous traffic
@@ -122,7 +122,7 @@ has not run against the real registry. Selfie Check is not implemented here at a
 
 ## What is not here
 
-The venue never custodies. `@hunch-vpm/client` returns unsigned calldata for the caller's own
+The venue never custodies. `@hunch-rh/client` returns unsigned calldata for the caller's own
 wallet and holds no key. No contract in this repo lets its deployer, the factory or the resolver owner move a user's
 funds. The invariant suite asserts it directly: across 8192 calls per run, an address holding
 no position tries `claim`, `withdrawRefund`, `claimResidue`, `resolve` and `transferPosition`

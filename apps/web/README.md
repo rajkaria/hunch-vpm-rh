@@ -1,10 +1,10 @@
-# @hunch-vpm/web
+# @hunch-rh/web
 
 The web surface for the vested parimutuel on Arc.
 
 **Live at <https://vpm.playhunch.xyz>** (Vercel project `hunch-vpm`; a push to `main` redeploys).
 The apex `playhunch.xyz` is the parent product and is not served from here. Run it locally with
-`pnpm --filter @hunch-vpm/web dev`.
+`pnpm --filter @hunch-rh/web dev`.
 
 Next.js App Router, TypeScript, Tailwind v4, Vitest. Every page renders from a data module
 with a fixture implementation as the default, so the whole surface works with no network, no
@@ -16,10 +16,10 @@ From the repository root:
 
 ```sh
 pnpm install
-pnpm --filter @hunch-vpm/web dev        # http://localhost:3000
-pnpm --filter @hunch-vpm/web test       # vitest, 124 tests in 6 files
-pnpm --filter @hunch-vpm/web typecheck  # next typegen && tsc --noEmit
-pnpm --filter @hunch-vpm/web build      # next build
+pnpm --filter @hunch-rh/web dev        # http://localhost:3000
+pnpm --filter @hunch-rh/web test       # vitest, 124 tests in 6 files
+pnpm --filter @hunch-rh/web typecheck  # next typegen && tsc --noEmit
+pnpm --filter @hunch-rh/web build      # next build
 ```
 
 `typecheck` runs `next typegen` first because Next 16 generates the route types that
@@ -50,7 +50,7 @@ src/lib/data/
   simulate.ts       replays the settler's bookkeeping to build the fixtures
   fixtures.ts       the dataset, derived from that replay
   fixture-source.ts the default implementation
-  live.ts           the same interface over @hunch-vpm/client
+  live.ts           the same interface over @hunch-rh/client
   index.ts          which one the pages get   <- the switch
 ```
 
@@ -75,7 +75,7 @@ the page exists. The board reads the same list, so a market that is listed alway
 
 Two things about the live source are deliberate and worth knowing before you touch it.
 
-It loads `@hunch-vpm/client` through a dynamic import whose specifier the compiler cannot
+It loads `@hunch-rh/client` through a dynamic import whose specifier the compiler cannot
 follow, and describes the client's surface with local interfaces instead of importing its
 types. The client publishes its types from `dist`, and this app has to typecheck and build in
 a workspace where that has not been produced — a fresh clone, and CI, where `typecheck` runs
@@ -100,7 +100,7 @@ state the contract could never reach.
 ## Tests
 
 ```sh
-pnpm --filter @hunch-vpm/web test
+pnpm --filter @hunch-rh/web test
 ```
 
 - `test/units.test.ts` — exact bigint formatting, fixed-width truncation (a claimable balance
@@ -134,7 +134,7 @@ rounded.
 the identity's own geometry — the half-circle of radius 17 on stroke 12, evaluated per pixel —
 so the wordmark in a link preview is the real wordmark rather than a substitute font. The
 outputs are committed; a build never runs it. Re-run it with
-`pnpm --filter @hunch-vpm/web icons` only if the geometry changes.
+`pnpm --filter @hunch-rh/web icons` only if the geometry changes.
 
 ## Deploying to Vercel
 

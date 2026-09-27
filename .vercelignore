@@ -1,18 +1,14 @@
-# The web app is the only thing Vercel builds. Everything below is either a local
-# build artifact (substreams/target alone is ~2GB) or a toolchain Vercel never runs.
+# The web app is the only thing Vercel builds. Contracts and local tooling never ship.
 node_modules
 **/node_modules
 .git
 .ocean
 .burn-rate
-substreams
-contracts
-subgraph
-subgraph-erc8004-arc
-agent
+contracts/out
+contracts/cache
+contracts/lib
+contracts/broadcast
 **/.next
 **/dist
 **/build
-**/generated
-**/target
 **/out
