@@ -59,6 +59,19 @@ export const hunchVpmAbiGenerated = [
   },
   {
     "type": "function",
+    "name": "MAX_VINTAGE_ENTRIES",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "SCALE",
     "inputs": [],
     "outputs": [
@@ -1252,6 +1265,11 @@ export const hunchVpmAbiGenerated = [
   {
     "type": "error",
     "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VintageFull",
     "inputs": []
   },
   {

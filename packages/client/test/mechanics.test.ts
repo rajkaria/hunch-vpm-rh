@@ -225,14 +225,32 @@ describe('D1 fee and settlement', () => {
     expect(s.residue).toBe(0n);
   });
 
-  it('an entry still pending when resolved in the same L1 block refunds in full (contract edge)', () => {
+  it("D8: resolving in the last entry's own L1 block still finalizes its vintage (no double pay)", () => {
     const sim = simCreate([10n * U, 10n * U], 30n);
     simEnter(sim, { outcome: UP, amount: 5n * U, block: 9n });
-    simResolve(sim, UP, 9n); // same block: _rollVintage does not finalize
-    const p = sim.positions[2]!;
-    const st = settlementOf(p, sim, sim.books[UP]!, 0);
-    expect(p.finalized).toBe(false);
+    simEnter(sim, { outcome: DOWN, amount: 7n * U, block: 9n });
+    simResolve(sim, UP, 9n); // same block.number: HunchVPM finalizes anyway
+    const up = sim.positions[2]!;
+    expect(up.finalized).toBe(true);
+    expect(up.accepted).toBe(5n * U);
+    const s = simSettle(sim, 0);
+    expect(s.paidOutGross + s.residue).toBe(s.pool);
+    expect(s.positions[2]!.settlement.refund).toBe(0n);
+    // The mirror still tolerates a not-finalized position (refunds it), as the reference would.
+    const st = settlementOf({ ...up, finalized: false, accepted: 0n, refunded: false }, sim, sim.books[UP]!, 0);
     expect(st).toMatchObject({ gross: 0n, refund: 5n * U, total: 5n * U });
+  });
+
+  it('D9: a vintage takes at most 200 entries; the quote says so', () => {
+    const sim = simCreate([10n * U, 10n * U], 30n);
+    for (let i = 0; i < 200; i++) simEnter(sim, { outcome: i % 2, amount: 1n * U, block: 3n });
+    expect(() => simEnter(sim, { outcome: UP, amount: 1n * U, block: 3n })).toThrow('VintageFull');
+    const pending = sim.pending.map((id) => ({ outcome: sim.positions[id]!.outcome, offered: sim.positions[id]!.offered }));
+    const books = [{ ...sim.books[0]! }, { ...sim.books[1]! }] as [Book, Book];
+    const base = { amount: 1n * U, outcome: UP, books, kappa: 30n, minEntry: 0n, maxEntry: 0n, pending, vintageBlock: 3n } as const;
+    expect(quoteEntry({ ...base, l1Block: 3n }).problem).toBe('vintage-full');
+    expect(quoteEntry({ ...base, l1Block: 4n }).problem).toBeNull(); // the next block starts a new vintage
+    simEnter(sim, { outcome: UP, amount: 1n * U, block: 4n });
   });
 
   it('settlementOf is zero once claimed and refund-only while open', () => {

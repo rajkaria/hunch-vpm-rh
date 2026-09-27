@@ -42,6 +42,9 @@ export interface MarketCore {
 
 export const emptyBook = (): Book => ({ principal: 0n, acc: 0n, capacity: 0n, vested: 0n, demand: 0n, live: 0n });
 
+/** HunchVPM D9: `enter` reverts `VintageFull` once the current L1 block's vintage holds this many entries. */
+export const MAX_VINTAGE_ENTRIES = 200;
+
 // ------------------------------------------------------------------ primitives
 
 /** `_times`: κ·x with the unbounded sentinel (∞·0 = 0, ∞·x = ∞). */
@@ -137,7 +140,7 @@ export function settlementOf(
 
 // ------------------------------------------------------------------ quoting
 
-export type QuoteProblem = 'zero' | 'below-min' | 'above-max' | 'no-room';
+export type QuoteProblem = 'zero' | 'below-min' | 'above-max' | 'no-room' | 'vintage-full';
 
 export interface QuoteInput {
   amount: bigint;
@@ -240,7 +243,12 @@ export function quoteEntry(input: EntryQuoteInput): Quote {
       return quote({ ...input, books: rolled, openVintageDemand: 0n });
     }
     const queued = input.pending.filter((p) => p.outcome !== opp).reduce((s, p) => s + p.offered, 0n);
-    return quote({ ...input, openVintageDemand: queued });
+    const q = quote({ ...input, openVintageDemand: queued });
+    // D9: this L1 block's vintage is full; the entry would revert (it can go in the next block).
+    if (input.pending.length >= MAX_VINTAGE_ENTRIES && q.problem === null) {
+      return { ...q, accepted: 0n, refused: q.offered, floorIfWin: 0n, problem: 'vintage-full' };
+    }
+    return q;
   }
   return quote({ ...input, openVintageDemand: 0n });
 }
@@ -410,6 +418,7 @@ export function simEnter(
   if (entry.outcome < 0 || entry.outcome >= sim.books.length || entry.amount === 0n) throw new SimRevert('InvalidOutcomes');
   if (sim.vintageOpen && entry.block < sim.vintageBlock) throw new SimRevert('block went backwards');
   simRoll(sim, entry.block);
+  if (sim.vintageOpen && sim.pending.length >= MAX_VINTAGE_ENTRIES) throw new SimRevert('VintageFull'); // D9
   return simEnterRaw(sim, entry.outcome, entry.amount, entry.owner ?? ZERO_ADDRESS, entry.block, entry.label);
 }
 
@@ -464,19 +473,25 @@ export function simFinalize(sim: SimMarket): void {
   sim.vintageOpen = false;
 }
 
-/** `resolve(marketId, winner)` at L1 block `block`. */
+/**
+ * `resolve(marketId, winner)` at L1 block `block`. HunchVPM D8: the open vintage is
+ * finalized unconditionally, even in its own L1 block (the reference only rolls it once
+ * `block.number` has advanced; `block` is kept for that reference behaviour's callers).
+ */
 export function simResolve(sim: SimMarket, winner: number, block: bigint): void {
   if (sim.status !== MARKET_STATUS.Open) throw new SimRevert('NotOpen');
   if (winner < 0 || winner >= sim.books.length) throw new SimRevert('InvalidOutcomes');
-  simRoll(sim, block);
+  void block;
+  if (sim.vintageOpen) simFinalize(sim); // D8
   sim.status = MARKET_STATUS.Resolved;
   sim.winner = winner;
 }
 
-/** `voidMarket(marketId)` at L1 block `block`. */
+/** `voidMarket(marketId)` at L1 block `block` (D8: finalizes the open vintage unconditionally). */
 export function simVoid(sim: SimMarket, block: bigint): void {
   if (sim.status !== MARKET_STATUS.Open) throw new SimRevert('NotOpen');
-  simRoll(sim, block);
+  void block;
+  if (sim.vintageOpen) simFinalize(sim); // D8
   sim.status = MARKET_STATUS.Voided;
 }
 
