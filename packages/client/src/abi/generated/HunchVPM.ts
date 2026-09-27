@@ -1185,6 +1185,11 @@ export const hunchVpmAbiGenerated = [
   },
   {
     "type": "error",
+    "name": "AuthorizationUsed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BadResolutionTime",
     "inputs": []
   },
@@ -1256,6 +1261,11 @@ export const hunchVpmAbiGenerated = [
   {
     "type": "error",
     "name": "NotOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotPaid",
     "inputs": []
   },
   {
