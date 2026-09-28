@@ -9,6 +9,7 @@ import {
   approveUsdgCall,
   buildEnterAuthorization,
   enterCall,
+  enterNonce,
   formatBps,
   formatUsdg,
   parseUsdgInput,
@@ -63,6 +64,15 @@ function txUrl(explorer: string, hash: string): string {
  * (gasless, the default) or approve → enter (paying gas yourself). Errors are sentences with the
  * next step. Disabled, with the reason, whenever a bet could not be taken.
  */
+/** A bet the bettor signed, as the relay receives it, with the nonce USDG records once it is used. */
+interface SignedBet {
+  from: Address;
+  body: string;
+  nonce: Hex;
+  amount: bigint;
+  side: BetSide;
+}
+
 export function StakePanel({ market, deployment, region, nowSec, onConfirmed, relayUrl = '/api/relay/enter', retryWaitMs = BUSY_WAIT_MS }: StakePanelProps) {
   const wallet = useWalletPort({ autoload: true });
   const json = market.json;
@@ -143,6 +153,8 @@ export function StakePanel({ market, deployment, region, nowSec, onConfirmed, re
   }, [quote, blocked, side, json.market.family, json.market.ticker]);
 
   const inFlight = IN_FLIGHT.has(phase.kind);
+  /** The signed bet whose relay outcome is unknown: sending it again can never charge twice. */
+  const unsent = useRef<SignedBet | null>(null);
 
   const finish = async (hash: Hex, betPath: BetPath, betAmount: bigint, betSide: BetSide): Promise<void> => {
     setPhase({ kind: 'confirming', hash, path: betPath });
@@ -201,18 +213,40 @@ export function StakePanel({ market, deployment, region, nowSec, onConfirmed, re
       chainId: CHAIN_ID,
       hunchVpm: deployment.contracts.HunchVPM.address,
     });
+    const nonce = enterNonce({ hunchVpm: deployment.contracts.HunchVPM.address, marketId: market.id, outcome, amount: betAmount, salt });
+    await relaySigned({ from, body, nonce, amount: betAmount, side }, false);
+  };
+
+  /** USDG has used this signed bet: it is on chain, whatever the relayer said. */
+  const landed = (bet: SignedBet): Promise<boolean> => wallet.authorizationUsed(bet.from, bet.nonce).catch(() => false);
+
+  const confirmLanded = async (bet: SignedBet): Promise<void> => {
+    unsent.current = null;
+    setPhase({ kind: 'confirmed', hash: null, path: 'gasless', amount: bet.amount, side: bet.side });
+    trackEvent('bet_confirmed', { path: 'gasless', side: bet.side });
+    await onConfirmed?.();
+    void refreshBalance();
+  };
+
+  /**
+   * Relay a signed bet. When the outcome is unknown (no answer, a failed send), the bet may already
+   * be on chain: the panel checks USDG first, and otherwise offers to send the SAME signature again,
+   * which USDG accepts only once, never "pay gas yourself", which would place a second bet.
+   */
+  const relaySigned = async (bet: SignedBet, resend: boolean): Promise<void> => {
     for (let attempt = 0; ; attempt += 1) {
       setPhase(attempt === 0 ? { kind: 'relaying' } : { kind: 'busy', attempt });
-      let response: Response;
+      let response: Response | null = null;
       try {
-        response = await fetch(relayUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+        response = await fetch(relayUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: bet.body });
       } catch {
-        setPhase({ kind: 'error', message: 'The relayer could not be reached. Try again, or pay gas yourself.', next: 'pay-gas' });
-        return;
+        response = null;
       }
-      const result = (await response.json().catch(() => null)) as RelaySuccessBody | RelayErrorBody | null;
-      if (response.ok && result !== null && result.ok) {
-        await finish(result.txHash as Hex, 'gasless', betAmount, side);
+      const result = response === null ? null : ((await response.json().catch(() => null)) as RelaySuccessBody | RelayErrorBody | null);
+      if (response !== null && response.ok && result !== null && result.ok) {
+        unsent.current = null;
+        if (result.txHash === null) await confirmLanded(bet);
+        else await finish(result.txHash as Hex, 'gasless', bet.amount, bet.side);
         return;
       }
       if (result !== null && !result.ok && result.error === 'busy' && attempt < BUSY_RETRIES) {
@@ -220,10 +254,26 @@ export function StakePanel({ market, deployment, region, nowSec, onConfirmed, re
         await sleep(result.retryAfter === undefined ? retryWaitMs : Math.min(retryWaitMs, result.retryAfter * 1000));
         continue;
       }
+      // Sent again and "already used": that is this very bet, landed.
+      if (resend && result !== null && !result.ok && result.reason === 'nonce-used' && (await landed(bet))) {
+        await confirmLanded(bet);
+        return;
+      }
+      const known = result !== null && !result.ok && result.next !== 'retry-same';
+      if (known) {
+        unsent.current = null;
+        setPhase({ kind: 'error', message: result.message, next: result.next });
+        return;
+      }
+      if (await landed(bet)) {
+        await confirmLanded(bet);
+        return;
+      }
+      unsent.current = bet;
       setPhase({
         kind: 'error',
-        message: result !== null && !result.ok ? result.message : 'The relayer did not answer. Try again, or pay gas yourself.',
-        next: result !== null && !result.ok ? result.next : 'pay-gas',
+        message: 'The relayer could not confirm this bet. Send the same signed bet again: USDG accepts each signed bet once, so this can never bet twice.',
+        next: 'retry-same',
       });
       return;
     }
@@ -442,9 +492,11 @@ export function StakePanel({ market, deployment, region, nowSec, onConfirmed, re
             </p>
             <p className="mt-1 text-xs text-muted">It is matched against the other side within about 15 seconds; it shows under your positions.</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-4">
-              <a href={txUrl(deployment.explorer, phase.hash)} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-11 items-center text-sm text-muted underline decoration-edge-strong underline-offset-2 hover:text-paper">
-                View the transaction
-              </a>
+              {phase.hash !== null ? (
+                <a href={txUrl(deployment.explorer, phase.hash)} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-11 items-center text-sm text-muted underline decoration-edge-strong underline-offset-2 hover:text-paper">
+                  View the transaction
+                </a>
+              ) : null}
               <button type="button" onClick={() => setPhase({ kind: 'idle' })} className="inline-flex min-h-11 items-center text-sm font-semibold text-paper underline decoration-paper/25 underline-offset-4 hover:decoration-lime">
                 Place another bet
               </button>
@@ -472,6 +524,19 @@ export function StakePanel({ market, deployment, region, nowSec, onConfirmed, re
         {phase.kind === 'error' ? (
           <div className="mt-2 rounded-control border border-coral/35 bg-coral/10 p-3" role="alert" data-testid="bet-error">
             <p className="text-sm text-paper">{phase.message}</p>
+            {phase.next === 'retry-same' && unsent.current !== null ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const bet = unsent.current;
+                  if (bet !== null) void relaySigned(bet, true);
+                }}
+                className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-paper underline decoration-paper/25 underline-offset-4 hover:decoration-lime"
+                data-testid="retry-same"
+              >
+                Send the same signed bet again
+              </button>
+            ) : null}
             {phase.next === 'pay-gas' && path === 'gasless' ? (
               <button
                 type="button"

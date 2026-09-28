@@ -194,7 +194,9 @@ the rest in Production, and Preview if you want previews to read chain data. Sec
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your Reown project id (without it the WalletConnect option is hidden) | Plain |
 | `NEXT_PUBLIC_SITE_URL` | `https://rh.playhunch.xyz` once step 11's domain resolves; until then `https://hunch-vpm-rh.vercel.app` (it feeds the sitemap, canonical links, share cards and WalletConnect metadata) | Plain |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | optional keeper alerts | Sensitive |
-| `RH_FALLBACK_RPC_URL` | optional second keyed RPC (another provider); the keeper's stale double-check reads it | Sensitive |
+| `RH_FALLBACK_RPC_URL` | second keyed RPC from **another provider** (strongly recommended): the keeper auto-refunds a stale or garbage price only when this independent read agrees; without it the second read is the public RPC | Sensitive |
+| `RELAYER_PRIVATE_KEY` | recommended: a third hot key (`cast wallet new`) holding only ~0.005 ETH, never USDG. It sends gasless bets instead of the keeper key, so the public relay never races the cron jobs' nonces and cannot drain the keeper. Production only | Sensitive |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | recommended: Vercel → Storage → Upstash Redis (free tier) connected to this project sets both. The cron jobs then run one at a time across every instance; without it the lock is per instance | Sensitive (set by the integration) |
 | `NEXT_PUBLIC_RH_RPC_URL` | optional browser RPC; defaults to the public RPC (never put a keyed URL here: it ships to browsers) | Plain |
 
 Or from the CLI in the repo root: `vercel env add KEEPER_PRIVATE_KEY production` (it prompts

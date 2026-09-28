@@ -84,6 +84,8 @@ export class FakeChain {
   factoryPendingOwner: Address = '0x0000000000000000000000000000000000000000';
   settlerFactory: Address = FACTORY;
   pauser: Address = '0x0000000000000000000000000000000000000000';
+  /** Runs before each `simulateContract` (a test can let "another run" act mid-job). */
+  beforeSimulate: ((functionName: string, args: readonly unknown[]) => void) | null = null;
   /** Calls simulated through `simulateContract` (what a runner would send). */
   readonly simulated: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
   calls = 0;
@@ -363,6 +365,7 @@ export class FakeChain {
         return '0x';
       },
       async simulateContract(c: { address: Address; functionName: string; args?: readonly unknown[] }) {
+        self.beforeSimulate?.(c.functionName, c.args ?? []);
         self.simulated.push({ address: c.address, functionName: c.functionName, args: c.args ?? [] });
         return { request: c, result: undefined };
       },

@@ -1,6 +1,7 @@
 /**
  * The keeper for route handlers (`/api/cron/[job]`, `/api/relay/enter`, `/api/health`), built
- * once per server instance from env: `KEEPER_PRIVATE_KEY` (only to send), `RH_RPC_URL`,
+ * once per server instance from env: `KEEPER_PRIVATE_KEY` (only to send), optional
+ * `RELAYER_PRIVATE_KEY` (sends relayed bets instead of the keeper key), `RH_RPC_URL`,
  * `RH_FALLBACK_RPC_URL`, `HUNCH_DEPLOYMENT_JSON`, `TELEGRAM_*`. The keeper redacts its key and
  * RPC credentials from everything it logs.
  */

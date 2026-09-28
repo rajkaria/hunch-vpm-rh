@@ -7,8 +7,19 @@
  * deploys (see `lib/deployment.ts`).
  */
 
-/** The canonical origin. Used for metadata, the sitemap and absolute links. */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://rh.playhunch.xyz').replace(/\/+$/, '');
+/**
+ * The canonical origin. Used for metadata, the sitemap, share cards and WalletConnect metadata.
+ * NEXT_PUBLIC_SITE_URL wins; else the project's production domain as Vercel reports it (the
+ * custom domain once it is added, until then the vercel.app one); else the planned domain.
+ */
+function siteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return explicit;
+  const vercel = (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL)?.trim();
+  if (vercel) return vercel.startsWith('http') ? vercel : `https://${vercel}`;
+  return 'https://rh.playhunch.xyz';
+}
+export const SITE_URL = siteUrl().replace(/\/+$/, '');
 
 export const SITE_NAME = 'Hunch on Robinhood Chain';
 

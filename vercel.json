@@ -8,6 +8,7 @@
     { "path": "/api/cron/open", "schedule": "*/10 12-13 * * 1-5" },
     { "path": "/api/cron/resolve", "schedule": "*/2 20-21 * * 1-5" },
     { "path": "/api/cron/resolve?slot=hourly", "schedule": "7 * * * *" },
+    { "path": "/api/cron/resolve?slot=early-close", "schedule": "*/5 17-18 * * 1-5" },
     { "path": "/api/cron/deliver", "schedule": "*/5 * * * *" }
   ]
 }

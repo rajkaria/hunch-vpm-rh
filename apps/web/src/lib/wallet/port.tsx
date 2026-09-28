@@ -26,6 +26,8 @@ export interface WalletPort extends WalletSnapshot {
   waitForReceipt(hash: Hex): Promise<'success' | 'reverted'>;
   usdgBalance(owner: Address): Promise<bigint>;
   usdgAllowance(owner: Address, spender: Address): Promise<bigint>;
+  /** USDG `authorizationState(owner, nonce)`: true once a signed bet with this nonce is used on chain. */
+  authorizationUsed(owner: Address, nonce: Hex): Promise<boolean>;
   disconnect(): Promise<void>;
 }
 
@@ -50,6 +52,7 @@ function useDefaultPort(enabled: boolean, autoload: boolean): WalletPort {
       waitForReceipt: async (hash) => (await loadWallet()).waitForReceipt(hash),
       usdgBalance: async (owner) => (await loadWallet()).usdgBalance(owner),
       usdgAllowance: async (owner, spender) => (await loadWallet()).usdgAllowance(owner, spender),
+      authorizationUsed: async (owner, nonce) => (await loadWallet()).authorizationUsed(owner, nonce),
       disconnect: async () => (await loadWallet()).disconnect(),
     }),
     [snapshot],

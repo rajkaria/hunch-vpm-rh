@@ -42,6 +42,7 @@ export interface WalletCore {
   waitForReceipt(hash: Hex): Promise<'success' | 'reverted'>;
   usdgBalance(owner: Address): Promise<bigint>;
   usdgAllowance(owner: Address, spender: Address): Promise<bigint>;
+  authorizationUsed(owner: Address, nonce: Hex): Promise<boolean>;
 }
 
 let started: WalletCore | null = null;
@@ -148,6 +149,9 @@ export function startWallet(): WalletCore {
     },
     async usdgAllowance(owner, spender) {
       return reader.readContract({ address: USDG_ADDRESS, abi: usdgAbi, functionName: 'allowance', args: [owner, spender] });
+    },
+    async authorizationUsed(owner, nonce) {
+      return reader.readContract({ address: USDG_ADDRESS, abi: usdgAbi, functionName: 'authorizationState', args: [owner, nonce] });
     },
   };
   return started;

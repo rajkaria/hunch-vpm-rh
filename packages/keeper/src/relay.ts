@@ -24,8 +24,13 @@ import { BaseError, ContractFunctionRevertedError, getAddress, isAddress, isHex,
  * The gasless-entry relayer (docs/spec/06 `relay`). A bettor signs USDG's EIP-3009
  * `ReceiveWithAuthorization` (to = HunchVPM, nonce = enterNonce(market, side, amount,
  * salt)); the venue checks it off-chain, simulates `enterWithAuthorization` and sends it
- * from the keeper key. The relayer can change nothing the bettor signed, and the bettor
- * can always submit the same call themselves.
+ * from the relayer key (RELAYER_PRIVATE_KEY, else the keeper key). The relayer can change
+ * nothing the bettor signed, and the bettor can always submit the same call themselves.
+ *
+ * Spending limits: every relayed call carries an explicit gas limit sized to the work the
+ * entry really does (a base plus the pending batch it may finalize), so no signer can make the
+ * relayer pay for arbitrary computation; signers that are contracts (ERC-1271, whose signature
+ * check runs their own code) are refused and pay gas themselves.
  */
 
 /** Venue-wide bounds, independent of each market's own caps. */
@@ -37,6 +42,19 @@ export const RELAY_MAX_VALIDITY_SEC = 3600;
 export const RELAY_MIN_REMAINING_SEC = 30;
 /** Refuse entries this close to the freeze (the tx must land before the bell). */
 export const RELAY_FREEZE_MARGIN_SEC = 15;
+/**
+ * Gas for one relayed entry: `enterWithAuthorization` measures ~260k-300k when it also
+ * finalizes a one-entry batch (contracts/GAS.md, fork), and finalizing costs ~34k per pending
+ * entry (at most 200, D9). The limit is the base plus a margin per pending entry.
+ */
+export const RELAY_GAS_BASE = 450_000n;
+export const RELAY_GAS_PER_PENDING = 40_000n;
+
+/** The gas limit for a relayed entry into a market with `pending` unfinalized entries. */
+export function relayGasLimit(pending: bigint): bigint {
+  const p = pending < 0n ? 0n : pending > 200n ? 200n : pending;
+  return RELAY_GAS_BASE + RELAY_GAS_PER_PENDING * p;
+}
 
 export interface RelayRequest {
   from: string;
@@ -74,6 +92,7 @@ export type RelayErrorCode =
   | 'expired'
   | 'validity-too-long'
   | 'bad-signature'
+  | 'contract-signer'
   | 'market-not-found'
   | 'market-closed'
   | 'entries-paused'
@@ -96,6 +115,7 @@ const HTTP: Record<RelayErrorCode, number> = {
   expired: 400,
   'validity-too-long': 400,
   'bad-signature': 400,
+  'contract-signer': 400,
   'market-not-found': 404,
   'market-closed': 409,
   'entries-paused': 503,
@@ -109,8 +129,12 @@ const HTTP: Record<RelayErrorCode, number> = {
 };
 
 export type RelayFailure = { ok: false; code: RelayErrorCode; status: number; message: string };
-export type RelayValidated = { ok: true; request: ParsedRelayRequest; nonce: Hex };
-export type RelayResult = { ok: true; txHash: Hex; nonce: Hex } | RelayFailure;
+export type RelayValidated = { ok: true; request: ParsedRelayRequest; nonce: Hex; gasLimit: bigint };
+/**
+ * `txHash: null`: the send failed, but the bettor's authorization is used on chain, so the
+ * entry already landed (an earlier attempt of the same signed bet); the hash is not known here.
+ */
+export type RelayResult = { ok: true; txHash: Hex | null; nonce: Hex } | RelayFailure;
 
 function fail(code: RelayErrorCode, message: string): RelayFailure {
   return { ok: false, code, status: HTTP[code], message };
@@ -144,6 +168,12 @@ export class RateLimiter {
     return true;
   }
 
+  /** Gives back the latest hit of `key` (a retry the venue asked for should not count). */
+  release(key: string): void {
+    const list = this.hits.get(key);
+    if (list !== undefined && list.length > 0) list.pop();
+  }
+
   private prune(since: number): void {
     for (const [k, v] of this.hits) if (v.every((t) => t <= since)) this.hits.delete(k);
   }
@@ -159,6 +189,8 @@ export interface RelayMarket {
   resolutionTime: number;
   minEntry: bigint;
   maxEntry: bigint;
+  /** Entries in the market's open batch, which this entry may finalize (sizes the gas limit). */
+  pending?: bigint;
 }
 
 export interface RelayChain {
@@ -169,11 +201,13 @@ export interface RelayChain {
   usdgBalance(owner: Address): Promise<bigint>;
   /** Smart wallets sign through ERC-1271; ECDSA recovery cannot verify them. */
   isContract(owner: Address): Promise<boolean>;
-  simulate(r: ParsedRelayRequest): Promise<{ ok: true } | { ok: false; reason: string }>;
+  /** eth_call of the entry under `gas` (an entry needing more fails here, before any send). */
+  simulate(r: ParsedRelayRequest, gas?: bigint): Promise<{ ok: true } | { ok: false; reason: string }>;
 }
 
 export interface RelaySender {
-  send(r: ParsedRelayRequest): Promise<Hex>;
+  /** Sends with exactly this gas limit, so the relayer never pays for more. */
+  send(r: ParsedRelayRequest, gas: bigint): Promise<Hex>;
 }
 
 export function chainRelayReads(client: PublicClient, d: Deployment, relayer?: Address): RelayChain {
@@ -189,10 +223,12 @@ export function chainRelayReads(client: PublicClient, d: Deployment, relayer?: A
       const r = await callMany(client, [
         { address: vpm, abi: hunchVpmAbi, functionName: 'getMarket', args: [marketId] },
         { address: vpm, abi: hunchVpmAbi, functionName: 'marketTerms', args: [marketId] },
+        { address: vpm, abi: hunchVpmAbi, functionName: 'pendingCount', args: [marketId] },
       ]);
       const m = decodeMarket(must(r[0], 'getMarket'));
       const t = decodeTerms(must(r[1], 'marketTerms'));
-      return { statusCode: m.status, resolutionTime: m.resolutionTime, minEntry: t.minEntry, maxEntry: t.maxEntry };
+      const pending = must<bigint>(r[2], 'pendingCount');
+      return { statusCode: m.status, resolutionTime: m.resolutionTime, minEntry: t.minEntry, maxEntry: t.maxEntry, pending };
     },
     async entriesPaused() {
       return must<boolean>((await callMany(client, [{ address: vpm, abi: hunchVpmAbi, functionName: 'entriesPaused' }]))[0], 'entriesPaused');
@@ -210,9 +246,9 @@ export function chainRelayReads(client: PublicClient, d: Deployment, relayer?: A
       const code = await client.getCode({ address: owner });
       return code !== undefined && code !== '0x';
     },
-    async simulate(r) {
+    async simulate(r, gas) {
       try {
-        await client.simulateContract({ ...enterWithAuthorizationCall(d, r), account: relayer ?? r.from } as never);
+        await client.simulateContract({ ...enterWithAuthorizationCall(d, r), account: relayer ?? r.from, ...(gas === undefined ? {} : { gas }) } as never);
         return { ok: true };
       } catch (error) {
         return { ok: false, reason: shortError(error) };
@@ -330,9 +366,6 @@ export async function validateRelayRequest(body: unknown, ctx: RelayContext): Pr
   if (ctx.ip !== undefined && ctx.ip !== null && ctx.ip !== '' && !limiter.take(`ip:${ctx.ip}`, nowMs)) {
     return fail('rate-limited', 'Too many bets from this connection. Wait a minute and try again.');
   }
-  if (!limiter.take(`from:${r.from.toLowerCase()}`, nowMs)) {
-    return fail('rate-limited', 'Too many bets from this wallet. Wait a minute and try again.');
-  }
 
   if (b.chainId !== undefined && String(b.chainId) !== String(CHAIN_ID)) {
     return fail('wrong-domain', `Sign on Robinhood Chain (chain ${CHAIN_ID}).`);
@@ -357,9 +390,17 @@ export async function validateRelayRequest(body: unknown, ctx: RelayContext): Pr
     recovered = null;
   }
   if (recovered === null || recovered.toLowerCase() !== r.from.toLowerCase()) {
-    // A smart wallet (ERC-1271) cannot be verified by recovery; the simulation below
-    // runs USDG's own check. An EOA with a wrong signature stops here.
-    if (!(await ctx.chain.isContract(r.from))) return fail('bad-signature', 'The signature does not match this wallet, market, side and amount.');
+    // A smart wallet (ERC-1271) cannot be verified by recovery, and its signature check runs its
+    // own code at the relayer's expense: it pays gas itself instead.
+    if (await ctx.chain.isContract(r.from)) {
+      return fail('contract-signer', 'This wallet signs as a smart contract, which gasless bets do not support. Use "Pay gas yourself".');
+    }
+    return fail('bad-signature', 'The signature does not match this wallet, market, side and amount.');
+  }
+  // Per wallet only once the wallet itself signed, so nobody can use up someone else's budget.
+  const fromKey = `from:${r.from.toLowerCase()}`;
+  if (!limiter.take(fromKey, nowMs)) {
+    return fail('rate-limited', 'Too many bets from this wallet. Wait a minute and try again.');
   }
 
   const market = await ctx.chain.market(r.marketId);
@@ -372,9 +413,14 @@ export async function validateRelayRequest(body: unknown, ctx: RelayContext): Pr
   if (market.maxEntry !== 0n && r.amount > market.maxEntry) return fail('above-market-max', 'This bet is above the market maximum.');
   if (await ctx.chain.authorizationUsed(r.from, nonce)) return fail('nonce-used', 'This authorization was already used. Sign a new bet.');
   if ((await ctx.chain.usdgBalance(r.from)) < r.amount) return fail('insufficient-balance', 'Not enough USDG in this wallet on Robinhood Chain.');
-  const sim = await ctx.chain.simulate(r);
-  if (!sim.ok) return fail('simulation-failed', revertInWords(sim.reason));
-  return { ok: true, request: r, nonce };
+  const gasLimit = relayGasLimit(market.pending ?? 0n);
+  const sim = await ctx.chain.simulate(r, gasLimit);
+  if (!sim.ok) {
+    // A full batch is the venue asking for a retry in a few seconds: it does not count.
+    if (/reverted: VintageFull/.test(sim.reason)) limiter.release(fromKey);
+    return fail('simulation-failed', revertInWords(sim.reason));
+  }
+  return { ok: true, request: r, nonce, gasLimit };
 }
 
 /** Validate, then send `enterWithAuthorization` from the relayer. Returns the tx hash. */
@@ -383,23 +429,27 @@ export async function relayEnter(body: unknown, ctx: RelayContext & { sender: Re
   if (!v.ok) return v;
   if (ctx.sender === null) return fail('relayer-unavailable', 'Gasless bets are unavailable right now. Use "Pay gas yourself".');
   try {
-    const txHash = await ctx.sender.send(v.request);
+    const txHash = await ctx.sender.send(v.request, v.gasLimit);
     return { ok: true, txHash, nonce: v.nonce };
   } catch (error) {
+    // A retried or timed-out send may still have reached the chain: if the bettor's authorization
+    // is now used, the bet is in, and telling them to "pay gas yourself" would bet twice.
+    const landed = await ctx.chain.authorizationUsed(v.request.from, v.nonce).catch(() => false);
+    if (landed) return { ok: true, txHash: null, nonce: v.nonce };
     return fail('send-failed', `Could not send the bet: ${shortError(error)}`);
   }
 }
 
 /**
- * A `RelaySender` over the keeper's wallet: simulate, then send; returns the tx hash
- * without waiting for the receipt (the client polls the market, and the vintage is
- * finalized by the next entry or the deliver job).
+ * A `RelaySender` over the relayer's wallet: simulate, then send with the given gas limit
+ * (never an open-ended estimate); returns the tx hash without waiting for the receipt (the
+ * client polls the market, and the vintage is finalized by the next entry or the deliver job).
  */
 export function walletRelaySender(wallet: WalletClient, client: PublicClient, d: Deployment): RelaySender {
   return {
-    async send(r) {
-      const { request } = await client.simulateContract({ ...enterWithAuthorizationCall(d, r), account: wallet.account } as never);
-      return (await wallet.writeContract(request as never)) as Hex;
+    async send(r, gas) {
+      const { request } = await client.simulateContract({ ...enterWithAuthorizationCall(d, r), account: wallet.account, gas } as never);
+      return (await wallet.writeContract({ ...(request as object), gas } as never)) as Hex;
     },
   };
 }

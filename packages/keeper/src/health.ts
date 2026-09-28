@@ -183,12 +183,39 @@ export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: 
 export async function checkHealth(
   client: PublicClient,
   d: Deployment,
-  options: { nowSec?: number; corporateActions?: readonly CorporateAction[]; redact?: (text: string) => string } = {},
+  options: {
+    nowSec?: number;
+    corporateActions?: readonly CorporateAction[];
+    redact?: (text: string) => string;
+    /** The keeper key's address in this environment (default: the deployment JSON's keeper). */
+    keeper?: Address | null;
+    /** The relayer's address when it is a separate key (RELAYER_PRIVATE_KEY). */
+    relayer?: Address | null;
+  } = {},
 ): Promise<HealthReport> {
   const redact = options.redact ?? ((t: string) => t);
   try {
-    const state = await readKeeperState(client, d, options.nowSec === undefined ? {} : { nowSec: options.nowSec });
-    return evaluateHealth(state, d, options.corporateActions ?? []);
+    const keeper = options.keeper ?? null;
+    const state = await readKeeperState(client, d, {
+      ...(options.nowSec === undefined ? {} : { nowSec: options.nowSec }),
+      ...(keeper === null ? {} : { keeper }),
+    });
+    const report = evaluateHealth(state, d, options.corporateActions ?? []);
+    if (!state.deployed) return report;
+    if (keeper !== null && !same(keeper, d.keeper)) {
+      report.checks.push({
+        name: 'keeper-key',
+        ok: false,
+        detail: `the keeper key here is ${keeper}, the deployment JSON names ${d.keeper}: update .keeper, pnpm wire, redeploy`,
+      });
+    }
+    const relayer = options.relayer ?? null;
+    if (relayer !== null && !same(relayer, keeper)) {
+      const eth = await client.getBalance({ address: relayer });
+      report.checks.push({ name: 'relayer-eth', ok: eth >= MIN_KEEPER_ETH, detail: `${formatEther(eth)} ETH on the relayer ${relayer} (floor 0.002)` });
+    }
+    report.ok = report.checks.every((c) => c.ok);
+    return report;
   } catch (error) {
     return {
       ok: false,

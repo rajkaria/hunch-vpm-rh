@@ -68,6 +68,25 @@ describe('T9 · runner', () => {
     expect(w.sent.length).toBe(9);
   });
 
+  it('open (live): a market another run listed meanwhile is not listed twice', async () => {
+    const { d, chain } = world(utc(2026, 10, 5, 12, 0));
+    chain.usdgBalances.set(KEEPER.toLowerCase(), 1_000_000_000n);
+    const nvda = d.feeds.find((f) => f.ticker === 'NVDA')!;
+    let raced = false;
+    chain.beforeSimulate = (fn) => {
+      if (fn !== 'approve' || raced) return;
+      raced = true; // a duplicate cron delivery lists NVDA's daily between our read and our send
+      chain.open({ feed: nvda.feed, strikeTime: openingBell('2026-10-05'), finalTime: closingBell('2026-10-05') });
+    };
+    const w = wallet();
+    const [report] = await runJob('open', ctxOf(d, chain.client(), { walletClient: w }));
+    const skipped = report!.actions.filter((a) => a.status === 'skipped');
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]!.detail).toBe('already listed by another run');
+    expect(skipped[0]!.target).toMatch(/NVDA/);
+    expect(chain.simulated.filter((c) => c.functionName === 'openUpDown')).toHaveLength(7);
+  });
+
   it('open (live): skips the approval when the allowance covers the seeds; pages when the float is short', async () => {
     const { d, chain } = world(utc(2026, 10, 5, 12, 0));
     chain.usdgBalances.set(KEEPER.toLowerCase(), 45_000_000n); // covers 2 markets

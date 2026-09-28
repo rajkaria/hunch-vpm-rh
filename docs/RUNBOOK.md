@@ -33,8 +33,17 @@ listing that ticker. Markets already open settle or void on their own proofs.
    `vercel env add KEEPER_PRIVATE_KEY production`, redeploy.
 4. Safe → `setOpener(newKeeper, true)`; fund the new wallet (ETH for gas, USDG seed float).
 
-A leaked opener key can only list markets with its own money. It cannot touch a stake, a price
-or a payout.
+A leaked opener key can only list markets with its own money, and it owns the seed legs of the
+markets it listed: move them first if you can (`HunchVPM.transferPosition(id, newKeeper)` for each
+open seed leg). It cannot touch anyone else's stake, a price or a payout. After rotating, update
+`.keeper` in `deployments/robinhood-mainnet.json`, run `pnpm wire` and redeploy (`/api/health`
+shows `keeper-key` red until you do), and rotate `CRON_SECRET` and the RPC key too.
+
+## The relayer key leaks (`RELAYER_PRIVATE_KEY`)
+
+It holds only gas money and can only relay bets people signed. Generate a new key, replace it in
+Vercel (`vercel env rm RELAYER_PRIVATE_KEY production`, then `vercel env add ...`), redeploy, and
+fund the new address with a little ETH. Nothing on chain needs changing.
 
 ## A market will not resolve
 

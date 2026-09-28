@@ -44,6 +44,7 @@ interface Calls {
   write: ReturnType<typeof vi.fn>;
   waitForReceipt: ReturnType<typeof vi.fn>;
   usdgAllowance: ReturnType<typeof vi.fn>;
+  authorizationUsed: ReturnType<typeof vi.fn>;
 }
 
 function makeCalls(): Calls {
@@ -54,6 +55,7 @@ function makeCalls(): Calls {
     write: vi.fn(async (call: { functionName: string }) => (call.functionName === 'approve' ? APPROVE_TX : TX)),
     waitForReceipt: vi.fn(async () => 'success' as const),
     usdgAllowance: vi.fn(async () => 0n),
+    authorizationUsed: vi.fn(async () => false),
   };
 }
 
@@ -79,6 +81,7 @@ function FakeWallet({ calls, children, start = 'disconnected' }: { calls: Calls;
     waitForReceipt: (hash) => calls.waitForReceipt(hash) as Promise<'success' | 'reverted'>,
     usdgBalance: async () => 500n * USDG,
     usdgAllowance: (owner, spender) => calls.usdgAllowance(owner, spender) as Promise<bigint>,
+    authorizationUsed: (owner, nonce) => calls.authorizationUsed(owner, nonce) as Promise<boolean>,
     disconnect: async () => undefined,
   };
   return <WalletPortContext.Provider value={port}>{children}</WalletPortContext.Provider>;
@@ -211,6 +214,70 @@ describe('<StakePanel> gasless path: connect → switch → sign → relayed →
     expect(alert.textContent).toContain('Gasless bets are unavailable right now');
     fireEvent.click(within(alert).getByRole('button', { name: 'Pay gas yourself instead' }));
     await waitFor(() => expect(primary().textContent).toBe('Place bet, paying gas'));
+  });
+
+  it('an unanswered relay never suggests paying gas: it checks the chain, then sends the SAME signature again', async () => {
+    const calls = makeCalls();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(relayResponse(200, { ok: true, txHash: TX, nonce: '0x01', receipt: 'confirmed' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { market, detail } = liveMarket();
+    render(
+      <FakeWallet calls={calls} start="connected">
+        <StakePanel market={market} deployment={DEPLOYED} region="open" nowSec={detail.head.timestamp} retryWaitMs={1} />
+      </FakeWallet>,
+    );
+    fireEvent.click(screen.getByRole('checkbox'));
+    await waitFor(() => expect(primary().disabled).toBe(false));
+    fireEvent.click(primary());
+    const alert = await screen.findByTestId('bet-error');
+    expect(calls.authorizationUsed).toHaveBeenCalledTimes(1); // looked on chain before answering
+    expect(within(alert).queryByRole('button', { name: 'Pay gas yourself instead' })).toBeNull();
+    fireEvent.click(within(alert).getByTestId('retry-same'));
+    await waitFor(() => expect(screen.getByTestId('bet-confirmed')).toBeTruthy());
+    expect(calls.signTypedData).toHaveBeenCalledTimes(1); // no second signature
+    const bodies = fetchMock.mock.calls.map((c) => (c as unknown as [string, RequestInit])[1].body);
+    expect(bodies[0]).toBe(bodies[1]);
+  });
+
+  it('a failed send whose signed bet is already on chain shows it as placed', async () => {
+    const calls = makeCalls();
+    calls.authorizationUsed.mockResolvedValue(true);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => relayResponse(502, { ok: false, error: 'relay_failed', reason: 'send-failed', message: 'Could not send the bet: timeout', next: 'retry-same' })),
+    );
+    const onConfirmed = vi.fn();
+    const { market, detail } = liveMarket();
+    render(
+      <FakeWallet calls={calls} start="connected">
+        <StakePanel market={market} deployment={DEPLOYED} region="open" nowSec={detail.head.timestamp} onConfirmed={onConfirmed} retryWaitMs={1} />
+      </FakeWallet>,
+    );
+    fireEvent.click(screen.getByRole('checkbox'));
+    await waitFor(() => expect(primary().disabled).toBe(false));
+    fireEvent.click(primary());
+    const card = await screen.findByTestId('bet-confirmed');
+    expect(within(card).queryByText('View the transaction')).toBeNull(); // the hash is not known here
+    expect(onConfirmed).toHaveBeenCalled();
+  });
+
+  it('the relayer\'s "already on chain" answer (no hash) confirms the bet', async () => {
+    const calls = makeCalls();
+    vi.stubGlobal('fetch', vi.fn(async () => relayResponse(200, { ok: true, txHash: null, nonce: '0x01', receipt: 'confirmed' })));
+    const { market, detail } = liveMarket();
+    render(
+      <FakeWallet calls={calls} start="connected">
+        <StakePanel market={market} deployment={DEPLOYED} region="open" nowSec={detail.head.timestamp} retryWaitMs={1} />
+      </FakeWallet>,
+    );
+    fireEvent.click(screen.getByRole('checkbox'));
+    await waitFor(() => expect(primary().disabled).toBe(false));
+    fireEvent.click(primary());
+    await screen.findByTestId('bet-confirmed');
+    expect(calls.waitForReceipt).not.toHaveBeenCalled();
   });
 
   it('says plainly when the person declines in their wallet', async () => {

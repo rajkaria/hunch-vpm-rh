@@ -271,6 +271,7 @@ export default function ApiDoc() {
         rows={[
           ['400', <C key="a">invalid_request</C>, 'A field is missing or malformed.'],
           ['400', <C key="b">bad_signature</C>, 'Wrong domain, or the signature does not match this wallet, market, side and amount.'],
+          ['400', <C key="b2">contract_signer</C>, 'A smart-contract wallet (ERC-1271) signed it: gasless bets need a regular wallet signature. Pay gas yourself.'],
           ['400', <C key="c">expired</C>, 'Outside validAfter / validBefore, or valid for longer than an hour.'],
           ['400', <C key="d">amount_out_of_bounds</C>, 'Below the minimum or above the maximum bet.'],
           ['403', <C key="e">region_blocked</C>, 'Stock-price markets are not offered where the request came from.'],
@@ -280,7 +281,7 @@ export default function ApiDoc() {
           ['422', <C key="g0">insufficient_balance</C>, 'Not enough USDG in the signing wallet on Robinhood Chain.'],
           ['422', <C key="g">simulation_failed</C>, 'The call would revert; the message says why.'],
           ['429', <C key="h">rate_limited</C>, 'More than 10 requests a minute from this IP or this signer.'],
-          ['502', <C key="h2">relay_failed</C>, 'The relayer could not send it. Send the call yourself.'],
+          ['502', <C key="h2">relay_failed</C>, 'The relayer could not confirm the send. It may have landed: send the SAME body again (USDG accepts a signature once, so this never bets twice).'],
           ['503', <C key="h3">busy</C>, 'Many bets landed in this Ethereum block. Send the same body again after retryAfter seconds.'],
           ['503', <C key="i">relay_unavailable</C>, 'The relayer is off or out of gas. Send the call yourself.'],
           ['503', <C key="j">not_deployed</C>, 'Hunch is not deployed yet.'],
@@ -289,7 +290,7 @@ export default function ApiDoc() {
       <Callout title="Errors are words">
         <p>
           Every error body is{' '}
-          <C>{'{ "ok": false, "error": "<code>", "reason": "<relayer code>", "message": "<a sentence for a person>", "next": "retry" | "sign-again" | "pay-gas" | "get-usdg" | "wait" | "none" }'}</C>
+          <C>{'{ "ok": false, "error": "<code>", "reason": "<relayer code>", "message": "<a sentence for a person>", "next": "retry" | "retry-same" | "sign-again" | "pay-gas" | "get-usdg" | "wait" | "none" }'}</C>
           . The message says what happened; <C>next</C> says what to do.
         </p>
       </Callout>

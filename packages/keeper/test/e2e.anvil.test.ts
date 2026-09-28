@@ -218,8 +218,10 @@ describe.skipIf(!hasAnvil || !hasOut)('E2E on anvil (chain 4663) against contrac
       },
     );
     expect(relayed.ok).toBe(true);
-    if (!relayed.ok) return;
-    expect((await client.waitForTransactionReceipt({ hash: relayed.txHash })).status).toBe('success');
+    if (!relayed.ok || relayed.txHash === null) throw new Error('expected a sent relay');
+    const relayedReceipt = await client.waitForTransactionReceipt({ hash: relayed.txHash });
+    expect(relayedReceipt.status).toBe('success');
+    expect(relayedReceipt.gasUsed < 450_000n, 'the relay gas limit covers a real entry with room').toBe(true);
     expect(await client.getBalance({ address: acct.alice.address })).toBe(aliceEthBefore);
     // Replaying the same authorization is refused before it reaches the chain.
     const replay = await relayEnter(
