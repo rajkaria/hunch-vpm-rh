@@ -75,9 +75,9 @@ export type FindResult =
       phase: bigint;
       /** The proxy's current phase (differs from `phase` after an aggregator migration). */
       currentPhase: bigint;
-      /** The answer passes the resolver's sanity band (else `resolve` reverts BadAnswer). */
+      /** The answer passes the resolver's sanity band (else `resolve` reverts BadAnswer and `voidBadAnswer` refunds). */
       sane: boolean;
-      /** The resolver can verify this round for t now (see the module comment); false while an x + 1 is missing and nothing later has printed. */
+      /** The resolver can verify this round is the one in effect at t now, whatever its answer (see the module comment); false while an x + 1 is missing and nothing later has printed. */
       provable: boolean;
       /** t − updatedAt, seconds. */
       age: bigint;
@@ -147,9 +147,9 @@ export async function findLastAtOrBefore(reader: RoundReader, feed: Address, t: 
     const { round, next } = located;
     const isLatest = round.roundId === latest.roundId;
     const sane = isSaneRound(round);
-    let provable = sane;
-    if (provable && next !== null) provable = next.updatedAt > T;
-    else if (provable && !isLatest) provable = phase < current && (await anyLaterPhasePrinted(r, phase, current));
+    let provable = true;
+    if (next !== null) provable = next.updatedAt > T;
+    else if (!isLatest) provable = phase < current && (await anyLaterPhasePrinted(r, phase, current));
     return { kind: 'found', round, next, isLatest, phase, currentPhase: current, sane, provable, age: T - round.updatedAt, reads: r.reads };
   }
   return { kind: 'before-first-round', reads: r.reads };
@@ -252,6 +252,9 @@ export interface ResolutionSpecTimes {
   maxFinalAge?: bigint | number;
 }
 
+/** Off-chain expectation of `preview`: BADANSWER = both rounds prove, an answer is garbage (`voidBadAnswer`). */
+export type ExpectedResolution = 'UP' | 'DOWN' | 'FLAT' | 'STALE' | 'BADPROOF' | 'BADANSWER';
+
 export type ResolutionRounds =
   | {
       ok: true;
@@ -260,7 +263,7 @@ export type ResolutionRounds =
       strike: Extract<FindResult, { kind: 'found' }>;
       final: Extract<FindResult, { kind: 'found' }>;
       /** Off-chain expectation of `preview` (the contract decides; this is for display and sanity). */
-      expected: 'UP' | 'DOWN' | 'FLAT' | 'STALE' | 'BADPROOF';
+      expected: ExpectedResolution;
     }
   | {
       ok: false;
@@ -277,8 +280,9 @@ export async function findResolutionRounds(reader: RoundReader, spec: Resolution
   const final = await findLastAtOrBefore(reader, spec.feed, spec.finalTime);
   if (final.kind !== 'found') return { ok: false, problem: final.kind, which: 'final', strike, final };
 
-  let expected: 'UP' | 'DOWN' | 'FLAT' | 'STALE' | 'BADPROOF';
+  let expected: ExpectedResolution;
   if (!strike.provable || !final.provable) expected = 'BADPROOF';
+  else if (!strike.sane || !final.sane) expected = 'BADANSWER';
   else if (
     (spec.maxStrikeAge !== undefined && strike.age > BigInt(spec.maxStrikeAge)) ||
     (spec.maxFinalAge !== undefined && final.age > BigInt(spec.maxFinalAge))

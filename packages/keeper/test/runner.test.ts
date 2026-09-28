@@ -2,7 +2,7 @@ import { DOWN, PREVIEW_STATUS, UP, closingBell, loadDeployment, openingBell, typ
 import type { Hex, PublicClient, WalletClient } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { NOT_DEPLOYED_NOTE, evaluateHealth, formatReports, keeperUsdgFloor, readKeeperState, runDrill, runJob, type RunContext } from '../src/index.js';
-import { FACTORY, FakeChain, KEEPER, deployedDeployment } from '../../client/test/support/fakeChain.js';
+import { FACTORY, FakeChain, KEEPER, SAFE, deployedDeployment } from '../../client/test/support/fakeChain.js';
 import { bruteForce, loadRoundFixture, roundsOf } from '../../client/test/support/roundFixtures.js';
 
 const utc = (y: number, m: number, day: number, h: number, min = 0) => Date.UTC(y, m - 1, day, h, min) / 1000;
@@ -173,6 +173,59 @@ describe('T9 · health', () => {
     expect(h.checks.find((c) => c.name === 'delivery')).toMatchObject({ ok: false }); // the seed UP leg is undelivered
     chain.usdgBalances.set(KEEPER.toLowerCase(), 0n);
     expect(evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === 'keeper-usdg')!.ok).toBe(false);
+  });
+
+  it('keeper-usdg counts seed in open markets: a listing day does not turn health red', async () => {
+    const now = utc(2026, 9, 29, 15, 0); // Tue, mid-session
+    const { d, chain } = world(now);
+    const floor = keeperUsdgFloor(d); // 4 tickers x 2 families x 20 + 40 = 200 USDG
+    expect(floor).toBe(200_000_000n);
+    // Funded with exactly the documented 200, then 8 markets listed: 160 seeded, 40 in the wallet.
+    for (const f of d.feeds) {
+      chain.open({ feed: f.feed, strikeTime: openingBell('2026-09-29'), finalTime: closingBell('2026-09-29') });
+      chain.open({ feed: f.feed, strikeTime: openingBell('2026-09-29'), finalTime: closingBell('2026-10-02') });
+    }
+    chain.usdgBalances.set(KEEPER.toLowerCase(), 40_000_000n);
+    const usdg = evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === 'keeper-usdg')!;
+    expect(usdg.ok).toBe(true);
+    expect(usdg.detail).toMatch(/40\.00 USDG in the wallet \+ 160\.00 seeded/);
+    chain.usdgBalances.set(KEEPER.toLowerCase(), 39_000_000n); // 1 USDG spent elsewhere: below the float
+    expect(evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === 'keeper-usdg')!.ok).toBe(false);
+  });
+
+  it('ownership, D10 wiring and the pause are health checks', async () => {
+    const now = utc(2026, 9, 29, 15, 0);
+    const { d, chain } = world(now);
+    const check = async (name: string) => evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === name)!;
+    expect(await check('ownership')).toMatchObject({ ok: true, detail: 'the Safe owns the factory' });
+    expect((await check('wiring')).ok).toBe(true);
+    expect((await check('entries-paused')).ok).toBe(true);
+
+    // Right after DeployRH: the deployer still owns the factory until the Safe accepts.
+    chain.factoryOwner = '0x00000000000000000000000000000000000000d1';
+    chain.factoryPendingOwner = SAFE;
+    const pending = await check('ownership');
+    expect(pending.ok).toBe(false);
+    expect(pending.detail).toMatch(/acceptOwnership/);
+    chain.factoryOwner = SAFE;
+    chain.factoryPendingOwner = '0x0000000000000000000000000000000000000000';
+
+    chain.settlerFactory = '0x00000000000000000000000000000000000000e1'; // a settler that names another factory
+    expect((await check('wiring')).detail).toMatch(/no market can be listed/);
+    chain.settlerFactory = FACTORY;
+    chain.openers.clear();
+    expect((await check('wiring')).detail).toMatch(/not an opener/);
+    chain.openers.add(KEEPER.toLowerCase());
+
+    chain.entriesPaused = true;
+    expect(await check('entries-paused')).toMatchObject({ ok: false });
+    chain.now = utc(2026, 9, 30, 12, 0); // Wed, before the bell: the dailies are due
+    const w = wallet();
+    const [report] = await runJob('open', ctxOf(d, chain.client(), { walletClient: w }));
+    expect(report!.notes.join(' ')).toMatch(/paused: not listing/);
+    expect(report!.actions.length).toBeGreaterThan(0);
+    expect(report!.actions.every((a) => a.status === 'skipped')).toBe(true);
+    expect(w.sent).toHaveLength(0); // D10: every open would revert while paused
   });
 
   it('RPC head age and feed freshness during a session', async () => {

@@ -126,7 +126,7 @@ export interface FinderJson {
   strike: RoundJson | null;
   final: RoundJson | null;
   /** What `preview` is expected to say (the contract decides). */
-  expected: 'UP' | 'DOWN' | 'FLAT' | 'STALE' | 'BADPROOF' | null;
+  expected: 'UP' | 'DOWN' | 'FLAT' | 'STALE' | 'BADPROOF' | 'BADANSWER' | null;
   problem: string | null;
 }
 
@@ -142,7 +142,7 @@ export interface PreviewJson {
 export interface ResolutionJson {
   outcome: 'UP' | 'DOWN' | 'FLAT' | 'VOID';
   /** Why a void refunded everyone: flat price, stale price, paused token, or the 72 hour timeout. */
-  reason: 'flat' | 'stale' | 'paused' | 'timeout' | null;
+  reason: 'flat' | 'stale' | 'bad-answer' | 'paused' | 'timeout' | null;
   strikeRound: string | null;
   finalRound: string | null;
   tx: string | null;
@@ -334,10 +334,12 @@ export function resolutionJson(m: MarketDetail, log: ResolutionLog | null, activ
   let reason: ResolutionJson['reason'] = null;
   if (!m.settledByResolver) reason = 'timeout';
   else if (log?.kind === 'voided-stale') reason = 'stale';
+  else if (log?.kind === 'voided-bad-answer') reason = 'bad-answer';
   else if (log?.kind === 'voided-paused') reason = 'paused';
   else if (log?.kind === 'resolved' && log.outcome === 'FLAT') reason = 'flat';
   else if (rounds?.expected === 'FLAT') reason = 'flat';
   else if (rounds?.expected === 'STALE') reason = 'stale';
+  else if (rounds?.expected === 'BADANSWER') reason = 'bad-answer';
   return { outcome: reason === 'flat' ? 'FLAT' : 'VOID', reason, strikeRound: reason === 'paused' || reason === 'timeout' ? null : strikeRound, finalRound: reason === 'paused' || reason === 'timeout' ? null : finalRound, tx };
 }
 

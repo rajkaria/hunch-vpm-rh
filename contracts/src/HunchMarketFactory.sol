@@ -240,8 +240,9 @@ contract HunchMarketFactory {
 
     /// @notice List one UP/DOWN market. Only an allow-listed opener may call it; the opener
     ///         pays `2 · seedPerLeg` USDG (it must have approved this factory) and receives
-    ///         both seed legs. Checks: feed allow-listed; now < finalTime; strikeTime <
-    ///         finalTime; finalTime − strikeTime ≤ 8 days; seedPerLeg ≥ 1 USDG; minEntry ≥
+    ///         both seed legs. Checks: feed allow-listed; now < strikeTime < finalTime (a
+    ///         market is listed before its strike bell, so nobody bets on a strike price that
+    ///         is already known); finalTime − strikeTime ≤ 8 days; seedPerLeg ≥ 1 USDG; minEntry ≥
     ///         1 USDG and 0 < maxEntry, minEntry ≤ maxEntry (`EntryBoundsTooLoose`,
     ///         `InvalidEntryBounds`); each age bound 0 (the feed's) or no looser than the
     ///         feed's. It can never change an existing market, and the factory keeps no tokens
@@ -251,7 +252,7 @@ contract HunchMarketFactory {
     function openUpDown(UpDown calldata p) external onlyOpener returns (uint256 marketId, bytes32 specId) {
         FeedConfig storage f = feeds[p.feed];
         if (!f.allowed) revert FeedNotAllowed();
-        if (block.timestamp >= p.finalTime || p.strikeTime >= p.finalTime) revert BadTimes();
+        if (p.strikeTime <= block.timestamp || p.strikeTime >= p.finalTime) revert BadTimes();
         if (p.finalTime - p.strikeTime > MAX_WINDOW) revert WindowTooLong();
         if (p.seedPerLeg < MIN_SEED_PER_LEG) revert SeedTooSmall();
         if (p.minEntry < MIN_ENTRY || p.maxEntry == 0) revert EntryBoundsTooLoose();

@@ -16,7 +16,7 @@ if [ -f contracts/foundry.toml ]; then
   step "contracts: forge test"
   run forge test --root contracts
   if [ -x scripts/diff-reference.sh ]; then
-    step "contracts: HunchVPM diff against the reference lists only D1-D9 hunks"
+    step "contracts: HunchVPM diff against the reference lists only D1-D10 hunks"
     run bash scripts/diff-reference.sh --check
   fi
   # Slither (Trail of Bits) on src/ minus the vendored reference and mocks; every finding

@@ -62,25 +62,26 @@ five minutes before the bell. (Amounts floored to the cent; the contract pays Me
    effect at the opening and closing bell. Payouts are delivered to owners automatically.
 
 Every market refunds in full if the price did not move (same round), if either price is older
-than its bound (26 h), or if Robinhood pauses the token's price for a corporate action for more
-than a day. The rules box on every market says so before you bet.
+than its bound (26 h) or out of range (not a real price), or if Robinhood pauses the token's
+price for a corporate action for more than a day. The rules box on every market says so before you bet.
 
 ## Powers
 
 | Who | Can | Cannot |
 |---|---|---|
-| Safe (guardian of HunchVPM) | pause **new entries** | pause or block claims, refunds, resolution; move any stake; set any price |
+| Safe (guardian of HunchVPM) | pause and resume **new entries and new markets**; name or remove the pauser | pause or block claims, refunds, resolution; move any stake; set any price |
+| Pauser (one key the Safe names) | pause **new entries and new markets** | resume them; anything else |
 | Safe (owner of factory) | allow-list a feed, its Stock Token and its staleness bounds; add/remove an opener | change a listed market's feed, times, bounds, seed, fee or caps |
-| Opener (keeper hot wallet) | list a new market, paying the seed itself; owns the seed legs it paid for | change or close an existing market; touch anyone else's position |
-| Anyone | resolve with the two proven rounds; void on proven staleness or a 24 h oracle pause; relay a bettor's signed entry; deliver claims and refunds to owners; sweep fees to the treasury | choose the outcome; send anyone's funds anywhere but to their owner |
+| Opener (keeper hot wallet) | list a new market through the factory (the only creator HunchVPM accepts), paying the seed itself; owns the seed legs it paid for | change or close an existing market; touch anyone else's position |
+| Anyone | resolve with the two proven rounds; void on proven staleness, a proven out-of-range price or a 24 h oracle pause; relay a bettor's signed entry; deliver claims and refunds to owners; sweep fees to the treasury | choose the outcome; send anyone's funds anywhere but to their owner |
 | StockRoundResolver | settle its registered markets per the spec | anything else (it has no owner) |
 
 ## Contracts
 
 | Contract | What it does |
 |---|---|
-| [`HunchVPM`](contracts/src/HunchVPM.sol) | The settler: the paper's reference `VestedParimutuel`, byte for byte, plus nine listed changes (fee on winners' gains, claims delivered to owners by anyone, per-market entry caps, an entries-only pause, gasless signed entry, views, events, same-block settlement finalize, vintage size cap). [`DIFF.md`](contracts/DIFF.md) is the literal diff; CI fails on any hunk not in the list |
-| [`StockRoundResolver`](contracts/src/StockRoundResolver.sol) | UP/DOWN from two proven Chainlink rounds: each must be the last round at or before its bell. FLAT and proven staleness refund. No owner, no price input |
+| [`HunchVPM`](contracts/src/HunchVPM.sol) | The settler: the paper's reference `VestedParimutuel`, byte for byte, plus ten listed changes (fee on winners' gains, claims delivered to owners by anyone, per-market entry caps, an entries pause, gasless signed entry, views, events, same-block settlement finalize, vintage size cap, and factory-only market creation with a pause-only pauser). [`DIFF.md`](contracts/DIFF.md) is the literal diff; CI fails on any hunk not in the list |
+| [`StockRoundResolver`](contracts/src/StockRoundResolver.sol) | UP/DOWN from two proven Chainlink rounds: each must be the last round at or before its bell. FLAT, proven staleness and a proven out-of-range price refund. No owner, no price input |
 | [`HunchMarketFactory`](contracts/src/HunchMarketFactory.sol) | Lists a market in one transaction (seed, create, register spec, hand seed legs to the opener) and keeps an on-chain listing table. Owned by the Safe |
 
 What the test suite proves, in [`contracts/test`](contracts/test): the settler equals the

@@ -35,9 +35,11 @@ contract HunchMarketFactoryTest is Test {
         vm.warp(S - 5 minutes); // listed by 09:25 ET
         vm.roll(23_000_000);
         usdg = new MockUSDG();
-        vpm = new HunchVPM(safe, safe);
+        // D10: the settler names its factory, deployed two contracts later (DeployRH does the same)
+        vpm = new HunchVPM(safe, safe, vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2), address(0));
         resolver = new StockRoundResolver();
         factory = new HunchMarketFactory(vpm, resolver, IERC20Like(address(usdg)), safe, safe);
+        assertEq(vpm.factory(), address(factory), "D10 wiring");
         nvdaFeed = new MockAggregator("Robinhood NVDA / USD");
         nvda = new MockStockToken("NVDA");
         vm.startPrank(safe);
@@ -244,15 +246,27 @@ contract HunchMarketFactoryTest is Test {
         vm.prank(keeper);
         vm.expectRevert(HunchMarketFactory.BadTimes.selector);
         factory.openUpDown(_daily()); // at or after the bell: too late to list
+
+        // The strike bell must still be ahead: nobody bets on a strike price already known.
+        vm.warp(S);
+        vm.prank(keeper);
+        vm.expectRevert(HunchMarketFactory.BadTimes.selector);
+        factory.openUpDown(_daily());
+        vm.warp(S + 1 hours);
+        vm.prank(keeper);
+        vm.expectRevert(HunchMarketFactory.BadTimes.selector);
+        factory.openUpDown(_daily());
         vm.warp(S - 5 minutes);
 
         p = _daily();
-        p.strikeTime = F - 8 days - 1;
+        p.finalTime = p.strikeTime + 8 days + 1;
         vm.prank(keeper);
         vm.expectRevert(HunchMarketFactory.WindowTooLong.selector);
         factory.openUpDown(p);
-        p.strikeTime = F - 8 days; // exactly eight days is allowed
+        p.finalTime = p.strikeTime + 8 days; // exactly eight days is allowed
         _open(p);
+        vm.warp(S - 1); // one second before the strike bell is still in time
+        _open(_daily());
     }
 
     function test_SeedIsAtLeastOneUsdgPerLeg() public {

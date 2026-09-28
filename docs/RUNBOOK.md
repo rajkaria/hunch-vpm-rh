@@ -3,16 +3,27 @@
 Operational actions, who can take them, and exactly how. The keeper is a convenience, never an
 authority: every automated action below is one anyone can take by hand.
 
-## Pause new entries (a bug is suspected)
+## Pause new entries and new markets (a bug is suspected)
 
-Safe → `HunchVPM.setEntriesPaused(true)`. Only `enter` and `enterWithAuthorization` stop.
-Claims, refunds, resolution, voids, residue and fee sweeps keep working (asserted by test T2.9).
-Unpause with `setEntriesPaused(false)`.
+Fastest: the pauser (the deployer's keystore unless `PAUSER_ADDRESS` named another key) sends one
+transaction, no quorum needed:
+
+```bash
+cast send <HunchVPM> 'setEntriesPaused(bool)' true --rpc-url $RH_RPC_URL --account hunch-deployer
+```
+
+Or the Safe → `HunchVPM.setEntriesPaused(true)`. `enter`, `enterWithAuthorization` and `create`
+stop (the keeper stops listing and says so; `/api/health` shows `entries-paused`). Claims,
+refunds, resolution, voids, residue and fee sweeps keep working (asserted by test T2.9). Only
+the Safe resumes: `setEntriesPaused(false)`. If the pauser key is lost or leaked, the Safe calls
+`HunchVPM.setPauser(<new key or 0x0>)`; a leaked pauser key can only pause.
 
 ## A feed misbehaves
 
-Safe → `HunchMarketFactory.setFeed(feed, stockToken, ticker, maxStrikeAge, maxFinalAge, false)`.
-The keeper stops listing that ticker. Markets already open settle or void on their own proofs.
+Safe → `HunchMarketFactory.setFeed(feed, stockToken, ticker, maxStrikeAge, maxFinalAge, false)`,
+passing the feed's **same** Stock Token, ticker and bounds (read them with `feeds(feed)`): only
+`allowed` changes, so the site keeps labelling the markets already open on it. The keeper stops
+listing that ticker. Markets already open settle or void on their own proofs.
 
 ## The keeper key leaks
 
@@ -32,8 +43,11 @@ or a payout.
 3. `PhaseBoundary` (a feed's aggregator changed phase across a bell): the resolver refuses on
    purpose. Wait for the 72 h settler timeout, then anyone calls `HunchVPM.voidMarket(id)`;
    every position refunds.
-4. `OraclePaused` (Robinhood corporate-action flag): the keeper retries every 10 minutes and
-   calls `voidPaused` after 24 h.
+4. `OraclePaused` (Robinhood corporate-action flag): the keeper retries (every 2 minutes during
+   20:00–21:59 UTC, hourly otherwise) and calls `voidPaused` after 24 h.
+5. `BADANSWER` (the Chainlink round in effect at a bell holds an out-of-range price): the keeper
+   calls `voidBadAnswer` from the bell + 15 min once two independent reads agree; anyone can
+   call it too. Every position refunds.
 
 ## Payouts are not arriving
 
@@ -43,7 +57,8 @@ owner.
 
 ## Keeper balance low
 
-`/api/health` goes red below 0.002 ETH or below the USDG seed floor. Top up the keeper address
+`/api/health` goes red below 0.002 ETH, or when the keeper's USDG plus the seed in its open
+markets falls below the float (4 tickers × 2 markets × 20 + 40 = 200 USDG). Top up the keeper address
 listed in `deployments/robinhood-mainnet.json` (ETH via Relay or Across; USDG via Across from
 USDC on Arbitrum One or Base). Seeds recycle to the keeper as markets settle.
 

@@ -11,7 +11,7 @@ import {
   sessionOn,
   type Deployment,
 } from '@hunch-rh/client';
-import { formatEther, type PublicClient } from 'viem';
+import { formatEther, zeroAddress, type Address, type PublicClient } from 'viem';
 import type { CorporateAction } from './calendar.js';
 import { readKeeperState, type KeeperState } from './chainState.js';
 import { decideOpen } from './decide/open.js';
@@ -45,12 +45,28 @@ export interface HealthReport {
   checks: HealthCheck[];
 }
 
-/** Keeper USDG floor: tickers × 2 open markets × (2 × seed) + 40 USDG. */
+/** Keeper USDG float: tickers × 2 open markets × (2 × seed) + 40 USDG. */
 export function keeperUsdgFloor(d: Deployment): bigint {
   const p = deploymentParams(d);
   const tickers = BigInt(d.feeds.filter((f) => f.pendingFlatRateCheck !== true).length);
   return tickers * 2n * 2n * p.seedPerLeg + 40_000_000n;
 }
+
+/**
+ * Seed the keeper has in markets that have not settled yet. Seed legs cannot lose (the
+ * paper's creation floor, P6), so they come back at least whole after the bell: the float is
+ * the wallet plus these, not the wallet alone (which drops by 160 USDG every listing day).
+ */
+export function keeperSeedInOpenMarkets(s: Pick<KeeperState, 'markets'>, keeper: Address): bigint {
+  let locked = 0n;
+  for (const m of s.markets) {
+    if (m.statusCode === MARKET_STATUS.Open && m.listing.opener.toLowerCase() === keeper.toLowerCase()) locked += 2n * m.listing.seedPerLeg;
+  }
+  return locked;
+}
+
+const same = (a: Address | null | undefined, b: Address | null | undefined) =>
+  a !== null && a !== undefined && b !== null && b !== undefined && a.toLowerCase() === b.toLowerCase();
 
 export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: readonly CorporateAction[] = []): HealthReport {
   const checks: HealthCheck[] = [];
@@ -80,8 +96,45 @@ export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: 
   if (s.keeper !== null) {
     checks.push({ name: 'keeper-eth', ok: s.keeper.eth >= MIN_KEEPER_ETH, detail: `${formatEther(s.keeper.eth)} ETH (floor 0.002)` });
     const floor = keeperUsdgFloor(d);
-    checks.push({ name: 'keeper-usdg', ok: s.keeper.usdg >= floor, detail: `${formatUsdg(s.keeper.usdg)} USDG (floor ${formatUsdg(floor)})` });
+    const locked = keeperSeedInOpenMarkets(s, s.keeper.address);
+    checks.push({
+      name: 'keeper-usdg',
+      ok: s.keeper.usdg + locked >= floor,
+      detail: `${formatUsdg(s.keeper.usdg)} USDG in the wallet + ${formatUsdg(locked)} seeded in open markets (float floor ${formatUsdg(floor)})`,
+    });
   }
+
+  // Who holds the venue's powers (D10 wiring; the Safe's two-step ownership).
+  const w = s.wiring;
+  if (w !== undefined && w !== null) {
+    const owned = same(w.factoryOwner, d.safe) && same(w.factoryPendingOwner, zeroAddress);
+    checks.push({
+      name: 'ownership',
+      ok: owned,
+      detail: owned
+        ? 'the Safe owns the factory'
+        : same(w.factoryPendingOwner, d.safe)
+          ? `the Safe has not accepted ownership yet: ${w.factoryOwner ?? 'unreadable'} still owns the factory (execute acceptOwnership() from the Safe)`
+          : `factory owner ${w.factoryOwner ?? 'unreadable'}, pending ${w.factoryPendingOwner ?? 'unreadable'}; expected the Safe ${d.safe}`,
+    });
+    const wired = same(w.settlerFactory, d.contracts.HunchMarketFactory.address) && w.keeperIsOpener !== false;
+    checks.push({
+      name: 'wiring',
+      ok: wired,
+      detail: wired
+        ? `the settler's only creator is the factory${w.keeperIsOpener === true ? '; the keeper is an opener' : ''}${w.pauser !== null && !same(w.pauser, zeroAddress) ? `; pauser ${w.pauser}` : '; no pauser'}`
+        : !same(w.settlerFactory, d.contracts.HunchMarketFactory.address)
+          ? `HunchVPM.factory() is ${w.settlerFactory ?? 'unreadable'}, not the factory ${d.contracts.HunchMarketFactory.address}: no market can be listed`
+          : 'the keeper is not an opener on the factory (setOpener from the Safe)',
+    });
+  }
+  checks.push({
+    name: 'entries-paused',
+    ok: !s.entriesPaused,
+    detail: s.entriesPaused
+      ? 'new bets and new markets are paused (claims, refunds and settlement are not); only the Safe resumes'
+      : 'new bets and new markets are open',
+  });
 
   // Today's markets exist once the opening bell is 5 min away.
   const session = isCovered(today) && isTradingDay(today) ? sessionOn(today) : null;

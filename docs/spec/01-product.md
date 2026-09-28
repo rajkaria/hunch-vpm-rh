@@ -96,8 +96,9 @@ official print by up to about 0.5%, and it is the Stock Token's price (share pri
 - Fee: **2% of a winner's gain** (payout − principal), taken at claim. No fee on
   principal, refunds, voids, or losing positions.
 - Flat (same Chainlink price at both bells) → **void, full refund, no fee**.
-- A price older than its bound (26 h) at either bell, or Robinhood pausing the token's
-  price for a corporate action for more than a day → **void, full refund, no fee**.
+- A price older than its bound (26 h) or out of range (not a real price) at either bell, or
+  Robinhood pausing the token's price for a corporate action for more than a day → **void,
+  full refund, no fee**.
   Nobody can type in a price, including Hunch.
 - **No ETH needed.** A bet is one signature over USDG; Hunch relays it and pays the gas.
 

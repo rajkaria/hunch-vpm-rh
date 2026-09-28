@@ -39,9 +39,10 @@ timeout remains the backstop.
 
 | Wallet | Holds | Refill rule |
 |---|---|---|
-| Keeper / opener / relayer (hot EOA, key only in Vercel env `KEEPER_PRIVATE_KEY`, marked sensitive) | ETH for gas (its own calls, relayed bets, claim deliveries); USDG seed float | Keep ≥ 0.002 ETH and ≥ (tickers × 2 markets × 20 USDG + 40) USDG. Seeds recycle back to it on settlement. Health goes red below the floor. |
+| Keeper / opener / relayer (hot EOA, key only in Vercel env `KEEPER_PRIVATE_KEY`, marked sensitive) | ETH for gas (its own calls, relayed bets, claim deliveries); USDG seed float | Keep ≥ 0.002 ETH and a float of ≥ (tickers × 2 markets × 20 USDG + 40) USDG, counting the seed in its open markets (seeds cannot lose and recycle back on settlement). Health goes red below the floor. |
 | Treasury Safe | fees, residue | Swept automatically; no operational need to spend. |
-| Guardian Safe (same Safe) | nothing | Only signs `setEntriesPaused`, `setFeed`, `setOpener`. |
+| Guardian Safe (same Safe) | nothing | Only signs `setEntriesPaused`, `setPauser`, `setFeed`, `setOpener`. |
+| Pauser (one key kept offline, by default the deployer's) | a little ETH | Only `setEntriesPaused(true)`: pauses new entries and new markets; cannot resume. |
 
 The keeper key is never in the repo, never in chat, never in logs (`redact.ts` from
 hunch-vpm keeps redaction). Set with `vercel env add KEEPER_PRIVATE_KEY production`
@@ -67,8 +68,8 @@ posts failures to a Telegram chat if `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
 
 ## Runbook (kept in the internal folder; summary here)
 
-- **Pause new entries** (bug suspected): Safe → `HunchVPM.setEntriesPaused(true)`. Claims
-  and settlement keep working.
+- **Pause new entries and new markets** (bug suspected): pauser (fast, one key) or Safe →
+  `HunchVPM.setEntriesPaused(true)`. Claims and settlement keep working; only the Safe resumes.
 - **Feed misbehaving:** Safe → `factory.setFeed(feed, ticker, …, allowed=false)`; the
   keeper stops listing it; existing markets settle or void on their own proofs.
 - **Keeper key leaked:** Safe → `factory.setOpener(old, false)`, rotate key in Vercel,

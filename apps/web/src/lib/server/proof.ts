@@ -238,7 +238,9 @@ async function refundDrill(deployment: Deployment, markets: readonly MarketView[
       ? 'timeout'
       : log?.kind === 'voided-paused'
         ? 'paused'
-        : log?.kind === 'resolved'
+        : log?.kind === 'voided-bad-answer'
+          ? 'bad-answer'
+          : log?.kind === 'resolved'
           ? 'flat'
           : 'stale';
   const refunds: RefundRow[] = [];

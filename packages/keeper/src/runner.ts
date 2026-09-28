@@ -19,6 +19,7 @@ import {
   sweepFeesCall,
   voidPausedCall,
   voidStaleCall,
+  voidBadAnswerCall,
   withdrawRefundForCall,
   type Deployment,
 } from '@hunch-rh/client';
@@ -59,7 +60,7 @@ export function consoleLogger(redact: (text: string) => string = (t) => t): Logg
 export interface RunContext {
   deployment: Deployment;
   publicClient: PublicClient;
-  /** Independent reader for the STALE double-check (defaults to publicClient). */
+  /** Independent reader for the STALE / BADANSWER double-check (defaults to publicClient). */
   fallbackClient?: PublicClient;
   /** null/undefined: read-only (every run is then a dry run). */
   walletClient?: WalletClient | null;
@@ -219,6 +220,12 @@ async function runOpen(ctx: RunContext, state: KeeperState): Promise<JobReport> 
     params: deploymentParams(d),
   });
   for (const s of decision.skipped) report.notes.push(`${s.ticker} ${s.family}: ${s.reason}`);
+  if (state.entriesPaused && decision.open.length > 0) {
+    // D10: the pause stops `create` too, so every open would revert. /api/health reports the pause.
+    report.notes.push('new bets and new markets are paused: not listing (the Safe resumes)');
+    for (const p of decision.open) report.actions.push({ job: report.job, kind: 'openUpDown', target: p.question, status: 'skipped', detail: 'venue paused' });
+    return report;
+  }
   await sendOpens(ctx, report, state, decision.open);
   return report;
 }
@@ -233,7 +240,7 @@ async function previewStatus(client: PublicClient, d: Deployment, specId: Hex, s
   return v === null ? null : decodePreview(v).status;
 }
 
-/** Build the resolve candidate for one market: rounds + preview (+ the independent read when STALE). */
+/** Build the resolve candidate for one market: rounds + preview (+ the independent read when STALE or BADANSWER). */
 export async function resolutionCandidate(ctx: RunContext, m: KeeperMarket, nowSec: number): Promise<ResolveCandidate> {
   const d = ctx.deployment;
   const redact = ctx.redact ?? ((t: string) => t);
@@ -287,6 +294,9 @@ async function runResolve(ctx: RunContext, state: KeeperState): Promise<JobRepor
         break;
       case 'voidStale':
         await execute(ctx, report, 'voidStale', target, voidStaleCall(d, action), action.why);
+        break;
+      case 'voidBadAnswer':
+        await execute(ctx, report, 'voidBadAnswer', target, voidBadAnswerCall(d, action), action.why);
         break;
       case 'voidPaused':
         await execute(ctx, report, 'voidPaused', target, voidPausedCall(d, action.specId), action.why);

@@ -140,9 +140,10 @@ contract ForkGasTest is ForkBase {
         strike = uint64(block.timestamp + 5 minutes);
         bell = strike + 6 hours + 30 minutes;
         token = realToken ? USDG : IUSDG(address(new MockUSDG()));
-        vpm = new HunchVPM(safe, safe);
+        vpm = new HunchVPM(safe, safe, vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2), address(0));
         resolver = new StockRoundResolver();
         factory = new HunchMarketFactory(vpm, resolver, IERC20Like(address(token)), safe, safe);
+        assertEq(vpm.factory(), address(factory), "D10 wiring");
         feed = new MockAggregator("Robinhood NVDA / USD");
         stock = new MockStockToken("NVDA");
         vm.startPrank(safe);
@@ -323,9 +324,10 @@ contract ForkGasTest is ForkBase {
         RH.Ticker memory t = RH.tickers()[0];
         realToken = true;
         token = USDG;
-        vpm = new HunchVPM(safe, safe);
+        vpm = new HunchVPM(safe, safe, vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2), address(0));
         resolver = new StockRoundResolver();
         factory = new HunchMarketFactory(vpm, resolver, IERC20Like(RH.USDG), safe, safe);
+        assertEq(vpm.factory(), address(factory), "D10 wiring");
         vm.startPrank(safe);
         factory.setFeed(t.feed, t.stockToken, "NVDA", 8 days, 8 days, true);
         factory.setOpener(keeper, true);
@@ -345,7 +347,12 @@ contract ForkGasTest is ForkBase {
         (rfPrev, rfLatest) = (prev, latest);
         realFeedOutcome = lastAnswer > prevAnswer ? "UP" : lastAnswer < prevAnswer ? "DOWN" : "FLAT";
 
-        uint64 f = uint64(block.timestamp + 1 hours);
+        uint64 nowTs = uint64(block.timestamp);
+        uint64 f = nowTs + 1 hours;
+        // The factory lists a market only before its strike bell. These two measure `resolve`
+        // on the real feed's last two rounds, so they are listed back then: rewind the fork's
+        // clock to just before the older round, list, and come back.
+        vm.warp(lastAt - 2);
         HunchMarketFactory.UpDown memory p = HunchMarketFactory.UpDown({
             feed: t.feed,
             // forge-lint: disable-next-line(unsafe-typecast)
@@ -364,6 +371,7 @@ contract ForkGasTest is ForkBase {
         p.strikeTime = uint64(lastAt);
         vm.prank(keeper);
         (, rfFlatSpec) = factory.openUpDown(p);
+        vm.warp(nowTs);
         vm.roll(block.number + 1);
         vm.prank(bettor);
         vpm.enter(m, 0, 10e6); // a 1-entry vintage for resolve to finalize, as in the mock row

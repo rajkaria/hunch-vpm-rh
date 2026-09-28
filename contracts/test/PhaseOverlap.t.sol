@@ -140,7 +140,7 @@ contract PhaseOverlapTest is Test {
     function test_EndToEndTheLoserCannotPickThePhase() public {
         MockUSDG usdg = new MockUSDG();
         address safe = makeAddr("safe");
-        HunchVPM vpm = new HunchVPM(safe, safe);
+        HunchVPM vpm = new HunchVPM(safe, safe, vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2), address(0)); // D10: names the factory
         StockRoundResolver res = new StockRoundResolver();
         HunchMarketFactory factory = new HunchMarketFactory(vpm, res, IERC20Like(address(usdg)), safe, safe);
         vm.startPrank(safe);

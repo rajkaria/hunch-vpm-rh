@@ -79,6 +79,11 @@ export class FakeChain {
   readonly usdgBalances = new Map<string, bigint>();
   readonly allowances = new Map<string, bigint>();
   readonly openers = new Set<string>([KEEPER.toLowerCase()]);
+  /** Factory ownership (two-step, the Safe accepted) and the settler's D10 wiring. */
+  factoryOwner: Address = SAFE;
+  factoryPendingOwner: Address = '0x0000000000000000000000000000000000000000';
+  settlerFactory: Address = FACTORY;
+  pauser: Address = '0x0000000000000000000000000000000000000000';
   /** Calls simulated through `simulateContract` (what a runner would send). */
   readonly simulated: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
   calls = 0;
@@ -225,6 +230,10 @@ export class FakeChain {
         return [...this.feeds.keys()][Number(args[0])];
       case 'openers':
         return this.openers.has((args[0] as string).toLowerCase());
+      case 'owner':
+        return this.factoryOwner;
+      case 'pendingOwner':
+        return this.factoryPendingOwner;
     }
     throw new Error(`execution reverted: factory.${fn}`);
   }
@@ -243,6 +252,10 @@ export class FakeChain {
     switch (fn) {
       case 'entriesPaused':
         return this.entriesPaused;
+      case 'factory':
+        return this.settlerFactory;
+      case 'pauser':
+        return this.pauser;
       case 'feesAccrued':
         return this.feesAccrued;
       case 'marketCount':

@@ -16,14 +16,16 @@ command. Budget: about 90 minutes, plus waiting for funds to bridge.
 | MetaMask or Rabby (browser) | Safe signers on Robinhood Chain must be injected wallets: Ledger, Trezor and WalletConnect signers are disabled in the Safe app on this chain | free |
 | Foundry (`forge`, `cast`) and pnpm 10 | deploy and verify | free |
 | An Alchemy (or QuickNode) key for Robinhood Chain mainnet | the public RPC keeps only ~10 minutes of history; the keeper, round finding and fork rehearsals need a keyed RPC | free tier |
-| ~0.012 ETH on Robinhood Chain | deployer ~0.003, keeper ~0.009 (gas for listing markets, relaying gasless bets, delivering payouts; about $0.004 per call) | ~$30 |
+| ~0.013 ETH on Robinhood Chain | deployer ~0.003 (it is also the pauser, so it keeps some), keeper ~0.009 (gas for listing markets, relaying gasless bets, delivering payouts; about $0.004 per call), your Safe-owner wallet ~0.001 (creating the Safe, accepting ownership) | ~$32 |
 | ~250 USDG on Robinhood Chain | keeper seed float (4 tickers × daily + weekly × 20 USDG = 160) plus the golden path, the refund drill and a few starter grants | ~$250, recycled |
 | A Reown (WalletConnect) project id | phone wallets connect through it | free |
 
 ## 1. Create the two hot wallets
 
-The **deployer** sends the three deploy transactions and nothing else. The **keeper** lists
-markets, relays signed bets and delivers payouts; its key lives in Vercel.
+The **deployer** sends the deploy transactions and, afterwards, is the venue's **pauser**: one
+key that can pause new bets and new markets in a single transaction (it can never resume them;
+only the Safe can). Keep its keystore offline after the deploy. The **keeper** lists markets,
+relays signed bets and delivers payouts; its key lives in Vercel. Neither may be a Safe owner.
 
 ```bash
 cast wallet new                              # prints an address + private key: this is the deployer
@@ -42,7 +44,12 @@ Sensitive). The deployer key now lives only in your encrypted keystore `hunch-de
 2. Create a Safe with **2 of 3** owners (recommended; if all three keys are yours, say so in the
    README's powers section, it is still better than one key). The Safe app deploys Safe v1.5.0.
 3. Copy the Safe address. It becomes the owner of the factory, the guardian of the settler
-   (can pause **new entries** only) and the treasury (receives fees and rounding residue).
+   (pauses and resumes **new bets and new markets**, names the pauser) and the treasury
+   (receives fees and rounding residue).
+
+Your MetaMask/Rabby account pays the Safe's creation gas: send it about 0.001 ETH on Robinhood
+Chain first (step 4's route). Do **not** add the keeper or the deployer as a Safe owner; the
+deploy script refuses a keeper that is one.
 
 A 1-of-1 Safe works too, but the deploy script refuses it unless you pass `ALLOW_1OF1=1`, and
 the README must then say so.
@@ -66,7 +73,8 @@ Recommended route (seconds, one transaction each), from Arbitrum One or Base:
 |---|---|---|
 | deployer | 0.003 ETH | <https://relay.link/bridge/robinhood> or <https://app.across.to> (ETH → Robinhood Chain) |
 | keeper | 0.009 ETH | same |
-| keeper | 200 USDG | <https://app.across.to>: send **USDC** from Arbitrum One or Base to Robinhood Chain; it arrives as **USDG** |
+| your Safe-owner wallet (MetaMask/Rabby) | 0.001 ETH | same (do this before step 2) |
+| keeper | 200 USDG | <https://app.across.to>: send **USDC** from Arbitrum One or Base to Robinhood Chain; it arrives as **USDG**. This is the seed float `/api/health` checks: wallet plus the seed in open markets must stay at or above 200 |
 | your own betting wallet | 20 USDG | same (for the golden path; no ETH needed to bet) |
 
 Check balances:
@@ -98,17 +106,22 @@ RH_RPC_URL=$RH_RPC_URL forge test --root contracts --match-path 'test/fork/*'
 
 ## 6. Deploy to mainnet
 
+First a dry run: every check against the real chain, the predicted addresses, nothing sent and
+nothing written (it ends `DRY RUN: every check passed`):
+
 ```bash
 set -a; . ./.env; set +a
 export SAFE_ADDRESS=<your Safe>
 export KEEPER_ADDRESS=<keeper address>
+# optional: export PAUSER_ADDRESS=<another offline key>   (default: the deployer)
 forge script contracts/script/DeployRH.s.sol:DeployRH \
   --root contracts --rpc-url $RH_RPC_URL \
-  --account hunch-deployer --sender <DEPLOYER_ADDRESS> \
-  --broadcast --slow
+  --account hunch-deployer --sender <DEPLOYER_ADDRESS>
 ```
 
-Your keystore password is prompted. Right after it finishes:
+Then the same command with `--broadcast --slow` appended. Your keystore password is prompted.
+Send nothing else from the deployer while it runs (the settler is told the factory's address in
+advance, from the deployer's nonce; the script checks it). Right after it finishes:
 
 ```bash
 bash scripts/post-deploy.sh
@@ -124,14 +137,31 @@ then `post-deploy.sh`.
 The script refuses to run unless: the chain id is 4663; `SAFE_ADDRESS` has code and a
 threshold of at least 2 (or `ALLOW_1OF1=1`); USDG has 6 decimals; every feed has 8 decimals
 and the expected description; every Stock Token has the expected symbol; the deployer holds
-at least 0.002 ETH; the keeper is neither the deployer nor the Safe; the deployment JSON still
-says `not-deployed`. It prints the predicted addresses, then deploys `StockRoundResolver`, `HunchVPM` (guardian = treasury =
-Safe) and `HunchMarketFactory` (owner = deployer for one block), allow-lists NVDA, TSLA, AAPL
-(and COIN) with 26 h staleness bounds, sets the keeper as opener, starts the two-step ownership
-transfer to the Safe, reads everything back, and writes the addresses, Safe, keeper and each
-feed's current aggregator into `deployments/robinhood-mainnet.json` (post-deploy adds the rest).
+at least 0.002 ETH; the keeper is neither the deployer nor the Safe nor a Safe owner; the
+pauser is not the keeper; the deployment JSON still says `not-deployed`. It prints the predicted
+addresses, then deploys `StockRoundResolver`, `HunchVPM` (guardian = treasury = Safe, the only
+creator = the factory's predicted address, pauser = the deployer or `PAUSER_ADDRESS`) and
+`HunchMarketFactory` (owner = the deployer until the Safe accepts in step 7), allow-lists NVDA,
+TSLA, AAPL (and COIN) with 26 h staleness bounds, sets the keeper as opener, starts the two-step
+ownership transfer to the Safe, reads everything back (including `HunchVPM.factory()`), and,
+only when broadcasting, writes the addresses, Safe, keeper and each feed's current aggregator
+into `deployments/robinhood-mainnet.json` (post-deploy adds the rest). If you ever ran an old
+dry run that changed that file, restore it first: `git checkout deployments/robinhood-mainnet.json`.
 
-## 7. Verify the contracts on Blockscout
+## 7. Accept factory ownership from the Safe (right away)
+
+Do this immediately after `post-deploy.sh`: until the Safe accepts, the deployer still owns the
+factory (it could allow-list feeds and openers), and `/api/health` reports `ownership` red.
+
+Safe app → New transaction → Transaction Builder → contract address = `HunchMarketFactory`
+(from the deployment JSON) → method `acceptOwnership()` → create, sign with the threshold,
+execute. Check:
+
+```bash
+cast call <FACTORY> "owner()(address)" --rpc-url $RH_RPC_URL     # must print the Safe
+```
+
+## 8. Verify the contracts on Blockscout
 
 ```bash
 bash scripts/verify-contracts.sh
@@ -144,20 +174,17 @@ anything Blockscout refuses (Blockscout's API sits behind a Cloudflare challenge
 address on <https://robinhoodchain.blockscout.com> in a browser and confirm the green
 "verified" badge.
 
-## 8. Accept factory ownership from the Safe
-
-Safe app → New transaction → Transaction Builder → contract address = `HunchMarketFactory`
-(from the deployment JSON) → method `acceptOwnership()` → create, sign with the threshold,
-execute. Check:
-
-```bash
-cast call <FACTORY> "owner()(address)" --rpc-url $RH_RPC_URL     # must print the Safe
-```
-
 ## 9. Configure Vercel (project `hunch-vpm-rh`, already created and linked to GitHub)
 
-Set these in Vercel → Project → Settings → Environment Variables (Production, and Preview if
-you want previews to read chain data). Secrets are **Sensitive**:
+First, two project settings the crons depend on: the team must be on the **Pro** plan (Hobby
+runs crons at most once a day, and `vercel.json` needs every 2, 5 and 10 minutes), and
+Settings → General → **Root Directory** must be empty (the repo root), or the root `vercel.json`
+and its crons are ignored.
+
+Set these in Vercel → Project → Settings → Environment Variables. `KEEPER_PRIVATE_KEY` and
+`CRON_SECRET` go in **Production only** (a preview deployment must never hold the keeper key);
+the rest in Production, and Preview if you want previews to read chain data. Secrets are
+**Sensitive**:
 
 | Name | Value | Type |
 |---|---|---|
@@ -165,7 +192,7 @@ you want previews to read chain data). Secrets are **Sensitive**:
 | `KEEPER_PRIVATE_KEY` | the keeper private key from step 1 (0x…) | Sensitive |
 | `CRON_SECRET` | `openssl rand -hex 32` | Sensitive |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your Reown project id (without it the WalletConnect option is hidden) | Plain |
-| `NEXT_PUBLIC_SITE_URL` | `https://rh.playhunch.xyz` | Plain |
+| `NEXT_PUBLIC_SITE_URL` | `https://rh.playhunch.xyz` once step 11's domain resolves; until then `https://hunch-vpm-rh.vercel.app` (it feeds the sitemap, canonical links, share cards and WalletConnect metadata) | Plain |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | optional keeper alerts | Sensitive |
 | `RH_FALLBACK_RPC_URL` | optional second keyed RPC (another provider); the keeper's stale double-check reads it | Sensitive |
 | `NEXT_PUBLIC_RH_RPC_URL` | optional browser RPC; defaults to the public RPC (never put a keyed URL here: it ships to browsers) | Plain |
@@ -237,7 +264,8 @@ and delivers every refund. `/proof` shows the void and the refund transactions.
 1. UptimeRobot or Better Stack (free) → HTTP monitor on
    `https://rh.playhunch.xyz/api/health` every 5 minutes, alert to your phone. It returns 200
    only when every check passes (markets listed, nothing overdue, keeper funded, feeds fresh,
-   RPC live).
+   RPC live, the Safe owns the factory, the settler's only creator is the factory, new bets not
+   paused).
 2. Optional: set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` for keeper failure pages.
 
 ## 16. Before submitting

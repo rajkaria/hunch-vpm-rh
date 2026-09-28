@@ -32,14 +32,14 @@ still collect.
 
 | Contract | Role | Owner | Deployed |
 |---|---|---|---|
-| `HunchVPM` | The settler: the paper's reference `VestedParimutuel` plus seven listed changes (fee on winners' gains, claims delivered to owners by anyone, per-market entry caps, an entries-only pause, gasless signed entry, views, events) | none; a guardian address may pause **new entries** only | yes |
+| `HunchVPM` | The settler: the paper's reference `VestedParimutuel` plus ten listed changes (fee on winners' gains, claims delivered to owners by anyone, per-market entry caps, an entries pause, gasless signed entry, views, events, same-block settlement finalize, vintage size cap, factory-only creation with a pause-only pauser) | none; the guardian (the Safe) may pause and resume **new entries and new markets**, and a pauser it names may only pause | yes |
 | `StockRoundResolver` | Settles UP/DOWN from two proven Chainlink rounds: the price in effect at the opening bell and at the closing bell | none | yes |
 | `HunchMarketFactory` | Lists a market in one transaction: pulls the seed, creates the market, registers its spec, hands the seed legs to the opener, keeps an on-chain listing table | the Safe (two-step transfer) | yes |
 | `reference/VestedParimutuel` | The paper's reference implementation, byte for byte | — | no, test oracle |
 | `ClassicParimutuel` | The ordinary pool rule, for the counterfactual column only | — | no |
 
 `contracts/DIFF.md` holds the literal diff of `HunchVPM` against the reference; CI fails if a
-hunk appears that is not one of the seven listed changes. The differential suite proves that
+hunk appears that is not one of the ten listed changes (D1–D10). The differential suite proves that
 with the fee at zero and no caps, `HunchVPM` and the reference produce identical acceptances,
 payouts, refunds and residue on all 118 published vectors and on fuzzed sequences.
 
@@ -64,7 +64,8 @@ payouts, refunds and residue on all 118 published vectors and on fuzzed sequence
    after `T`, or absent and latest), that neither price is older than its bound, and that
    Robinhood has not paused the token's oracle. Higher close: UP. Lower: DOWN. Same round or
    same price: FLAT, which voids and refunds everyone. Proven staleness voids through
-   `voidStale`; a corporate-action pause lasting a day voids through `voidPaused`; after 72 h
+   `voidStale`; a proven price outside the sanity band voids through `voidBadAnswer`; a
+   corporate-action pause lasting a day voids through `voidPaused`; after 72 h
    anyone may void through the settler directly.
 5. **Delivery.** The keeper calls `claimFor` for every position with a payout or refund, one
    transaction each, so a USDG-frozen address fails alone. Funds only ever go to the
@@ -99,4 +100,4 @@ so.
 | A Chainlink feed goes quiet | The market refunds on proven staleness (26 h bound, 1 h for the refund drill) |
 | Robinhood pauses a token's oracle | Resolution waits; after 24 h the market refunds |
 | Paxos freezes a winner's address | That one claim fails; every other claim is independent |
-| A bug is suspected | The Safe pauses new entries; claims, refunds and settlement keep working |
+| A bug is suspected | The pauser (one offline key) or the Safe pauses new entries and new markets; claims, refunds and settlement keep working; only the Safe resumes |

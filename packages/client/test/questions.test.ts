@@ -43,7 +43,8 @@ describe('rules box', () => {
       "How this market settles. The opening price is Chainlink's NVDA Stock Token price in effect at 9:30 am ET on Monday, September 28; " +
         "the closing price is Chainlink's price in effect at 4:00 pm ET on Monday, September 28. Chainlink updates this price whenever it moves 0.5% " +
         "(or once a day), so either number can differ from the exchange's official print by up to about 0.5%. UP wins if the closing price is higher, " +
-        'DOWN if it is lower. If they are the same, or if either price is more than 26 hours old at that moment, or if Robinhood pauses the token\'s price ' +
+        'DOWN if it is lower. If they are the same, or if either price is more than 26 hours old at that moment, or if either price is out of range ' +
+        '(not a real price), or if Robinhood pauses the token\'s price ' +
         'for a corporate action for more than a day, every bet is refunded in full. Bets are accepted until 4:00 pm ET. The earlier you bet, the more of ' +
         "the other side's later money is yours; a bet placed at the last moment gets its stake back plus whatever the other side adds after it. " +
         'Hunch keeps 2% of winnings. Nobody at Hunch can set or change a price. ' +

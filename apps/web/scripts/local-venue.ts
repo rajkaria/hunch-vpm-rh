@@ -44,7 +44,7 @@ import {
   robinhoodChain,
   type Deployment,
 } from '@hunch-rh/client';
-import { createTestClient, createWalletClient, http, type Abi, type Address, type Hex, type PublicClient } from 'viem';
+import { createTestClient, createWalletClient, getContractAddress, http, type Abi, type Address, type Hex, type PublicClient } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 const USDG = 1_000_000n;
@@ -112,11 +112,18 @@ async function setup(): Promise<void> {
   const agg = await deploy('MockAggregator', ['RHNVDA / USD']);
   const stock = await deploy('MockStockToken', ['NVDA']);
   const resolver = await deploy('StockRoundResolver');
-  const vpm = await deploy('HunchVPM', [acct.safe.address, acct.safe.address]);
+  // D10: the settler names its only creator, the factory, deployed right after it (as DeployRH does).
+  const next = await client.getTransactionCount({ address: acct.deployer.address });
+  const factoryAt = getContractAddress({ from: acct.deployer.address, nonce: BigInt(next + 1) });
+  const vpm = await deploy('HunchVPM', [acct.safe.address, acct.safe.address, factoryAt, acct.deployer.address]);
   const factory = await deploy('HunchMarketFactory', [vpm, resolver, USDG_ADDRESS, acct.deployer.address, acct.safe.address]);
+  if (factory.toLowerCase() !== factoryAt.toLowerCase()) throw new Error(`factory deployed at ${factory}, the settler expects ${factoryAt}`);
   const fAbi = artifact('HunchMarketFactory').abi;
   await send('deployer', { address: factory, abi: fAbi, functionName: 'setFeed', args: [agg, stock, 'NVDA', 93_600, 93_600, true] });
   await send('deployer', { address: factory, abi: fAbi, functionName: 'setOpener', args: [acct.keeper.address, true] });
+  // The two-step hand-over DeployRH starts and the Safe completes (OPERATOR step 7), so health's ownership check is green.
+  await send('deployer', { address: factory, abi: fAbi, functionName: 'transferOwnership', args: [acct.safe.address] });
+  await send('safe', { address: factory, abi: fAbi, functionName: 'acceptOwnership', args: [] });
   const mint = artifact('MockUSDG').abi;
   await send('deployer', { address: USDG_ADDRESS, abi: mint, functionName: 'mint', args: [acct.keeper.address, 1_000n * USDG] });
   for (const a of E2E_ACCOUNTS) await send('deployer', { address: USDG_ADDRESS, abi: mint, functionName: 'mint', args: [a, 500n * USDG] });
@@ -148,14 +155,18 @@ async function setup(): Promise<void> {
     feeds: [{ ticker: 'NVDA', feed: agg, aggregator: agg, stockToken: stock, maxStrikeAge: 93_600, maxFinalAge: 93_600, families: ['daily', 'weekly'] }],
   });
 
-  // A market that is open now: its opening price is the round 10 minutes ago, its bell is in 20 minutes.
+  // A market that is open now: listed a minute before its strike (the factory lists only before
+  // the strike bell), then the chain moves 5 minutes past the strike. Its opening price is the
+  // round from 10 minutes before listing; its bell is 20 minutes after that move.
+  const strike = now + 60;
+  const finalTime = strike + 300 + 1_200;
   await send('keeper', approveUsdgCall(deployment, { amount: 20n * USDG, spender: factory }));
   await send(
     'keeper',
     openUpDownCall(deployment, {
       feed: agg,
-      strikeTime: BigInt(now - 300),
-      finalTime: BigInt(now + 1_200),
+      strikeTime: BigInt(strike),
+      finalTime: BigInt(finalTime),
       maxStrikeAge: 0,
       maxFinalAge: 0,
       seedPerLeg: 10n * USDG,
@@ -163,6 +174,8 @@ async function setup(): Promise<void> {
       maxEntry: 100n * USDG,
     }),
   );
+  await test.setNextBlockTimestamp({ timestamp: BigInt(strike + 300) });
+  await test.mine({ blocks: 1 });
 
   const json = JSON.stringify(deployment);
   const lines = {
@@ -177,7 +190,7 @@ async function setup(): Promise<void> {
     LOCAL_VENUE_MARKET: '0',
     LOCAL_VENUE_AGGREGATOR: agg,
     LOCAL_VENUE_DEPLOYER_KEY: keys.deployer,
-    LOCAL_VENUE_FINAL_TIME: String(now + 1_200),
+    LOCAL_VENUE_FINAL_TIME: String(finalTime),
   };
   writeFileSync(envFile, `${Object.entries(lines).map(([k, v]) => `${k}='${v}'`).join('\n')}\n`, { mode: 0o600 });
   console.log(`local venue on ${rpc}: HunchVPM ${vpm}, factory ${factory}, market 0 (bell in 20 min)`);

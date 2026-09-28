@@ -107,7 +107,8 @@ export default function KeeperDoc() {
             'Keeps at least 0.002 ETH and enough USDG for every open seed. Seeds come back to it at each settlement. Its key lives only in the hosting environment.',
           ],
           ['Treasury Safe', 'Fees and rounding leftovers', 'Swept automatically; nothing to spend.'],
-          ['Guardian Safe (the same Safe)', 'Nothing', 'Only signs: pause new bets, allow-list feeds, allow listers.'],
+          ['Guardian Safe (the same Safe)', 'Nothing', 'Only signs: pause or resume new bets and new markets, name the pauser, allow-list feeds, allow listers.'],
+          ['Pauser, one key kept offline', 'A little ETH for gas', 'Can pause new bets and new markets in one transaction; cannot resume them or do anything else.'],
         ]}
       />
       <P>
@@ -123,7 +124,8 @@ export default function KeeperDoc() {
         <LI>the last successful listing run is less than 26 hours old on a trading day, and today&rsquo;s markets exist after 13:25 UTC;</LI>
         <LI>no market is more than 30 minutes past its bell without being settled (unless it is waiting on a phase change);</LI>
         <LI>no settled market has an undelivered payout older than 20 minutes;</LI>
-        <LI>the keeper holds at least 0.002 ETH and its USDG floor;</LI>
+        <LI>the keeper holds at least 0.002 ETH, and its USDG plus the seed in its open markets covers the float;</LI>
+        <LI>the Safe owns the factory (ownership accepted), HunchVPM&rsquo;s only creator is the factory, the keeper is a lister, and new bets are not paused;</LI>
         <LI>the RPC&rsquo;s latest block is less than 60 seconds old;</LI>
         <LI>every allowed feed has updated within 26 hours on a trading day;</LI>
         <LI>the relayer has sent a bet successfully in the last trading day, or none was requested.</LI>
@@ -138,6 +140,7 @@ export default function KeeperDoc() {
         rows={[
           ['Settle a market', <C key="r">resolve(specId, strikeRound, finalRound)</C>, 'Nobody; it records the result'],
           ['Refund on a stale price', <C key="v">voidStale(specId, strikeRound, finalRound)</C>, 'Nobody; it records the refund'],
+          ['Refund on an out-of-range price', <C key="b">voidBadAnswer(specId, strikeRound, finalRound)</C>, 'Nobody; it records the refund'],
           ['Refund after a long pause', <C key="p">voidPaused(specId)</C>, 'Nobody; it records the refund'],
           ['Deliver a payout', <C key="c">claimFor(positionId)</C>, "The position's owner, always"],
           ['Deliver a refund', <C key="w">withdrawRefundFor(positionId)</C>, "The position's owner, always"],
@@ -151,7 +154,8 @@ export default function KeeperDoc() {
       <H2 id="runbook">When something goes wrong</H2>
       <UL>
         <LI>
-          <B>A bug is suspected:</B> the Safe pauses new bets. Payouts, refunds and settlement keep working.
+          <B>A bug is suspected:</B> the pauser (or the Safe) pauses new bets and new markets. Payouts, refunds and
+          settlement keep working; only the Safe can resume.
         </LI>
         <LI>
           <B>A price feed misbehaves:</B> the Safe removes it from the allow-list, so no new market uses it; existing markets

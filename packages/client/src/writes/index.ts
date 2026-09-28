@@ -111,6 +111,11 @@ export function voidStaleCall(d: Deployment, p: { specId: Hex; strikeRound: bigi
   return { address: resolver(d), abi: stockRoundResolverAbi, functionName: 'voidStale', args: [p.specId, p.strikeRound, p.finalRound] } as const;
 }
 
+/** Refund a market whose proven round at a bell carries a garbage answer (preview BADANSWER). */
+export function voidBadAnswerCall(d: Deployment, p: { specId: Hex; strikeRound: bigint; finalRound: bigint }) {
+  return { address: resolver(d), abi: stockRoundResolverAbi, functionName: 'voidBadAnswer', args: [p.specId, p.strikeRound, p.finalRound] } as const;
+}
+
 export function voidPausedCall(d: Deployment, specId: Hex) {
   return { address: resolver(d), abi: stockRoundResolverAbi, functionName: 'voidPaused', args: [specId] } as const;
 }

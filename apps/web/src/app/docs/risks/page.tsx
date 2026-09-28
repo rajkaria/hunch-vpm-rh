@@ -99,7 +99,7 @@ export default function RisksDoc() {
       <H2 id="software">The software</H2>
       <UL>
         <LI>
-          <B>Unaudited.</B> The main contract is the paper&rsquo;s reference contract plus seven listed changes, but no
+          <B>Unaudited.</B> The main contract is the paper&rsquo;s reference contract plus ten listed changes, but no
           external firm has reviewed it. An external review is the first roadmap item.
         </LI>
         <LI>

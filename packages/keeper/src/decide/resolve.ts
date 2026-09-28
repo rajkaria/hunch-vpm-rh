@@ -2,16 +2,16 @@ import { MARKET_STATUS, PREVIEW_STATUS, PREVIEW_STATUS_NAME } from '@hunch-rh/cl
 import type { Hex } from 'viem';
 
 /**
- * Resolve vs void vs page (docs/spec/06 §Void policy). Pure and stateless: the STALE
- * double-check is two independent reads (primary + fallback transport) that both say
- * STALE at or after finalTime + 15 min. Proofs at past bells cannot change, so the second
- * read only guards against a misbehaving RPC. BADPROOF and phase boundaries are never
+ * Resolve vs void vs page (docs/spec/06 §Void policy). Pure and stateless: the STALE and
+ * BADANSWER double-check is two independent reads (primary + fallback transport) that both
+ * say the same at or after finalTime + 15 min. Proofs at past bells cannot change, so the
+ * second read only guards against a misbehaving RPC. BADPROOF and phase boundaries are never
  * auto-voided: the operator is paged and the settler's 72 h timeout is the backstop.
  */
 
 /** Seconds after the final bell before the keeper acts (lets the chain's clock pass it). */
 export const RESOLVE_MARGIN_SEC = 60;
-/** STALE may be voided from finalTime + 15 min. */
+/** STALE and BADANSWER may be voided from finalTime + 15 min. */
 export const STALE_VOID_AFTER_SEC = 15 * 60;
 /** OraclePaused may be voided from finalTime + 24 h (the resolver enforces it too). */
 export const PAUSED_VOID_AFTER_SEC = 24 * 3600;
@@ -32,7 +32,7 @@ export interface ResolveCandidate {
   rounds?: RoundsOutcome;
   /** `preview(specId, strikeRound, finalRound)` status on the primary transport. */
   preview?: number | null;
-  /** The independent fallback read (only needed for STALE). */
+  /** The independent fallback read (only needed for STALE and BADANSWER). */
   confirm?: { rounds: RoundsOutcome; preview: number | null } | null;
   /** A read failed (message, redacted by the caller). */
   error?: string;
@@ -45,6 +45,7 @@ export type ResolveAction =
   | { kind: 'page'; why: string }
   | { kind: 'resolve'; specId: Hex; strikeRound: bigint; finalRound: bigint; expect: 'UP' | 'DOWN' | 'FLAT'; why: string }
   | { kind: 'voidStale'; specId: Hex; strikeRound: bigint; finalRound: bigint; why: string }
+  | { kind: 'voidBadAnswer'; specId: Hex; strikeRound: bigint; finalRound: bigint; why: string }
   | { kind: 'voidPaused'; specId: Hex; why: string };
 
 /** Whether the runner should read rounds + preview for this candidate at all. */
@@ -52,9 +53,26 @@ export function needsResolution(c: Pick<ResolveCandidate, 'statusCode' | 'settle
   return c.statusCode === MARKET_STATUS.Open && !c.settledByResolver && nowSec >= c.finalTime + RESOLVE_MARGIN_SEC;
 }
 
-/** Whether the STALE double-check needs the fallback read now. */
+/** Whether the STALE / BADANSWER double-check needs the fallback read now. */
 export function needsConfirmation(c: Pick<ResolveCandidate, 'preview' | 'finalTime'>, nowSec: number): boolean {
-  return c.preview === PREVIEW_STATUS.STALE && nowSec >= c.finalTime + STALE_VOID_AFTER_SEC;
+  return (c.preview === PREVIEW_STATUS.STALE || c.preview === PREVIEW_STATUS.BADANSWER) && nowSec >= c.finalTime + STALE_VOID_AFTER_SEC;
+}
+
+/** A void on STALE or BADANSWER needs the same verdict from an independent read of the same rounds. */
+function confirmVoid(c: ResolveCandidate, nowSec: number, status: number, strikeRound: bigint, finalRound: bigint): ResolveAction | null {
+  const name = PREVIEW_STATUS_NAME[status] ?? String(status);
+  if (nowSec < c.finalTime + STALE_VOID_AFTER_SEC) return { kind: 'wait', why: `${name}: waiting until finalTime + 15 min to confirm` };
+  const confirm = c.confirm;
+  if (confirm === undefined || confirm === null || confirm.preview === null) {
+    return { kind: 'retry', why: `${name} on the primary read; the independent read is unavailable, not voiding on one read` };
+  }
+  if (!confirm.rounds.ok || confirm.rounds.strikeRound !== strikeRound || confirm.rounds.finalRound !== finalRound) {
+    return { kind: 'page', why: `${c.ticker} market ${c.marketId}: primary and fallback RPCs found different rounds. Not voiding.` };
+  }
+  if (confirm.preview !== status) {
+    return { kind: 'page', why: `${c.ticker} market ${c.marketId}: primary says ${name}, fallback says ${PREVIEW_STATUS_NAME[confirm.preview] ?? confirm.preview}. Not voiding.` };
+  }
+  return null;
 }
 
 export function decideResolve(c: ResolveCandidate, nowSec: number): ResolveAction {
@@ -84,18 +102,20 @@ export function decideResolve(c: ResolveCandidate, nowSec: number): ResolveActio
     case PREVIEW_STATUS.NOT_READY:
       return { kind: 'retry', why: 'resolver says not ready' };
     case PREVIEW_STATUS.STALE: {
-      if (nowSec < c.finalTime + STALE_VOID_AFTER_SEC) return { kind: 'wait', why: 'STALE: waiting until finalTime + 15 min to confirm' };
-      const confirm = c.confirm;
-      if (confirm === undefined || confirm === null || confirm.preview === null) {
-        return { kind: 'retry', why: 'STALE on the primary read; the independent read is unavailable, not voiding on one read' };
-      }
-      if (!confirm.rounds.ok || confirm.rounds.strikeRound !== strikeRound || confirm.rounds.finalRound !== finalRound) {
-        return { kind: 'page', why: `${c.ticker} market ${c.marketId}: primary and fallback RPCs found different rounds. Not voiding.` };
-      }
-      if (confirm.preview !== PREVIEW_STATUS.STALE) {
-        return { kind: 'page', why: `${c.ticker} market ${c.marketId}: primary says STALE, fallback says ${PREVIEW_STATUS_NAME[confirm.preview] ?? confirm.preview}. Not voiding.` };
-      }
+      const blocked = confirmVoid(c, nowSec, status, strikeRound, finalRound);
+      if (blocked !== null) return blocked;
       return { kind: 'voidStale', specId: c.specId, strikeRound, finalRound, why: 'STALE confirmed by two independent reads: refund everyone' };
+    }
+    case PREVIEW_STATUS.BADANSWER: {
+      const blocked = confirmVoid(c, nowSec, status, strikeRound, finalRound);
+      if (blocked !== null) return blocked;
+      return {
+        kind: 'voidBadAnswer',
+        specId: c.specId,
+        strikeRound,
+        finalRound,
+        why: 'the price in effect at a bell is garbage (out of band), confirmed by two independent reads: refund everyone',
+      };
     }
     case PREVIEW_STATUS.BADPROOF:
       return { kind: 'page', why: `${c.ticker} market ${c.marketId}: preview says BADPROOF for the found rounds. Not voiding.` };

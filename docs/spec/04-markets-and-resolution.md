@@ -107,8 +107,10 @@ Question templates (rendered from the spec, never from free text):
 2. `s = findLastAtOrBefore(feed, strikeTime)`, `f = findLastAtOrBefore(feed, finalTime)`.
 3. `preview(specId, s, f)`:
    - UP / DOWN / FLAT → `resolve(specId, s, f)` (FLAT voids inside `resolve`).
-   - STALE → after `finalTime + 15 min`, twice 2 min apart → `voidStale(specId, s, f)`.
-   - PAUSED → retry every 10 min; at `finalTime + 24 h` → `voidPaused(specId)`.
+   - STALE → after `finalTime + 15 min`, confirmed by an independent second read → `voidStale(specId, s, f)`.
+   - BADANSWER (the round in effect holds an out-of-band answer) → after `finalTime + 15 min`,
+     confirmed the same way → `voidBadAnswer(specId, s, f)`.
+   - PAUSED → retry (every 2 min in 20:00–21:59 UTC, hourly otherwise); at `finalTime + 24 h` → `voidPaused(specId)`.
    - BADPROOF / PhaseBoundary → page the operator; nothing on-chain.
 4. The `deliver` job then pushes `claimFor` for every position with a non-zero payout or
    refund, one call per position (a Paxos-frozen address fails alone).
@@ -121,8 +123,8 @@ Question templates (rendered from the spec, never from free text):
 > (or once a day), so either number can differ from the exchange's official print by up
 > to about 0.5%. **UP** wins if the closing price is higher, **DOWN** if it is lower.
 > If they are the same, or if either price is more than {age} old at that moment, or if
-> Robinhood pauses the token's price for a corporate action for more than a day, every
-> bet is refunded in full. Bets are accepted until 4:00 pm ET. The earlier you bet, the
+> either price is out of range (not a real price), or if Robinhood pauses the token's
+> price for a corporate action for more than a day, every bet is refunded in full. Bets are accepted until 4:00 pm ET. The earlier you bet, the
 > more of the other side's later money is yours; a bet placed at the last moment gets
 > its stake back plus whatever the other side adds after it. Hunch keeps 2% of winnings.
 > Nobody at Hunch can set or change a price. If Chainlink moves this feed to a new

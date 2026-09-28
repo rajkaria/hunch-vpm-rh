@@ -2,7 +2,7 @@
 # Verifies the three deployed contracts on Blockscout (robinhoodchain.blockscout.com), falling
 # back to Sourcify for any contract Blockscout refuses (its API sits behind a Cloudflare
 # challenge that can block the CLI). The operator runs it after scripts/post-deploy.sh
-# (docs/OPERATOR.md step 7); nothing in the test suites calls it.
+# (docs/OPERATOR.md step 8); nothing in the test suites calls it.
 #
 #   bash scripts/verify-contracts.sh                        Blockscout, then Sourcify on failure
 #   bash scripts/verify-contracts.sh --verifier sourcify    Sourcify only
@@ -13,11 +13,13 @@
 #
 # Constructor arguments are rebuilt from the deployment JSON, never guessed:
 #   StockRoundResolver  none
-#   HunchVPM            cast abi-encode "constructor(address,address)" <safe> <safe>
+#   HunchVPM            cast abi-encode "constructor(address,address,address,address)" \
+#                         <safe> <safe> <HunchMarketFactory> <pauser>
 #   HunchMarketFactory  cast abi-encode "constructor(address,address,address,address,address)" \
 #                         <HunchVPM> <StockRoundResolver> <usdg> <deployer> <safe>
 # where <deployer> is the sender of the factory's deploy transaction (the factory's first
-# owner, before the Safe accepted ownership). Each encoding is checked against the tail of
+# owner, before the Safe accepted ownership) and <pauser> is the address HunchVPM's
+# constructor announced in its PauserSet event (the Safe may have named another since). Each encoding is checked against the tail of
 # its creation transaction's input before anything is submitted. Compiler settings (solc
 # 0.8.28, optimizer 200 runs, via-ir off, EVM cancun) come from contracts/foundry.toml, so run
 # this from the commit recorded in the JSON's gitCommit. Needs bash, jq, cast, forge and git.
@@ -60,6 +62,11 @@ VPM=$(J .contracts.HunchVPM.address)
 RESOLVER=$(J .contracts.StockRoundResolver.address)
 FACTORY=$(J .contracts.HunchMarketFactory.address)
 DEPLOYER=$(cast tx "$(J .contracts.HunchMarketFactory.deployTx)" from --rpc-url "$RPC")
+PAUSER_SET=$(cast keccak 'PauserSet(address)')
+PAUSER_TOPIC=$(cast receipt "$(J .contracts.HunchVPM.deployTx)" --json --rpc-url "$RPC" |
+  jq -r --arg t "$PAUSER_SET" '[.logs[] | select((.topics[0] | ascii_downcase) == ($t | ascii_downcase))][0].topics[1] // empty')
+[ -n "$PAUSER_TOPIC" ] || die "HunchVPM's creation receipt has no PauserSet event: is this the D10 settler?"
+PAUSER="0x${PAUSER_TOPIC: -40}"
 
 COMMIT=$(J .gitCommit)
 HEAD=$(git rev-parse HEAD)
@@ -70,7 +77,7 @@ fi
 args_for() {
   case "$1" in
     StockRoundResolver) printf '' ;;
-    HunchVPM) cast abi-encode 'constructor(address,address)' "$SAFE" "$SAFE" ;;
+    HunchVPM) cast abi-encode 'constructor(address,address,address,address)' "$SAFE" "$SAFE" "$FACTORY" "$PAUSER" ;;
     HunchMarketFactory)
       cast abi-encode 'constructor(address,address,address,address,address)' "$VPM" "$RESOLVER" "$USDG" "$DEPLOYER" "$SAFE"
       ;;

@@ -12,7 +12,7 @@ import { LINKS } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Contracts',
   description:
-    'Hunch on Robinhood Chain contracts: addresses, the powers table, invariants, the seven changes from the reference contract and how to verify them.',
+    'Hunch on Robinhood Chain contracts: addresses, the powers table, invariants, the ten changes from the reference contract and how to verify them.',
   alternates: { canonical: '/docs/contracts' },
 };
 
@@ -107,12 +107,12 @@ export default function ContractsDoc() {
 
       <H2 id="diff">Changes from the reference</H2>
       <P>
-        HunchVPM is the paper&rsquo;s reference contract, <C>VestedParimutuel.sol</C>, changed by these seven diffs and
+        HunchVPM is the paper&rsquo;s reference contract, <C>VestedParimutuel.sol</C>, changed by these ten diffs and
         nothing else. The literal diff against the reference is kept with the source as <C>contracts/DIFF.md</C>. The
         payout arithmetic, the batching, the settlement semantics and the storage layout are untouched.
       </P>
       <Table
-        caption="The seven changes"
+        caption="The ten changes"
         head={['', 'Change', 'Why']}
         minWidth={600}
         rows={[
@@ -123,6 +123,9 @@ export default function ContractsDoc() {
           ['D5', 'enterWithAuthorization: a bet from a signed USDG transfer bound to market, side and amount.', 'Gasless bets; the bettor needs no ETH.'],
           ['D6', 'Read views: accrued, marketPositions, previewFee (and marketTerms).', 'What the site needs to show a position and a book.'],
           ['D7', 'Events: FeeAccrued, FeesSwept, EntriesPaused.', 'So indexers and the Proof page can follow fees and pauses.'],
+          ['D8', 'Settlement finalizes the last batch of bets even in the same Ethereum block as the last bet.', 'On Robinhood Chain one Ethereum block spans many chain blocks; without it a market could be drained.'],
+          ['D9', 'At most 200 bets per batch, and a cap on capacity.', 'Settling a batch always fits in a block, so no market can be locked.'],
+          ['D10', 'Only the market factory can create markets; the pause also stops new markets; a pauser key can pause but never resume; a claim checks its bet was batched.', 'One escrow holds every market, so nobody else may open one with odd settings, and the brake is fast.'],
         ]}
       />
 
@@ -141,6 +144,10 @@ export default function ContractsDoc() {
           limit. A market with a good answer cannot be refunded this way.
         </LI>
         <LI>
+          <C>voidBadAnswer(specId, strikeRound, finalRound)</C>: anyone, after the bell, only if a proven round&rsquo;s price
+          is out of range (not a real price). A market with a good answer cannot be refunded this way.
+        </LI>
+        <LI>
           <C>voidPaused(specId)</C>: anyone, 24 hours after the bell, if Robinhood&rsquo;s corporate-action flag on the token
           is still set.
         </LI>
@@ -156,7 +163,7 @@ export default function ContractsDoc() {
       <H2 id="factory">The market factory</H2>
       <P>
         <C>openUpDown</C> can be called only by an allowed lister (the keeper&rsquo;s wallet). It checks the feed is
-        allow-listed, the window is at most 8 days, the seed is at least 1 USDG per side and any age limit asked for is
+        allow-listed, the market is listed before its opening bell, the window is at most 8 days, the seed is at least 1 USDG per side and any age limit asked for is
         tighter than the feed&rsquo;s own, never looser. It lists every market with the same constants: capacity 30, fee 2%
         of gains, refund timeout 72 hours, and leftovers and fees to the treasury Safe. The Safe, as owner, can only
         allow-list feeds (with their Stock Token and age limits) and listers; it cannot change a listed market.
@@ -169,7 +176,8 @@ export default function ContractsDoc() {
   --verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/`}</CodeBlock>
       <Callout title="What to check">
         <p>
-          That the Safe owns the factory and is the guardian and treasury of HunchVPM; that the Safe needs more than one
+          That the Safe owns the factory and is the guardian and treasury of HunchVPM; that <C>HunchVPM.factory()</C> is the
+          factory; that the Safe needs more than one
           signature (its threshold is read on-chain on the <TextLink href="/proof#safe">Proof</TextLink> page); and that the
           source on Blockscout matches the repository.
         </p>

@@ -84,6 +84,7 @@ export const PREVIEW_STATUS = {
   STALE: 4,
   BADPROOF: 5,
   PAUSED: 6,
+  BADANSWER: 7,
 } as const;
 export type PreviewStatusCode = (typeof PREVIEW_STATUS)[keyof typeof PREVIEW_STATUS];
 export const PREVIEW_STATUS_NAME: Record<number, keyof typeof PREVIEW_STATUS> = {
@@ -94,6 +95,7 @@ export const PREVIEW_STATUS_NAME: Record<number, keyof typeof PREVIEW_STATUS> = 
   4: 'STALE',
   5: 'BADPROOF',
   6: 'PAUSED',
+  7: 'BADANSWER',
 };
 
 /** `StockRoundResolver.Resolved.outcome`: 0 UP, 1 DOWN, 2 FLAT. */

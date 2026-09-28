@@ -97,7 +97,7 @@ export function rulesBox(input: RulesInput): RulesBox {
     { text: 'DOWN', bold: true },
     {
       text:
-        ` if it is lower. If they are the same, or ${ageClause}, or if Robinhood pauses the token's price for a corporate action for more than a day, every bet is refunded in full.` +
+        ` if it is lower. If they are the same, or ${ageClause}, or if either price is out of range (not a real price), or if Robinhood pauses the token's price for a corporate action for more than a day, every bet is refunded in full.` +
         ` Bets are accepted until ${until}.` +
         " The earlier you bet, the more of the other side's later money is yours; a bet placed at the last moment gets its stake back plus whatever the other side adds after it." +
         ` Hunch keeps ${formatBps(input.feeBps)} of winnings. Nobody at Hunch can set or change a price.` +

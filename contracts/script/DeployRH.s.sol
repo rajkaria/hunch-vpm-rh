@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {HunchVPM} from "../src/HunchVPM.sol";
 import {StockRoundResolver} from "../src/StockRoundResolver.sol";
 import {HunchMarketFactory} from "../src/HunchMarketFactory.sol";
@@ -16,27 +17,33 @@ import {RH, IChainlinkProxy, IUSDG, ISafeLike} from "./RH.sol";
 ///             --rpc-url $RH_RPC_URL --account hunch-deployer --sender <DEPLOYER> --broadcast --slow
 ///
 ///         then `bash scripts/post-deploy.sh` (tx hashes, L2 blocks, time, git commit).
-///         Inputs by env var name only: SAFE_ADDRESS, KEEPER_ADDRESS, optional ALLOW_1OF1=1,
-///         optional DEPLOYMENTS_OUT (default ../deployments/robinhood-mainnet.json, relative to
+///         Inputs by env var name only: SAFE_ADDRESS, KEEPER_ADDRESS, optional PAUSER_ADDRESS
+///         (default: the deployer), optional ALLOW_1OF1=1, optional DEPLOYMENTS_OUT (default ../deployments/robinhood-mainnet.json, relative to
 ///         contracts/), optional DEPLOYMENTS_TEMPLATE (default: the same file), optional
 ///         GIT_COMMIT. The signer comes from forge's flags (keystore or, on anvil only, a test
 ///         key); no key is ever read from the environment.
 ///
 ///         Preflight (any failure reverts with a message naming what to fix): chain id 4663;
-///         the Safe has code and a threshold of at least 2 (or ALLOW_1OF1=1); USDG has 6
+///         the Safe has code and a threshold of at least 2 (or ALLOW_1OF1=1); the keeper and the
+///         pauser are not Safe owners (a hot key must never count toward the quorum); USDG has 6
 ///         decimals, its pinned EIP-712 domain separator and is not paused; every feed has 8
 ///         decimals, the pinned description and a sane latest answer; every Stock Token has the
 ///         ticker as its symbol; the deployer holds at least 0.002 ETH; the deployment JSON
 ///         agrees with the pinned facts and is not already "deployed".
 ///
-///         Deploys StockRoundResolver → HunchVPM(guardian = treasury = Safe) →
-///         HunchMarketFactory(owner = deployer, treasury = Safe), allow-lists NVDA, TSLA, AAPL and
+///         Deploys StockRoundResolver → HunchVPM(guardian = treasury = Safe, factory = the
+///         address the factory is about to get, pauser) → HunchMarketFactory(owner = deployer,
+///         treasury = Safe), allow-lists NVDA, TSLA, AAPL and
 ///         COIN (26 h bounds), sets the keeper as the only opener and starts the two-step
 ///         ownership transfer to the Safe (the Safe then calls acceptOwnership()). Writes the
 ///         deployment JSON with status "deployed", the addresses, the Safe, the keeper and each
 ///         feed's current aggregator; deploy tx hashes, blocks, startBlock and deployedAt stay
 ///         null until scripts/post-deploy.sh reads them from the broadcast receipts (on 4663,
 ///         `block.number` inside the EVM is the L1 estimate, not the L2 block).
+///
+///         Without --broadcast (the dry run docs/OPERATOR.md step 6 starts with) it runs every
+///         check and prints the addresses, and writes NOTHING: the deployment JSON is written only
+///         when the transactions are actually broadcast.
 contract DeployRH is Script {
     string internal constant DEFAULT_JSON = "../deployments/robinhood-mainnet.json";
 
@@ -44,6 +51,7 @@ contract DeployRH is Script {
         address deployer;
         address safe;
         address keeper;
+        address pauser;
         bool allow1of1;
         string template;
         string out;
@@ -65,15 +73,19 @@ contract DeployRH is Script {
         address[4] memory aggregators = _preflight(c, json);
 
         uint64 nonce = vm.getNonce(c.deployer);
+        // The settler names its only creator (D10) before that factory exists: the factory is
+        // the deployer's third contract. `_postflight` checks the wiring; post-deploy.sh reads it
+        // back from the chain.
+        address factoryAddress = vm.computeCreateAddress(c.deployer, nonce + 2);
         console.log("Preflight passed. Deploying from", c.deployer, "starting at nonce", nonce);
         console.log("  StockRoundResolver will be", vm.computeCreateAddress(c.deployer, nonce));
         console.log("  HunchVPM           will be", vm.computeCreateAddress(c.deployer, nonce + 1));
-        console.log("  HunchMarketFactory will be", vm.computeCreateAddress(c.deployer, nonce + 2));
+        console.log("  HunchMarketFactory will be", factoryAddress);
 
         RH.Ticker[4] memory t = RH.tickers();
         vm.startBroadcast(c.deployer);
         d.resolver = new StockRoundResolver();
-        d.vpm = new HunchVPM(c.safe, c.safe);
+        d.vpm = new HunchVPM(c.safe, c.safe, factoryAddress, c.pauser);
         d.factory = new HunchMarketFactory(d.vpm, d.resolver, IERC20Like(RH.USDG), c.deployer, c.safe);
         for (uint256 i = 0; i < t.length; i++) {
             d.factory.setFeed(t[i].feed, t[i].stockToken, t[i].ticker, RH.MAX_AGE, RH.MAX_AGE, true);
@@ -83,8 +95,10 @@ contract DeployRH is Script {
         vm.stopBroadcast();
 
         _postflight(c, d, json);
-        _write(c, json, d, aggregators);
-        _summary(c, d);
+        bool broadcasting =
+            vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume);
+        if (broadcasting) _write(c, json, d, aggregators);
+        _summary(c, d, broadcasting);
     }
 
     // ================================================================== inputs
@@ -93,6 +107,7 @@ contract DeployRH is Script {
         c.deployer = msg.sender;
         c.safe = vm.envOr("SAFE_ADDRESS", address(0));
         c.keeper = vm.envOr("KEEPER_ADDRESS", address(0));
+        c.pauser = vm.envOr("PAUSER_ADDRESS", c.deployer);
         string memory one = vm.envOr("ALLOW_1OF1", string(""));
         c.allow1of1 = _eq(one, "1") || _eq(one, "true");
         c.out = vm.envOr("DEPLOYMENTS_OUT", string(DEFAULT_JSON));
@@ -155,6 +170,23 @@ contract DeployRH is Script {
         if (c.keeper == address(0)) _fail("KEEPER_ADDRESS is not set");
         if (c.keeper == c.safe) _fail("KEEPER_ADDRESS equals SAFE_ADDRESS");
         if (c.keeper == c.deployer) _fail("KEEPER_ADDRESS equals the deployer: use two wallets (step 1)");
+
+        // pauser (D10: may pause new bets and new markets, never unpause)
+        if (c.pauser == address(0)) _fail("PAUSER_ADDRESS is the zero address (leave it unset to use the deployer)");
+        if (c.pauser == c.keeper) {
+            _fail("PAUSER_ADDRESS equals KEEPER_ADDRESS: the pauser must not be the key that lives in Vercel");
+        }
+
+        // No hot key may count toward the Safe's quorum.
+        address[] memory safeOwners = ISafeLike(c.safe).getOwners();
+        for (uint256 i = 0; i < safeOwners.length; i++) {
+            if (safeOwners[i] == c.keeper) {
+                _fail("KEEPER_ADDRESS is an owner of the Safe: remove it (its key lives in Vercel)");
+            }
+            if (safeOwners[i] == c.deployer) {
+                console.log("NOTE: the deployer is also a Safe owner; keep its keystore offline after the deploy");
+            }
+        }
 
         // USDG
         if (RH.USDG.code.length == 0) _fail("USDG has no code at 0x5fc5...d168: wrong chain?");
@@ -284,6 +316,8 @@ contract DeployRH is Script {
         }
         if (address(f.usdg()) != RH.USDG || f.treasury() != c.safe) _fail("factory USDG or treasury");
         if (d.vpm.guardian() != c.safe || d.vpm.treasury() != c.safe) _fail("settler guardian or treasury");
+        if (d.vpm.factory() != address(f)) _fail("settler factory (D10): the deployer's nonce moved mid-run");
+        if (d.vpm.pauser() != c.pauser || d.vpm.entriesPaused()) _fail("settler pauser or pause state");
         if (!f.openers(c.keeper)) _fail("keeper is not an opener");
         RH.Ticker[4] memory t = RH.tickers();
         if (f.feedCount() != t.length) _fail("factory feed count");
@@ -338,17 +372,27 @@ contract DeployRH is Script {
 
     // ================================================================== output
 
-    function _summary(Config memory c, Deployed memory d) internal pure {
+    function _summary(Config memory c, Deployed memory d, bool broadcasting) internal pure {
         console.log("");
-        console.log("Deployed on Robinhood Chain (4663):");
+        if (!broadcasting) {
+            console.log("DRY RUN: every check passed; nothing was sent and nothing was written.");
+            console.log("Would deploy on Robinhood Chain (4663):");
+        } else {
+            console.log("Deployed on Robinhood Chain (4663):");
+        }
         console.log("  StockRoundResolver ", address(d.resolver));
         console.log("  HunchVPM           ", address(d.vpm));
         console.log("  HunchMarketFactory ", address(d.factory));
         console.log("  Safe (pending owner, guardian, treasury)", c.safe);
         console.log("  Keeper (opener)                         ", c.keeper);
+        console.log("  Pauser (may pause, never unpause)       ", c.pauser);
+        if (!broadcasting) {
+            console.log("Next: the same command with --broadcast --slow");
+            return;
+        }
         console.log("Wrote", c.out);
         console.log("Next: bash scripts/post-deploy.sh   (tx hashes, L2 blocks, time, git commit; then pnpm wire)");
-        console.log("Then: bash scripts/verify-contracts.sh, and acceptOwnership() from the Safe (step 8)");
+        console.log("Then: acceptOwnership() from the Safe right away (step 7), then bash scripts/verify-contracts.sh (step 8)");
     }
 
     // ================================================================== helpers

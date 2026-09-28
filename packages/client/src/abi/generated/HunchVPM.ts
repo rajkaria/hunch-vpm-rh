@@ -14,6 +14,16 @@ export const hunchVpmAbiGenerated = [
         "type": "address",
         "name": "treasury_",
         "internalType": "address"
+      },
+      {
+        "type": "address",
+        "name": "factory_",
+        "internalType": "address"
+      },
+      {
+        "type": "address",
+        "name": "pauser_",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -363,6 +373,19 @@ export const hunchVpmAbiGenerated = [
   },
   {
     "type": "function",
+    "name": "factory",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "feesAccrued",
     "inputs": [
       {
@@ -652,6 +675,19 @@ export const hunchVpmAbiGenerated = [
   },
   {
     "type": "function",
+    "name": "pauser",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "pendingCount",
     "inputs": [
       {
@@ -810,6 +846,19 @@ export const hunchVpmAbiGenerated = [
         "type": "bool",
         "name": "paused",
         "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPauser",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "pauser_",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -1068,6 +1117,19 @@ export const hunchVpmAbiGenerated = [
   },
   {
     "type": "event",
+    "name": "PauserSet",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "pauser",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PositionTransferred",
     "inputs": [
       {
@@ -1241,6 +1303,11 @@ export const hunchVpmAbiGenerated = [
   {
     "type": "error",
     "name": "InvalidSeed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotFactory",
     "inputs": []
   },
   {

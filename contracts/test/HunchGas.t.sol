@@ -42,9 +42,11 @@ contract HunchGasTest is Test {
         vm.warp(S - 5 minutes);
         vm.roll(23_000_000);
         usdg = new MockUSDG();
-        vpm = new HunchVPM(safe, safe);
+        // D10: the settler names its factory, deployed two contracts later (DeployRH does the same)
+        vpm = new HunchVPM(safe, safe, vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2), address(0));
         resolver = new StockRoundResolver();
         factory = new HunchMarketFactory(vpm, resolver, IERC20Like(address(usdg)), safe, safe);
+        assertEq(vpm.factory(), address(factory), "D10 wiring");
         feed = new MockAggregator("Robinhood NVDA / USD");
         nvda = new MockStockToken("NVDA");
         vm.startPrank(safe);
@@ -300,11 +302,14 @@ contract HunchGasTest is Test {
 
     /// @dev D9: the fullest vintages the caps allow, finalized cold as their own transaction.
     function _measureFullVintages() internal {
-        usdg.mint(address(this), 1_000e6);
+        // D10: only the factory creates; these measurement markets are created in its name.
+        usdg.mint(address(factory), 1_000e6);
+        vm.prank(address(factory));
         usdg.approve(address(vpm), type(uint256).max);
         uint256[] memory seed = new uint256[](2);
         seed[0] = 10e6;
         seed[1] = 10e6;
+        vm.prank(address(factory));
         uint256 binary = vpm.create(IERC20(address(usdg)), seed, 30, F + 2 days, 72 hours, safe, safe, 200, 0, 0);
         _row(
             "`finalizeVintage`, a full binary vintage (200 one-unit entries, D9 cap)",
@@ -316,6 +321,7 @@ contract HunchGasTest is Test {
         for (uint256 i = 0; i < 64; i++) {
             seed[i] = 1e6;
         }
+        vm.prank(address(factory));
         uint256 wide = vpm.create(IERC20(address(usdg)), seed, 65, F + 2 days, 72 hours, safe, safe, 200, 0, 0);
         uint256 worst = _fillAndFinalize(wide, 64, 10e6);
         _row(

@@ -15,7 +15,7 @@ closing bell. Served at `rh.playhunch.xyz`.
 |---|---|---|
 | [01-product.md](01-product.md) | everyone | one-liner, problem, personas, market catalogue, what we don't build |
 | [02-mechanism.md](02-mechanism.md) | contracts, web, pitch | VPM rules in plain words, properties used, venue parameters, worked example |
-| [03-contracts.md](03-contracts.md) | contracts | HunchVPM diff D1–D9, StockRoundResolver, HunchMarketFactory, powers, invariants, gas |
+| [03-contracts.md](03-contracts.md) | contracts | HunchVPM diff D1–D10, StockRoundResolver, HunchMarketFactory, powers, invariants, gas |
 | [04-markets-and-resolution.md](04-markets-and-resolution.md) | contracts, keeper, web | feeds, tickers, session times, round proofs, staleness bounds, calendar |
 | [05-web-app.md](05-web-app.md) | web | routes, components, copy rules, data layer, wallets, geo |
 | [06-keeper-and-ops.md](06-keeper-and-ops.md) | keeper, ops | cron jobs, void policy, wallets, health, runbook |

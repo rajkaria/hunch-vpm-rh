@@ -23,7 +23,7 @@ import {
   usdgAbi,
   type Deployment,
 } from '@hunch-rh/client';
-import { createTestClient, createWalletClient, http, type Abi, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
+import { createTestClient, createWalletClient, getContractAddress, http, type Abi, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { generatePrivateKey, nonceManager, privateKeyToAccount } from 'viem/accounts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -130,8 +130,12 @@ describe.skipIf(!hasAnvil || !hasOut)('E2E on anvil (chain 4663) against contrac
     agg = await deploy('MockAggregator', ['RHNVDA / USD']);
     const stock = await deploy('MockStockToken', ['NVDA']);
     const resolver = await deploy('StockRoundResolver');
-    const vpm = await deploy('HunchVPM', [acct.safe.address, acct.safe.address]);
+    // D10: the settler names its only creator, the factory, deployed right after it (as DeployRH does).
+    const next = await client.getTransactionCount({ address: acct.deployer.address });
+    const factoryAt = getContractAddress({ from: acct.deployer.address, nonce: BigInt(next + 1) });
+    const vpm = await deploy('HunchVPM', [acct.safe.address, acct.safe.address, factoryAt, acct.deployer.address]);
     const factory = await deploy('HunchMarketFactory', [vpm, resolver, USDG_ADDRESS, acct.deployer.address, acct.safe.address]);
+    expect(factory.toLowerCase()).toBe(factoryAt.toLowerCase());
     const fAbi = artifact('HunchMarketFactory').abi;
     await send('deployer', { address: factory, abi: fAbi, functionName: 'setFeed', args: [agg, stock, 'NVDA', 93_600, 93_600, true] });
     await send('deployer', { address: factory, abi: fAbi, functionName: 'setOpener', args: [acct.keeper.address, true] });

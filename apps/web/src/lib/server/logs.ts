@@ -44,7 +44,7 @@ export async function readActivity(client: PublicClient, d: Deployment, marketId
 
 export interface ResolutionLog {
   marketId: bigint;
-  kind: 'resolved' | 'voided-stale' | 'voided-paused';
+  kind: 'resolved' | 'voided-stale' | 'voided-paused' | 'voided-bad-answer';
   /** For `resolved`: the resolver's outcome (FLAT voids inside `resolve`). */
   outcome: 'UP' | 'DOWN' | 'FLAT' | null;
   strikeRound: bigint | null;
@@ -61,15 +61,16 @@ type Decoded = Log & { args: Record<string, unknown> };
 
 const OUTCOME = ['UP', 'DOWN', 'FLAT'] as const;
 
-/** Every settlement the resolver made (`Resolved`, `VoidedStale`, `VoidedPaused`), oldest first. */
+/** Every settlement the resolver made (`Resolved`, `VoidedStale`, `VoidedBadAnswer`, `VoidedPaused`), oldest first. */
 export async function readResolutionLogs(client: PublicClient, d: Deployment): Promise<ResolutionLog[]> {
   if (!isDeployed(d)) return [];
   const address = d.contracts.StockRoundResolver.address;
   const fromBlock = BigInt(d.startBlock ?? 0);
-  const event = (name: 'Resolved' | 'VoidedStale' | 'VoidedPaused') => getAbiItem({ abi: stockRoundResolverAbi, name }) as AbiEvent;
-  const [resolved, stale, paused] = await Promise.all([
+  const event = (name: 'Resolved' | 'VoidedStale' | 'VoidedBadAnswer' | 'VoidedPaused') => getAbiItem({ abi: stockRoundResolverAbi, name }) as AbiEvent;
+  const [resolved, stale, badAnswer, paused] = await Promise.all([
     getLogsChunked(client, { address, event: event('Resolved'), fromBlock, toBlock: 'latest' }),
     getLogsChunked(client, { address, event: event('VoidedStale'), fromBlock, toBlock: 'latest' }),
+    getLogsChunked(client, { address, event: event('VoidedBadAnswer'), fromBlock, toBlock: 'latest' }),
     getLogsChunked(client, { address, event: event('VoidedPaused'), fromBlock, toBlock: 'latest' }),
   ]);
   const out: ResolutionLog[] = [];
@@ -89,10 +90,14 @@ export async function readResolutionLogs(client: PublicClient, d: Deployment): P
       blockNumber: log.blockNumber!,
     });
   }
-  for (const log of stale as Decoded[]) {
+  const voids = [
+    ...(stale as Decoded[]).map((log) => ({ kind: 'voided-stale' as const, log })),
+    ...(badAnswer as Decoded[]).map((log) => ({ kind: 'voided-bad-answer' as const, log })),
+  ];
+  for (const { kind, log } of voids) {
     out.push({
       marketId: log.args.marketId as bigint,
-      kind: 'voided-stale',
+      kind,
       outcome: null,
       strikeRound: log.args.strikeRound as bigint,
       finalRound: log.args.finalRound as bigint,

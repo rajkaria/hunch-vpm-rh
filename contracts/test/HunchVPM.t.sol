@@ -6,18 +6,22 @@ import {HunchVPM, IERC20} from "../src/HunchVPM.sol";
 import {MockUSDG} from "../src/mocks/MockUSDG.sol";
 import {IEIP3009} from "../src/interfaces/IEIP3009.sol";
 
-/// @title T2 · HunchVPM: every diff D1–D7 against the reference, one behaviour per test
+/// @title T2 · HunchVPM: every product diff D1–D7 and the D10 hardening, one behaviour per test
 /// @notice The mechanism itself (Rule 1, Rule 2, vintages, seed clamp, freeze) is proven
 ///         equal to the reference by Differential.t.sol; this suite covers only what the
 ///         product adds: the fee on gains (D1), owner-only delivery by anyone (D2), entry
-///         bounds (D3), the entries-only pause (D4, incl. T2.9), the signed USDG entry (D5),
-///         the views (D6) and the events (D7).
+///         bounds (D3), the entries pause (D4, incl. T2.9), the signed USDG entry (D5),
+///         the views (D6), the events (D7), and D10: the factory-only `create`, the pause
+///         stopping new markets, the pause-only pauser and the finalized-claim guard. D8 is
+///         SameBlockSettlement.t.sol, D9 VintageStuffing.t.sol.
 contract HunchVPMTest is HunchBase {
     // ================================================================== constructor
 
     function test_Constructor_FixesGuardianAndTreasury() public view {
         assertEq(vpm.guardian(), guardian);
         assertEq(vpm.treasury(), treasury);
+        assertEq(vpm.factory(), creator, "D10: the only creator");
+        assertEq(vpm.pauser(), pauser, "D10");
         assertFalse(vpm.entriesPaused());
         assertEq(vpm.MAX_FEE_BPS(), 500);
         assertEq(
@@ -27,9 +31,13 @@ contract HunchVPMTest is HunchBase {
 
     function test_Constructor_RejectsZeroAddresses() public {
         vm.expectRevert(HunchVPM.ZeroAddress.selector);
-        new HunchVPM(address(0), treasury);
+        new HunchVPM(address(0), treasury, creator, pauser);
         vm.expectRevert(HunchVPM.ZeroAddress.selector);
-        new HunchVPM(guardian, address(0));
+        new HunchVPM(guardian, address(0), creator, pauser);
+        vm.expectRevert(HunchVPM.ZeroAddress.selector);
+        new HunchVPM(guardian, treasury, address(0), pauser);
+        HunchVPM none = new HunchVPM(guardian, treasury, creator, address(0)); // D10: no pauser is allowed
+        assertEq(none.pauser(), address(0));
     }
 
     // ================================================================== D1 · fee on winners' gains
@@ -507,11 +515,131 @@ contract HunchVPMTest is HunchBase {
         assertEq(owner, bob, "the same signature relays fine after unpause");
     }
 
-    function test_D4_CreationIsNotAnEntryAndIsNotPaused() public {
+    // ================================================================== D10 · pre-deploy hardening
+
+    function test_D10_OnlyTheFactoryCreatesMarkets() public {
+        address[4] memory others = [stranger, guardian, treasury, alice];
+        for (uint256 i = 0; i < others.length; i++) {
+            _fund(others[i], 20 * USDG);
+            vm.prank(others[i]);
+            vm.expectRevert(HunchVPM.NotFactory.selector);
+            vpm.create(
+                IERC20(address(usdg)), _seed(10 * USDG, 10 * USDG), KAPPA, T, VOID_TIMEOUT, resolver, residueOwner, 0, 0, 0
+            );
+        }
+        assertEq(vpm.marketCount(), 0);
+        uint256 id = _create(200); // `creator` is this suite's factory
+        assertEq(vpm.marketPositionCount(id), 2);
+    }
+
+    function test_D10_ThePauseAlsoStopsNewMarkets() public {
         vm.prank(guardian);
         vpm.setEntriesPaused(true);
+        vm.prank(creator);
+        vm.expectRevert(HunchVPM.EntriesArePaused.selector);
+        vpm.create(
+            IERC20(address(usdg)), _seed(10 * USDG, 10 * USDG), KAPPA, T, VOID_TIMEOUT, resolver, residueOwner, 0, 0, 0
+        );
+        vm.prank(guardian);
+        vpm.setEntriesPaused(false);
         uint256 id = _create(200);
-        assertEq(vpm.marketPositionCount(id), 2);
+        assertEq(vpm.marketPositionCount(id), 2, "creation resumes with entries");
+    }
+
+    function test_D10_ThePauserMayPauseButNeverUnpause() public {
+        uint256 id = _create(0);
+        vm.expectEmit(address(vpm));
+        emit HunchVPM.EntriesPaused(true);
+        vm.prank(pauser);
+        vpm.setEntriesPaused(true);
+        assertTrue(vpm.entriesPaused());
+
+        _fund(alice, 10 * USDG);
+        vm.prank(alice);
+        vm.expectRevert(HunchVPM.EntriesArePaused.selector);
+        vpm.enter(id, 0, 10 * USDG);
+
+        vm.prank(pauser);
+        vm.expectRevert(HunchVPM.NotGuardian.selector);
+        vpm.setEntriesPaused(false);
+        assertTrue(vpm.entriesPaused(), "only the guardian resumes");
+
+        vm.prank(pauser);
+        vpm.setEntriesPaused(true); // pausing again is harmless
+        vm.prank(guardian);
+        vpm.setEntriesPaused(false);
+        vm.prank(alice);
+        vpm.enter(id, 0, 10 * USDG);
+    }
+
+    function test_D10_OnlyTheGuardianNamesThePauser() public {
+        address next = makeAddr("next pauser");
+        vm.prank(pauser);
+        vm.expectRevert(HunchVPM.NotGuardian.selector);
+        vpm.setPauser(next);
+        vm.prank(stranger);
+        vm.expectRevert(HunchVPM.NotGuardian.selector);
+        vpm.setPauser(stranger);
+
+        vm.expectEmit(address(vpm));
+        emit HunchVPM.PauserSet(next);
+        vm.prank(guardian);
+        vpm.setPauser(next);
+        assertEq(vpm.pauser(), next);
+        vm.prank(pauser);
+        vm.expectRevert(HunchVPM.NotGuardian.selector);
+        vpm.setEntriesPaused(true); // the old pauser is out
+        vm.prank(next);
+        vpm.setEntriesPaused(true);
+
+        vm.prank(guardian);
+        vpm.setPauser(address(0)); // a leaked pauser key is removed in one guardian call
+        vm.prank(guardian);
+        vpm.setEntriesPaused(false);
+        vm.prank(next);
+        vm.expectRevert(HunchVPM.NotGuardian.selector);
+        vpm.setEntriesPaused(true);
+        assertFalse(vpm.entriesPaused());
+    }
+
+    function test_D10_ThePauserCannotReachAnythingButThePause() public {
+        uint256 id = _create(200);
+        uint256 pos = _enter(alice, id, 0, 10 * USDG);
+        vm.startPrank(pauser);
+        vm.expectRevert(HunchVPM.NotGuardian.selector);
+        vpm.setPauser(pauser);
+        vm.expectRevert(HunchVPM.NotFactory.selector);
+        vpm.create(
+            IERC20(address(usdg)), _seed(10 * USDG, 10 * USDG), KAPPA, T, VOID_TIMEOUT, resolver, residueOwner, 0, 0, 0
+        );
+        vm.expectRevert(HunchVPM.NotResolver.selector);
+        vpm.resolve(id, 0);
+        vm.expectRevert(HunchVPM.NotOwner.selector);
+        vpm.transferPosition(pos, pauser);
+        vm.stopPrank();
+    }
+
+    /// @notice D8 makes every position final at settlement; `_claim` no longer relies on it
+    ///         alone. With the flag forced off after settlement (a state D8 makes unreachable),
+    ///         the claim pays nothing instead of refunding the whole stake a second time (F1).
+    function test_D10_AClaimRefusesAPositionWhoseVintageIsNotFinal() public {
+        uint256 id = _create(0);
+        uint256 pos = _enterNext(alice, id, 1, 10 * USDG);
+        _settle(id, 0);
+
+        // Position `pos`, slot 0: [marketId 8 | owner 20 | outcome 1 | finalized 1 | refunded 1 | claimed 1]
+        bytes32 slot = bytes32(uint256(keccak256(abi.encode(uint256(1)))) + pos * 3);
+        uint256 word = uint256(vm.load(address(vpm), slot));
+        assertEq((word >> 232) & 0xff, 1, "finalized at settlement (D8)");
+        vm.store(address(vpm), slot, bytes32(word & ~(uint256(0xff) << 232)));
+        (,,, bool finalized,,,,,,) = vpm.positions(pos);
+        assertFalse(finalized);
+
+        uint256 escrow = usdg.balanceOf(address(vpm));
+        vm.prank(stranger);
+        vm.expectRevert(HunchVPM.NotFinalized.selector);
+        vpm.claimFor(pos);
+        assertEq(usdg.balanceOf(address(vpm)), escrow, "nothing paid");
     }
 
     /// @notice T2.9: with entries paused, every non-entry function still succeeds:

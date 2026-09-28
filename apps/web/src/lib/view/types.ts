@@ -174,8 +174,8 @@ export interface RefundDrillData {
   status: 'listed' | 'refunded';
   /** Unix seconds: the bell whose price the drill cannot trust. */
   finalTime: number;
-  /** Why it voided: `stale` (voidStale), `flat`, `paused` or the 72 h timeout; null while listed. */
-  reason: 'stale' | 'flat' | 'paused' | 'timeout' | null;
+  /** Why it voided: `stale` (voidStale), `bad-answer` (voidBadAnswer), `flat`, `paused` or the 72 h timeout; null while listed. */
+  reason: 'stale' | 'bad-answer' | 'flat' | 'paused' | 'timeout' | null;
   voidTxUrl: string | null;
   strike: RoundRef | null;
   final: RoundRef | null;

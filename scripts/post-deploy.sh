@@ -111,13 +111,16 @@ expect "factory.usdg()" "$(call "$FACTORY" 'usdg()(address)')" "$USDG"
 expect "factory.treasury()" "$(call "$FACTORY" 'treasury()(address)')" "$SAFE"
 expect "settler.guardian()" "$(call "$VPM" 'guardian()(address)')" "$SAFE"
 expect "settler.treasury()" "$(call "$VPM" 'treasury()(address)')" "$SAFE"
+expect "settler.factory() (D10: the only creator)" "$(call "$VPM" 'factory()(address)')" "$FACTORY"
+[ "$(call "$VPM" 'entriesPaused()(bool)')" = "false" ] || die "the settler is paused right after deploy"
+say "settler pauser (may pause, never unpause): $(call "$VPM" 'pauser()(address)')"
 expect "factory.openers(keeper)" "$(call "$FACTORY" 'openers(address)(bool)' "$KEEPER")" "true"
 owner=$(call "$FACTORY" 'owner()(address)')
 pending=$(call "$FACTORY" 'pendingOwner()(address)')
 if [ "$(lc "$owner")" = "$(lc "$SAFE")" ]; then
   say "factory owner is the Safe (ownership accepted)"
 elif [ "$(lc "$pending")" = "$(lc "$SAFE")" ]; then
-  say "factory owner is still the deployer $owner; the Safe must call acceptOwnership() (docs/OPERATOR.md step 8)"
+  say "factory owner is still the deployer $owner; the Safe must call acceptOwnership() now (docs/OPERATOR.md step 7)"
 else
   die "factory owner $owner and pending owner $pending: neither is the Safe $SAFE"
 fi
