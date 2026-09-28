@@ -25,27 +25,55 @@ describe('landing hero', () => {
 
   it('matches the first-screen copy snapshot before launch', () => {
     const { container } = render(<Hero live={false} />);
-    const lines = [...container.querySelectorAll('h1 > span, p, a, li, span.uppercase')].map((node) => node.textContent?.trim());
+    const lines = [...container.querySelectorAll('h1 > span, p, a, li, span.uppercase, dt, dd')].map((node) => node.textContent?.trim());
     expect(lines).toMatchInlineSnapshot(`
       [
+        "Launching on Robinhood ChainNVDA · TSLA · AAPL · COIN",
         "Launching on Robinhood Chain",
-        "USDG · no ETH needed",
         "Call it early.",
         "Get paid more.",
         "Prediction markets on Robinhood Stock Tokens, in USDG on Robinhood Chain. Open until the closing bell. Settled by Chainlink.",
         "Get set up in 2 minutes",
         "How it works",
-        "Open until the bell",
-        "One signature per bet",
-        "No one types in a price",
+        "Bets close",
+        "At the bell",
+        "Per bet",
+        "1–100 USDG",
+        "ETH needed",
+        "None",
       ]
     `);
   });
 
   it('switches its one primary action to the live markets once they exist', () => {
-    render(<Hero live />);
+    render(<Hero live liveCount={2} />);
     expect(screen.getByText('Live on Robinhood Chain')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'See live markets' }).getAttribute('href')).toBe('#markets');
     expect(screen.queryByText('Launching on Robinhood Chain')).toBeNull();
+  });
+
+  it('never says "live" about markets between sessions, when none is taking bets', () => {
+    render(<Hero live liveCount={0} />);
+    expect(screen.getByRole('link', { name: 'See the markets' }).getAttribute('href')).toBe('#markets');
+    expect(screen.queryByRole('link', { name: 'See live markets' })).toBeNull();
+    expect(screen.queryByText('Live now')).toBeNull();
+    expect(screen.getByText('At the bell')).toBeTruthy();
+  });
+
+  it('counts the live markets in the fact strip once the venue is live, and only then', () => {
+    const { container, unmount } = render(<Hero live liveCount={6} />);
+    const strip = container.querySelector('dl');
+    expect(strip?.textContent).toContain('Live now');
+    expect(strip?.textContent).toContain('6');
+    unmount();
+    render(<Hero live={false} liveCount={6} />);
+    expect(screen.queryByText('Live now')).toBeNull();
+    expect(screen.getByText('At the bell')).toBeTruthy();
+  });
+
+  it('takes the bet limits in the strip from the deployment, not from a literal', () => {
+    const { container } = render(<Hero live={false} />);
+    const perBet = [...container.querySelectorAll('dt')].find((node) => node.textContent === 'Per bet')?.nextElementSibling;
+    expect(perBet?.textContent).toBe('1–100 USDG');
   });
 });

@@ -1,6 +1,6 @@
 import { Countdown } from '@/components/market/Countdown';
 import { TickerMark } from '@/components/market/TickerMark';
-import { ButtonLink } from '@/components/ui/primitives';
+import { Badge, ButtonLink } from '@/components/ui/primitives';
 import type { Deployment } from '@/lib/deployment';
 import type { MarketCardData } from '@/lib/view/types';
 import { formatDuration } from '@hunch-rh/client';
@@ -10,7 +10,47 @@ import { currentOrNextSession, formatEtDateTime, marketClock } from '@/lib/et';
 import { MarketCard } from './MarketCard';
 
 /**
- * Before any market exists: say so, say when the first ones can open, and show the two market
+ * The board: a row you swipe on a phone (each card 85% wide, so the next one peeks in and says
+ * there is more), a grid from 640 px up. The list bleeds to the screen edge on a phone so a card
+ * can scroll under the gutter rather than being cut off inside it.
+ */
+const BOARD =
+  '-mx-4 -my-1 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:mx-0 sm:my-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0 [&::-webkit-scrollbar]:hidden';
+const BOARD_ITEM = 'w-[85%] max-w-sm shrink-0 snap-start sm:w-auto sm:max-w-none';
+
+/** A market shape with nothing in it: dashed, tagged "Template", no numbers, never a link. */
+function TemplateCard({ ticker, family }: { ticker: string; family: 'daily' | 'weekly' }) {
+  const daily = family === 'daily';
+  return (
+    <div className="flex h-full flex-col rounded-card border border-dashed border-edge-strong p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <TickerMark ticker={ticker} size="sm" />
+          <Badge tone="quiet">
+            {ticker} · {daily ? 'Daily' : 'Weekly'}
+          </Badge>
+        </span>
+        <Badge tone="quiet">Template</Badge>
+      </div>
+      <p className="mt-3.5 text-lg leading-tight font-semibold text-paper/80">
+        {daily ? `Will ${ticker} close UP today?` : `Will ${ticker} finish the week UP?`}
+      </p>
+      <p className="mt-1 text-xs text-faint">
+        {daily ? 'Opening bell to closing bell, every trading day.' : "The week's first opening bell to Friday's closing bell."}
+      </p>
+      <div className="mt-auto grid grid-cols-2 gap-2.5 pt-5" aria-hidden>
+        {(['UP', 'DOWN'] as const).map((side) => (
+          <span key={side} className="rounded-control border border-dashed border-edge-strong px-3 py-2.5 text-center text-sm font-semibold tracking-[0.02em] text-faint">
+            {side}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Before any market exists: say so, say when the first ones can open, and show the market
  * shapes as templates (dashed, no numbers) so nobody mistakes them for live markets.
  */
 export function LaunchingState({ deployment, now }: { deployment: Deployment; now: number }) {
@@ -18,67 +58,49 @@ export function LaunchingState({ deployment, now }: { deployment: Deployment; no
   const next = clock.sessionOpen ? currentOrNextSession(clock.session.close + 60) : clock.session;
   const tickers = deployment.feeds.filter((feed) => feed.families.length > 0).map((feed) => feed.ticker);
   const deployed = deployment.status === 'deployed';
+  // One template per ticker; the first shows the weekly shape so both kinds are on the board.
+  const templates = tickers.slice(0, 4).map((ticker, index) => ({ ticker, family: index === 0 ? ('weekly' as const) : ('daily' as const) }));
 
   return (
-    <div className="rounded-card border border-dashed border-edge-strong p-5 sm:p-8">
-      <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-center">
-        <div>
-          <p className="eyebrow">{deployed ? 'Between markets' : 'Launching'}</p>
-          <h3 className="mt-3 text-2xl leading-tight sm:text-[28px]">
+    <div className="grid gap-4">
+      <div className="lift flex flex-col gap-5 rounded-card border border-edge bg-raised p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+        <div className="min-w-0 max-w-2xl">
+          <Badge tone="note">{deployed ? 'Between markets' : 'Launching'}</Badge>
+          <h3 className="mt-3 font-body text-lg leading-snug font-semibold tracking-normal text-paper sm:text-xl">
             {deployed ? 'New markets open before the next opening bell.' : 'Markets open at the next opening bell once the venue is live.'}
           </h3>
-          <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted">
+          <p className="mt-1.5 text-sm leading-relaxed text-muted">
             {deployed
               ? 'No market is taking bets right now. New daily markets are listed before each opening bell.'
               : 'The contracts are not deployed yet, so there is nothing to bet on and nothing here pretends otherwise. Get set up now and you can place your first bet the morning it opens.'}
           </p>
-          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">
-            <div>
-              <p className="text-[11px] text-faint">Next opening bell</p>
-              <p className="num mt-1 text-sm text-paper">{formatEtDateTime(next.open)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-faint">In</p>
-              <p className="mt-1 text-sm text-paper">
-                <Countdown deadline={next.open} now={now} label="until the next opening bell" endedText="ringing now" />
-              </p>
-            </div>
-          </div>
-          <div className="mt-6">
-            <ButtonLink href="/start" variant="secondary">
-              Get set up before it opens
-            </ButtonLink>
-          </div>
         </div>
-
-        <div className="grid gap-3" aria-label="The two kinds of market">
-          {[
-            { family: 'Daily', question: `Will ${tickers[1] ?? 'TSLA'} close UP today?`, detail: 'Opening bell to closing bell, every trading day.' },
-            {
-              family: 'Weekly',
-              question: `Will ${tickers[0] ?? 'NVDA'} finish the week UP?`,
-              detail: "The week's first opening bell to Friday's closing bell.",
-            },
-          ].map((template) => (
-            <div key={template.family} className="rounded-control border border-dashed border-edge p-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="eyebrow">{template.family} market · template</span>
-              </div>
-              <p className="mt-2 text-[15px] font-semibold text-paper/80">{template.question}</p>
-              <p className="mt-1 text-xs text-faint">{template.detail}</p>
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-4 lg:shrink-0 lg:flex-nowrap">
+          <dl className="flex gap-6">
+            <div>
+              <dt className="eyebrow">Next opening bell</dt>
+              <dd className="num mt-1.5 text-sm whitespace-nowrap text-paper">{formatEtDateTime(next.open)}</dd>
             </div>
-          ))}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-[11px] text-faint">{deployed ? 'Tickers' : 'Planned tickers'}</span>
-            {tickers.map((ticker) => (
-              <span key={ticker} className="inline-flex items-center gap-1.5 text-xs text-muted">
-                <TickerMark ticker={ticker} size="sm" />
-                {ticker}
-              </span>
-            ))}
-          </div>
+            <div>
+              <dt className="eyebrow">In</dt>
+              <dd className="mt-1.5 text-sm text-paper">
+                <Countdown deadline={next.open} now={now} label="until the next opening bell" endedText="ringing now" />
+              </dd>
+            </div>
+          </dl>
+          <ButtonLink href="/start" variant="secondary" size="sm">
+            Get set up before it opens
+          </ButtonLink>
         </div>
       </div>
+
+      <ul className={`${BOARD} xl:grid-cols-4`} aria-label={deployed ? 'The kinds of market' : 'The markets planned for launch'}>
+        {templates.map((template) => (
+          <li key={template.ticker} className={BOARD_ITEM}>
+            <TemplateCard ticker={template.ticker} family={template.family} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -124,9 +146,9 @@ export function MarketGrid({
           <span className="num text-paper">{formatEtDateTime(nextOpen(now))}</span>. Recently settled markets are below.
         </p>
       )}
-      <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
+      <ul className={`${BOARD} xl:grid-cols-3`}>
         {markets.map((market) => (
-          <li key={market.id}>
+          <li key={market.id} className={BOARD_ITEM}>
             <MarketCard market={market} now={now} />
           </li>
         ))}

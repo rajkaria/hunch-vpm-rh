@@ -84,6 +84,17 @@ describe('<EarlyVsLate> with the worked example', () => {
     }
   });
 
+  it('draws the whole argument as three multiples: early, late, and what an ordinary pool pays both', () => {
+    const { container } = render(<EarlyVsLate proof={SETTLED} />);
+    const rows = [...container.querySelectorAll('dl div')].filter((row) => row.querySelector('dt')?.textContent !== undefined);
+    const byLabel = Object.fromEntries(
+      rows.map((row) => [row.querySelector('dt')?.textContent ?? '', row.querySelector('dd:last-child')?.textContent ?? '']),
+    );
+    expect(byLabel).toMatchObject({ Early: '3.12×', Late: '1.02×', 'Ordinary pool': '1.80×' });
+    // The question is the heading; the week it ran is said once, in the line under it.
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Will TSLA finish the week UP?');
+  });
+
   it('labels a real settled market as such, with its transactions and prices', () => {
     render(<EarlyVsLate proof={SETTLED} />);
     expect(screen.queryByTestId('illustration-label')).toBeNull();

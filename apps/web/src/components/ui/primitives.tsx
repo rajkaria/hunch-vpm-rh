@@ -289,3 +289,36 @@ export function SideWord({ side, className = '' }: { side: 'UP' | 'DOWN'; classN
     </span>
   );
 }
+
+/**
+ * Three (or so) facts in one hairline strip, label over value: the strip under the Hunch
+ * landing page's headline. A `live` fact gets the pulsing lime dot; its value is the caller's.
+ */
+export function FactStrip({
+  facts,
+  label,
+  className = '',
+}: {
+  facts: readonly { label: string; value: ReactNode; live?: boolean }[];
+  /** What the strip is, for screen readers. */
+  label: string;
+  className?: string;
+}) {
+  return (
+    <dl
+      aria-label={label}
+      className={`grid divide-x divide-edge rounded-card border border-edge bg-raised ${className}`}
+      style={{ gridTemplateColumns: `repeat(${facts.length}, minmax(0, 1fr))` }}
+    >
+      {facts.map((fact) => (
+        <div key={fact.label} className="flex min-w-0 flex-col justify-between gap-1.5 px-3 py-3 sm:px-4">
+          <dt className="eyebrow flex items-center gap-1.5">
+            {fact.live === true ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-pill bg-lime motion-safe:animate-pulse" /> : null}
+            {fact.label}
+          </dt>
+          <dd className="text-[15px] leading-tight font-semibold text-paper sm:text-base">{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
