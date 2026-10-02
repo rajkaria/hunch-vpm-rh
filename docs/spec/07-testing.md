@@ -35,7 +35,7 @@ README does not advertise test counts.
 
 | # | Step | Pass when |
 |---|---|---|
-| 1 | Open `rh.playhunch.xyz` on a wallet set to another chain | Button reads "Switch to Robinhood Chain"; one click adds + switches |
+| 1 | Open `vpm.playhunch.xyz` on a wallet set to another chain | Button reads "Switch to Robinhood Chain"; one click adds + switches |
 | 2 | Bet 2 USDG UP on a live daily market **with a wallet holding no ETH** (signed, relayed) | Receipt; position shows accepted 2.00 |
 | 3 | **Hard refresh** | Same position, same numbers |
 | 4 | Second wallet bets 3 USDG DOWN | First wallet's "accrued" rises by the vested amount |

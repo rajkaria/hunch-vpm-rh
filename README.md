@@ -8,7 +8,7 @@ collect every dollar the other side adds after you; call it at the last second a
 stake back. Settled by two Chainlink rounds that nobody can type in, including us. No ETH needed:
 a bet is one signature.
 
-`rh.playhunch.xyz` · chain 4663 · USDG · Chainlink · beta, unaudited
+`vpm.playhunch.xyz` · chain 4663 · USDG · Chainlink · beta, unaudited
 
 > **Status.** The contracts, keeper and venue are built and tested; see
 > [Deployment](#deployment) for what is live. Every public claim about this venue has a receipt in

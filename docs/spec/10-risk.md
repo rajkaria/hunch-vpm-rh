@@ -14,7 +14,7 @@
 | R10 | Regulatory: stock-price binaries to EU retail resemble binary options (ESMA 2018 ban); prediction markets are gambling-regulated in many countries | Medium / high (for a real launch, not the demo) | Geo-block US/CA/UK/CH like Stock Tokens; eligibility checkbox; "beta, unaudited" labels; small caps; README "Legal" section; roadmap item for a legal opinion | State it plainly in the pitch Q&A; do not claim compliance |
 | R11 | Wallet can't add/switch chain 4663 (4902 handling) | Medium / medium | add-then-switch; manual network details on `/start` | WalletConnect path |
 | R12 | Robinhood Wallet can't connect to dapps | Unknown / medium | Verify at G4 | `/start` says so; MetaMask/Rabby path |
-| R13 | Reown/WalletConnect domain not allow-listed | Medium / medium | Operator adds `rh.playhunch.xyz` on day 1 | injected wallets only |
+| R13 | Reown/WalletConnect domain not allow-listed | Medium / medium | Operator adds `vpm.playhunch.xyz` on day 1 | injected wallets only |
 | R14 | Judges read it as "the London entry again" | Medium / high | Different mechanism, chain, stake asset and contracts; provenance table in README; one line on the London entry, nothing more | — |
 | R16 | **Paxos freezes or pauses USDG**, or freezes a winner's address | Low / high | Per-position claims (one frozen winner fails alone); disclosed dependency | None for a contract-level freeze: funds wait until Paxos unfreezes |
 | R17 | Chain operator filters transactions (ArbOS 61); no sequencer uptime feed | Low / medium | Age bounds, 72 h void timeout; disclosed | — |

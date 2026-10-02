@@ -14,7 +14,7 @@ const VENUE = [
 
 const FAMILY = [
   { href: LINKS.hunch, label: 'Hunch', note: 'playhunch.xyz' },
-  { href: LINKS.vpm, label: 'Hunch VPM', note: 'vpm.playhunch.xyz' },
+  { href: LINKS.arc, label: 'Hunch VPM on Arc', note: 'arc.playhunch.xyz' },
   { href: LINKS.paper, label: 'The paper', note: 'Hunch Research' },
   { href: LINKS.github, label: 'GitHub', note: 'Source' },
 ];

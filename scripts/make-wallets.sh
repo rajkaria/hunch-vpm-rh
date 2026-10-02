@@ -76,5 +76,5 @@ if [ "$PUSH_VERCEL" = "1" ]; then
   vercel_set KEEPER_PRIVATE_KEY "$(existing KEEPER_PRIVATE_KEY)" 1
   vercel_set CRON_SECRET "$(existing CRON_SECRET)" 1
   vercel_set RH_FALLBACK_RPC_URL https://rpc.mainnet.chain.robinhood.com 0
-  vercel_set NEXT_PUBLIC_SITE_URL https://rh.playhunch.xyz 0
+  vercel_set NEXT_PUBLIC_SITE_URL https://vpm.playhunch.xyz 0
 fi

@@ -1,4 +1,4 @@
-# 05 · Web app (`apps/web`, served at `rh.playhunch.xyz`)
+# 05 · Web app (`apps/web`, served at `vpm.playhunch.xyz`)
 
 Forked from hunch-vpm `apps/web` (Next.js 16 App Router, wagmi 2, viem 2, TanStack
 Query 5). The Arc chain, The Graph data layer, Circle/AgentKit/World surfaces and the
@@ -149,7 +149,7 @@ curious" glossary, link to the paper, the pre-event provenance note.
 ## Wallets
 
 - wagmi connectors: `injected()` (MetaMask, Rabby, Robinhood Wallet's in-app browser if
-  it injects), `walletConnect({ projectId })` (Reown project; `rh.playhunch.xyz` must be
+  it injects), `walletConnect({ projectId })` (Reown project; `vpm.playhunch.xyz` must be
   on the project's domain allow-list), `coinbaseWallet()`.
 - Chain object for 4663 with explorer `robinhoodchain.blockscout.com`, multicall3
   address (verified in `research-facts.md`).

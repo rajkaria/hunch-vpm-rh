@@ -7,7 +7,7 @@ README lists it under "Built, not yet proven" or not at all.
 
 | # | Feature | Done when (judge-runnable check) |
 |---|---|---|
-| F1 | **Bet on a live stock market from a wallet on Robinhood Chain** | A wallet with USDG places a bet on `rh.playhunch.xyz`; the `Entered` event and the USDG transfer are on Blockscout; the position survives a hard refresh; `/portfolio` shows it. Contracts verified on Blockscout. |
+| F1 | **Bet on a live stock market from a wallet on Robinhood Chain** | A wallet with USDG places a bet on `vpm.playhunch.xyz`; the `Entered` event and the USDG transfer are on Blockscout; the position survives a hard refresh; `/portfolio` shows it. Contracts verified on Blockscout. |
 | F2 | **Settlement nobody types in** | A market resolves from two Chainlink round ids on chain 4663; the resolve tx shows both rounds and prices; the outcome matches the Stock Token's session per those rounds; payouts arrive to owners via `claimFor` without the bettors doing anything. |
 | F3 | **Early beats late, shown with real money** | The landing proof card shows a settled market with at least one early and one late winning bettor who are **not** the operator's wallets, their USDG payouts and multiples side by side, the classic-pool counterfactual, and tx links for every number. |
 

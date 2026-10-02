@@ -2,7 +2,7 @@
   "name": "@hunch-rh/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Hunch on Robinhood Chain: the web venue (rh.playhunch.xyz)",
+  "description": "Hunch on Robinhood Chain: the web venue (vpm.playhunch.xyz)",
   "license": "MIT",
   "type": "module",
   "scripts": {

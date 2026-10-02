@@ -2,7 +2,7 @@
 
 The web venue for **Hunch on Robinhood Chain**: UP/DOWN prediction markets on Robinhood Stock
 Tokens, in USDG on Robinhood Chain (chain 4663), settled from Chainlink rounds. Served at
-`rh.playhunch.xyz` once the domain is attached.
+`vpm.playhunch.xyz` once the domain is attached.
 
 Next.js 16 App Router, React 19, Tailwind v4, TypeScript, Vitest. Server components by default;
 client code only where something moves (the trading islands on `/m/[id]` and `/portfolio`, the price tape, countdowns, the menus, copy buttons,

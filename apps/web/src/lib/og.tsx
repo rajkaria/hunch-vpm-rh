@@ -22,7 +22,7 @@ const LOCKUP_URI = `data:image/svg+xml;base64,${Buffer.from(LOCKUP_SVG).toString
 const SUB = 'Prediction markets on Robinhood Stock Tokens, in USDG on Robinhood Chain.';
 const FOOT = 'Open until the closing bell · Settled by Chainlink';
 const TAG = 'ON ROBINHOOD CHAIN';
-const DOMAIN = 'rh.playhunch.xyz';
+const DOMAIN = 'vpm.playhunch.xyz';
 
 async function googleFont(family: string, weight: number, text: string): Promise<ArrayBuffer | null> {
   try {

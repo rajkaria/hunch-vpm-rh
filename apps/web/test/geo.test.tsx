@@ -14,12 +14,12 @@ describe('the country gate', () => {
   });
 
   it('proxy.ts forwards the verdict to pages (header) and islands (cookie); pages still render', () => {
-    const response = proxy(new NextRequest('https://rh.playhunch.xyz/m/12', { headers: { 'x-vercel-ip-country': 'US' } }));
+    const response = proxy(new NextRequest('https://vpm.playhunch.xyz/m/12', { headers: { 'x-vercel-ip-country': 'US' } }));
     expect(response.status).toBe(200);
     expect(response.headers.get(`x-middleware-request-${REGION_HEADER}`)).toBe('restricted');
     expect(response.cookies.get(REGION_COOKIE)?.value).toBe('restricted');
 
-    const open = proxy(new NextRequest('https://rh.playhunch.xyz/', { headers: { 'x-vercel-ip-country': 'FR' } }));
+    const open = proxy(new NextRequest('https://vpm.playhunch.xyz/', { headers: { 'x-vercel-ip-country': 'FR' } }));
     expect(open.headers.get(`x-middleware-request-${REGION_HEADER}`)).toBe('open');
     expect(open.cookies.get(REGION_COOKIE)?.value).toBe('open');
   });

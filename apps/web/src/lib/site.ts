@@ -17,7 +17,7 @@ function siteUrl(): string {
   if (explicit) return explicit;
   const vercel = (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL)?.trim();
   if (vercel) return vercel.startsWith('http') ? vercel : `https://${vercel}`;
-  return 'https://rh.playhunch.xyz';
+  return 'https://vpm.playhunch.xyz';
 }
 export const SITE_URL = siteUrl().replace(/\/+$/, '');
 
@@ -35,7 +35,7 @@ export const SITE_DESCRIPTION =
 
 export const LINKS = {
   hunch: 'https://www.playhunch.xyz',
-  vpm: 'https://vpm.playhunch.xyz',
+  arc: 'https://arc.playhunch.xyz',
   paper: 'https://www.playhunch.xyz/vpm-whitepaper',
   github: 'https://github.com/rajkaria/hunch-vpm-rh',
   across: 'https://app.across.to',

@@ -1,7 +1,7 @@
 # Operator guide: from zero to live on Robinhood Chain
 
 Everything the operator (the person holding the keys) does to take this repository to a live
-venue at `rh.playhunch.xyz`. Four scripts do the work: `make-wallets.sh` (keys and Vercel
+venue at `vpm.playhunch.xyz`. Four scripts do the work: `make-wallets.sh` (keys and Vercel
 secrets), `set-rpc.sh` (the keyed RPC), `go-live.sh` (Safe, deploy, verify, ownership) and the
 two fork rehearsals. What stays with you: funding the wallets, choosing the seed, and pushing.
 Budget: about 30 minutes plus waiting for funds to bridge.
@@ -179,7 +179,7 @@ Steps 1 and 3 set these in Production:
 | `CRON_SECRET` | `make-wallets.sh --vercel` | Sensitive |
 | `RH_RPC_URL` | `set-rpc.sh` | Sensitive |
 | `RH_FALLBACK_RPC_URL` | `make-wallets.sh --vercel` (the public RPC; the keeper's stale double-check reads it) | Plain |
-| `NEXT_PUBLIC_SITE_URL` | `make-wallets.sh --vercel` (`https://rh.playhunch.xyz`) | Plain |
+| `NEXT_PUBLIC_SITE_URL` | `make-wallets.sh --vercel` (`https://vpm.playhunch.xyz`) | Plain |
 
 Still yours, all optional but recommended: `RELAYER_PRIVATE_KEY` (a third hot key holding only
 ~0.005 ETH, never USDG: it sends gasless bets instead of the keeper, so the public relay never
@@ -205,10 +205,13 @@ git push                       # Vercel builds and deploys main to production
 
 ## 11. Domain and wallets
 
-1. Vercel → Project `hunch-vpm-rh` → Settings → Domains → add `rh.playhunch.xyz` (the
-   `playhunch.xyz` zone's nameservers are at Porkbun, not Vercel: if Vercel shows "Invalid
-   Configuration", add a `CNAME` record `rh` → `cname.vercel-dns.com` in Porkbun's DNS panel).
-2. <https://cloud.reown.com> → your project → Domain allow-list → add `rh.playhunch.xyz`.
+1. `vpm.playhunch.xyz` serves this venue. It used to serve Hunch VPM on Arc (Vercel project
+   `hunch-vpm`), which now lives at `arc.playhunch.xyz`. Vercel → Project `hunch-vpm` →
+   Settings → Domains → `vpm.playhunch.xyz` → Remove; then Project `hunch-vpm-rh` → Settings →
+   Domains → Add `vpm.playhunch.xyz`. The `playhunch.xyz` nameservers are at Porkbun, not
+   Vercel: `vpm` already has its `CNAME` (`dc95ae8fe81a785e.vercel-dns-016.com`), and `arc` needs
+   the same `CNAME` added in Porkbun's DNS panel.
+2. <https://cloud.reown.com> → your project → Domain allow-list → add `vpm.playhunch.xyz`.
 
 ## 12. First markets
 
@@ -217,7 +220,7 @@ today's daily markets (and the week's weekly markets) before the 09:30 ET bell. 
 right away instead:
 
 ```bash
-curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://rh.playhunch.xyz/api/cron/open
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://vpm.playhunch.xyz/api/cron/open
 # or locally with the keeper key in your shell env:
 pnpm --filter @hunch-rh/keeper keeper run-once open
 ```
@@ -255,7 +258,7 @@ and delivers every refund. `/proof` shows the void and the refund transactions.
 ## 15. Monitoring
 
 1. UptimeRobot or Better Stack (free) → HTTP monitor on
-   `https://rh.playhunch.xyz/api/health` every 5 minutes, alert to your phone. It returns 200
+   `https://vpm.playhunch.xyz/api/health` every 5 minutes, alert to your phone. It returns 200
    only when every check passes (markets listed, nothing overdue, keeper funded, feeds fresh,
    RPC live, the Safe owns the factory, the settler's only creator is the factory, new bets not
    paused).

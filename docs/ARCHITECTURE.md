@@ -7,7 +7,7 @@ still collect.
 
 ```
                 ┌──────────────────────────────────────────────────────────────┐
-                │  rh.playhunch.xyz  (Next.js on Vercel)                       │
+                │  vpm.playhunch.xyz  (Next.js on Vercel)                       │
                 │  pages · /api reads · /api/relay/enter · /api/cron/[job]     │
                 └───────┬───────────────────────┬───────────────────┬──────────┘
                         │ view calls             │ signed bets       │ Vercel Cron

@@ -130,7 +130,7 @@ Stated as a dependency list, not as praise:
 
 ## Success criteria for the build (what "done" means to a judge)
 
-1. A judge opens `rh.playhunch.xyz`, sees live markets with a live Chainlink price and
+1. A judge opens `vpm.playhunch.xyz`, sees live markets with a live Chainlink price and
    a countdown to the bell, and can place a bet from a wallet on Robinhood Chain.
 2. The home page shows one **settled** weekly market with at least one early and one
    late winning bettor, their USDG payouts side by side, what an ordinary pool would

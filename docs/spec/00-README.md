@@ -7,7 +7,7 @@
 and any ticker with a healthy Chainlink feed), in USDG, on Robinhood Chain mainnet
 (chain 4663), settled from Chainlink rounds, using the Vested Parimutuel payout rule so
 that an early call is paid more than a late one and markets can stay open until the
-closing bell. Served at `rh.playhunch.xyz`.
+closing bell. Served at `vpm.playhunch.xyz`.
 
 ## Reading order
 
@@ -34,7 +34,7 @@ hunch-vpm-rh/
                         DIFF.md, GAS.md, SECURITY.md, VENDORED.md
   packages/client/      viem reads/writes, rounds finder, mechanics mirror, chain 4663 config
   packages/keeper/      pure decisions + runner (open / resolve / deliver / health)
-  apps/web/             Next.js venue (rh.playhunch.xyz) incl. /api/cron/* and /api/health
+  apps/web/             Next.js venue (vpm.playhunch.xyz) incl. /api/cron/* and /api/health
   deployments/          robinhood-mainnet.json (single source of addresses for every reader)
   docs/spec/            this spec
   docs/FACTS.md         every public claim with its receipt

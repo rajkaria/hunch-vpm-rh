@@ -44,7 +44,7 @@ function fakeKeeper(overrides: Partial<Keeper> = {}): Keeper & { relay: ReturnTy
 }
 
 function relayRequest(body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request('https://rh.playhunch.xyz/api/relay/enter', {
+  return new Request('https://vpm.playhunch.xyz/api/relay/enter', {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
     body: typeof body === 'string' ? body : JSON.stringify(body),
@@ -170,7 +170,7 @@ describe('POST /api/relay/enter', () => {
 
 describe('GET /api/cron/[job]', () => {
   const call = (job: string, authorization?: string) =>
-    cron(new Request(`https://rh.playhunch.xyz/api/cron/${job}`, { headers: authorization === undefined ? {} : { authorization } }), {
+    cron(new Request(`https://vpm.playhunch.xyz/api/cron/${job}`, { headers: authorization === undefined ? {} : { authorization } }), {
       params: Promise.resolve({ job }),
     });
 

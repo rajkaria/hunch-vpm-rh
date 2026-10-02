@@ -71,7 +71,7 @@ mainnet run: `forge script ... --fork-url $RH_RPC_URL` with no `--broadcast`, th
 ## Vercel project and domain
 
 - New Vercel project for this repo, root `apps/web`, framework Next.js.
-- Domain `rh.playhunch.xyz` (the `playhunch.xyz` zone is already on Vercel).
+- Domain `vpm.playhunch.xyz` (the `playhunch.xyz` zone is already on Vercel).
 - Env vars (production; the operator sets secrets, Claude only names them):
   `NEXT_PUBLIC_CHAIN_ID=4663`, `NEXT_PUBLIC_RH_RPC_URL` (public RPC, read fallback),
   `RH_RPC_URL` (keyed, server only), `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`,
