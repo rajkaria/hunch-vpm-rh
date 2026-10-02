@@ -16,7 +16,7 @@ if [ -t 0 ]; then
   IFS= read -rs url
   printf '\n'
 else
-  IFS= read -r url
+  IFS= read -r url || [ -n "$url" ] # a clipboard paste has no trailing newline
 fi
 url=$(printf '%s' "$url" | tr -d '[:space:]')
 case "$url" in https://*) ;; *) echo "not an https:// URL" >&2; exit 1 ;; esac

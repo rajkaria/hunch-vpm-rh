@@ -240,7 +240,7 @@ if [ "$deployed" = "1" ]; then
 fi
 
 step "Next"
-if [ "$CHECK_ONLY" = "1" ] || [ "$deployed" = "0" ]; then
+if [ "$deployed" = "0" ]; then
   say "fund the wallets above, then: bash scripts/go-live.sh"
 elif [ "$MAINNET" = "1" ]; then
   say "pnpm verify"
