@@ -5,29 +5,29 @@ import type { Deployment } from './types.js';
 export const EMBEDDED_DEPLOYMENT: Deployment = {
   "network": "robinhood-mainnet",
   "chainId": 4663,
-  "status": "not-deployed",
-  "deployedAt": null,
-  "gitCommit": null,
-  "startBlock": null,
+  "status": "deployed",
+  "deployedAt": "2026-10-02T17:56:22Z",
+  "gitCommit": "c8aac85c325179fc48309859df0c5aafe13fd27d",
+  "startBlock": 78426641,
   "contracts": {
     "HunchVPM": {
-      "address": "0x0000000000000000000000000000000000000000",
-      "deployTx": null,
-      "block": null
+      "address": "0x1c23356536eA8E30F53481b971098aC30DA43576",
+      "deployTx": "0x3a007ba9e76c889caabbe9049c957f482e9bd26703217fc9168e55344e880bf9",
+      "block": 78426658
     },
     "StockRoundResolver": {
-      "address": "0x0000000000000000000000000000000000000000",
-      "deployTx": null,
-      "block": null
+      "address": "0xb3336ab62cB57841CDEA2CA43d62F2D2c5287721",
+      "deployTx": "0x5deadfcf523257da629b38ac8ab8be3fc06d3e885facd354de19e3c1abeb269b",
+      "block": 78426641
     },
     "HunchMarketFactory": {
-      "address": "0x0000000000000000000000000000000000000000",
-      "deployTx": null,
-      "block": null
+      "address": "0x2EdcCA1e40AEACD3ef2d5FcBFEAC5B356e1b6676",
+      "deployTx": "0xc67939506d4308ed9042f3fe0caac5509e734854c4773aa7107a9419d9329f27",
+      "block": 78426671
     }
   },
-  "safe": "0x0000000000000000000000000000000000000000",
-  "keeper": "0x0000000000000000000000000000000000000000",
+  "safe": "0x5866308Af35fA8AbD67f88d31695aD029143F336",
+  "keeper": "0xEb420AD181518814B6E3feb89A9d369Da3F5b580",
   "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
   "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11",
   "explorer": "https://robinhoodchain.blockscout.com",

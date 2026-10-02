@@ -6,8 +6,20 @@ without a receipt is removed or moved to "Not built". Rows are added only from r
 
 ## Live now
 
-_Filled by the redeploy from the hardened contracts (D10, voidBadAnswer, strike guard); see
-"Superseded" below for why the first deploy is not the venue._
+Deployed to Robinhood Chain mainnet (4663) on 2026-10-02 from commit `c8aac85` (the second
+review's hardening included) by `bash scripts/go-live.sh`. Explorer:
+`https://robinhoodchain.blockscout.com/tx/<hash>`.
+
+| Fact | Receipt |
+|---|---|
+| HunchVPM is deployed at `0x1c23356536eA8E30F53481b971098aC30DA43576`, source verified | deploy tx `0x3a007ba9e76c889caabbe9049c957f482e9bd26703217fc9168e55344e880bf9`; Sourcify `exact_match` |
+| StockRoundResolver is deployed at `0xb3336ab62cB57841CDEA2CA43d62F2D2c5287721`, source verified | deploy tx `0x5deadfcf523257da629b38ac8ab8be3fc06d3e885facd354de19e3c1abeb269b`; Sourcify `exact_match` |
+| HunchMarketFactory is deployed at `0x2EdcCA1e40AEACD3ef2d5FcBFEAC5B356e1b6676`, source verified | deploy tx `0xc67939506d4308ed9042f3fe0caac5509e734854c4773aa7107a9419d9329f27`; Sourcify `exact_match` |
+| HunchVPM's only market creator is the factory (D10); its pauser is the deployer `0xf2c2975975aE49f02c83F61b7022a292E3725013` (pause only, never resume) | settler `factory()` = the factory, `pauser()` = the deployer |
+| The Safe `0x5866308Af35fA8AbD67f88d31695aD029143F336` is 2 of 3; the operator holds all three owner keys | creation tx `0x516e740448b81f55c03ab6c5c0db524d037355cb73f61519e69e8df03e2f1338`; `getThreshold()` = 2, `getOwners()` = 3 |
+| The Safe owns the factory, and is the settler's guardian and treasury | Safe tx `0x01ee3783c0add0b53b12132a091ee89ddd38870566cb025828b0fdb38a01de9f` (`acceptOwnership()`); factory `owner()`, settler `guardian()` and `treasury()` = the Safe |
+| NVDA, TSLA, AAPL and COIN are allow-listed with 26 h staleness bounds | four factory txs from the deployer (`0x3c0b…de1b`, `0xb465…7417`, `0x7ac3…28fd`, `0x405d…0369`); `feeds(feed)` on the factory |
+| The keeper `0xEb420AD181518814B6E3feb89A9d369Da3F5b580` may list markets | factory tx `0xd243…0b4a` (`setOpener`); `openers(keeper)` = true |
 
 Rows to fill as the venue runs, each only with its receipt:
 

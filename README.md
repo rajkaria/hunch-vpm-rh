@@ -99,13 +99,15 @@ Measured gas is in [`GAS.md`](contracts/GAS.md).
 ## Deployment
 
 <!-- deployment:start -->
-Network: Robinhood Chain mainnet (chain 4663). Status: **not deployed yet**. Source: `deployments/robinhood-mainnet.json`.
+Network: Robinhood Chain mainnet (chain 4663). Status: **deployed** (2026-10-02T17:56:22Z). Source: `deployments/robinhood-mainnet.json`.
 
 | What | Address |
 |---|---|
-| HunchVPM | not deployed yet |
-| StockRoundResolver | not deployed yet |
-| HunchMarketFactory | not deployed yet |
+| HunchVPM | [`0x1c23…3576`](https://robinhoodchain.blockscout.com/address/0x1c23356536eA8E30F53481b971098aC30DA43576) |
+| StockRoundResolver | [`0xb333…7721`](https://robinhoodchain.blockscout.com/address/0xb3336ab62cB57841CDEA2CA43d62F2D2c5287721) |
+| HunchMarketFactory | [`0x2Edc…6676`](https://robinhoodchain.blockscout.com/address/0x2EdcCA1e40AEACD3ef2d5FcBFEAC5B356e1b6676) |
+| Safe (owner, guardian, treasury) | [`0x5866…F336`](https://robinhoodchain.blockscout.com/address/0x5866308Af35fA8AbD67f88d31695aD029143F336) |
+| Keeper (opener, relayer) | [`0xEb42…b580`](https://robinhoodchain.blockscout.com/address/0xEb420AD181518814B6E3feb89A9d369Da3F5b580) |
 | USDG | [`0x5fc5…d168`](https://robinhoodchain.blockscout.com/address/0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168) |
 | NVDA Chainlink feed · Stock Token | [`0x379E…9F15`](https://robinhoodchain.blockscout.com/address/0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15) · [`0xd060…9EEC`](https://robinhoodchain.blockscout.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC) |
 | TSLA Chainlink feed · Stock Token | [`0x4A11…7C38`](https://robinhoodchain.blockscout.com/address/0x4A1166a659A55625345e9515b32adECea5547C38) · [`0x322F…3b2d`](https://robinhoodchain.blockscout.com/address/0x322F0929c4625eD5bAd873c95208D54E1c003b2d) |
