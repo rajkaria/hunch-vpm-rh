@@ -26,7 +26,7 @@ import {RH, IChainlinkProxy, IUSDG, ISafeLike} from "./RH.sol";
 ///         the Safe has code and a threshold of at least 2 (or ALLOW_1OF1=1); USDG has 6
 ///         decimals, its pinned EIP-712 domain separator and is not paused; every feed has 8
 ///         decimals, the pinned description and a sane latest answer; every Stock Token has the
-///         ticker as its symbol; the deployer holds at least 0.002 ETH; the deployment JSON
+///         ticker as its symbol; the deployer holds at least 0.0005 ETH; the deployment JSON
 ///         agrees with the pinned facts and is not already "deployed".
 ///
 ///         Deploys StockRoundResolver → HunchVPM(guardian = treasury = Safe) →
@@ -120,7 +120,7 @@ contract DeployRH is Script {
                     vm.toString(c.deployer),
                     " holds ",
                     vm.toString(c.deployer.balance),
-                    " wei; it needs at least 0.002 ETH (docs/OPERATOR.md step 4)"
+                    " wei; it needs at least 0.0005 ETH (docs/OPERATOR.md step 4)"
                 )
             );
         }

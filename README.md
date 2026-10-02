@@ -75,6 +75,9 @@ than a day. The rules box on every market says so before you bet.
 | Anyone | resolve with the two proven rounds; void on proven staleness or a 24 h oracle pause; relay a bettor's signed entry; deliver claims and refunds to owners; sweep fees to the treasury | choose the outcome; send anyone's funds anywhere but to their owner |
 | StockRoundResolver | settle its registered markets per the spec | anything else (it has no owner) |
 
+The Safe is 2 of 3, and at launch the operator holds all three owner keys: treat its powers as one
+person's. They are limited to the left column above; no key can move a bettor's stake or set a price.
+
 ## Contracts
 
 | Contract | What it does |

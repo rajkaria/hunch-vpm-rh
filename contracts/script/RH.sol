@@ -30,7 +30,9 @@ library RH {
     /// @notice Chainlink equity feeds on 4663 answer with 8 decimals.
     uint8 internal constant FEED_DECIMALS = 8;
     /// @notice The deployer must hold at least this much ETH before it starts.
-    uint256 internal constant MIN_DEPLOYER_ETH = 0.002 ether;
+    /// @dev The three deploys and the wiring estimate at ~7.5M gas on chain 4663 (L1 data
+    ///      included), ~0.00025 ETH at 0.032 gwei; forge needs headroom for its gas limits.
+    uint256 internal constant MIN_DEPLOYER_ETH = 0.0005 ether;
 
     /// @param ticker      the display ticker and the Stock Token's `symbol()`
     /// @param feed        the Chainlink AggregatorV3 standard proxy (not the SVR proxy)

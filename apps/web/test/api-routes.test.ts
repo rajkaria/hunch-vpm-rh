@@ -227,7 +227,7 @@ describe('GET /api/health', () => {
           nowSec: 1,
           checks: [
             { name: 'rpc-head', ok: true, detail: 'latest block is 1 s old' },
-            { name: 'keeper-eth', ok: false, detail: '0.0011 ETH (floor 0.002)' },
+            { name: 'keeper-eth', ok: false, detail: '0.0004 ETH (floor 0.001)' },
           ],
         })) as never,
       }),

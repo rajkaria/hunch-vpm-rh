@@ -1,14 +1,23 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PriceTape } from '@/components/landing/PriceTape';
 import { TICKERS } from '@/content/tickers';
 import type { PriceSnapshot } from '@/lib/view/types';
 
-afterEach(cleanup);
-
 const FRIDAY_CLOSE = Date.UTC(2026, 8, 25, 19, 56) / 1000;
 const SATURDAY = Date.UTC(2026, 8, 26, 15, 0) / 1000;
+
+// PriceTape takes the server's `now`, then re-reads the client clock on mount: pin that clock
+// to the same Saturday, or the ages drift with the real date.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(SATURDAY * 1000);
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function snapshot(answer: string | null, status: PriceSnapshot['status']): PriceSnapshot {
   return {

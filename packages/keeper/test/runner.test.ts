@@ -175,6 +175,32 @@ describe('T9 · health', () => {
     expect(evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === 'keeper-usdg')!.ok).toBe(false);
   });
 
+  it('keeper-usdg counts the seeds in its markets: wallet + open seeds + undelivered payouts', async () => {
+    const now = utc(2026, 9, 25, 15, 0); // Fri, in session
+    const { d, chain } = world(now);
+    const floor = keeperUsdgFloor(d);
+    expect(floor).toBe((4n * 2n + 1n) * 2n * 10_000_000n); // (4 tickers × daily + weekly + drill) × 2 legs × seed
+    const usdg = async () => evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === 'keeper-usdg')!;
+    // Today's four dailies are listed: 80 USDG of seed left the wallet but is still the keeper's.
+    const ids = d.feeds.map((f) => chain.open({ feed: f.feed, strikeTime: openingBell('2026-09-25'), finalTime: closingBell('2026-09-25') }));
+    chain.usdgBalances.set(KEEPER.toLowerCase(), floor - 80_000_000n);
+    let c = await usdg();
+    expect(c.ok).toBe(true);
+    expect(c.detail).toMatch(/100\.00 USDG in the wallet \+ 80\.00 in its markets \(floor 180\.00\)/);
+    // A market another opener listed is not the keeper's float.
+    chain.open({ feed: d.feeds[0]!.feed, strikeTime: openingBell('2026-09-25'), finalTime: closingBell('2026-09-25'), opener: '0x0000000000000000000000000000000000000C0C' });
+    expect((await usdg()).detail).toMatch(/\+ 80\.00 in its markets/);
+    // Settled, not yet delivered: the winning seed leg still counts (2 × seed: both legs, no bets), the losing leg is gone.
+    chain.l1 = 50n;
+    chain.resolve(ids[0]!, UP);
+    c = await usdg();
+    expect(c.detail).toMatch(/\+ 79\.80 in its markets/); // 60 open + the UP leg's 20.00 gross less the 2% fee on its 10.00 gain
+    expect(c.ok).toBe(false);
+    // The float erodes below the floor: red.
+    chain.usdgBalances.set(KEEPER.toLowerCase(), 0n);
+    expect((await usdg()).ok).toBe(false);
+  });
+
   it('RPC head age and feed freshness during a session', async () => {
     const now = utc(2026, 9, 25, 15, 0);
     const { d, chain } = world(now);

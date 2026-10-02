@@ -95,8 +95,8 @@ come back as `{ ok: false, code, status, message }` with plain-words messages.
 ## Health
 
 `GET /api/health` is green only if every check passes, all derived from chain state:
-`rpc-head` (< 60 s), `keeper-eth` (≥ 0.002 ETH), `keeper-usdg` (≥ tickers × 2 markets × 20 USDG
-+ 40), `todays-markets` (on a trading day from the opening bell − 5 min), `settlement` (no market
+`rpc-head` (< 60 s), `keeper-eth` (≥ 0.001 ETH), `keeper-usdg` (wallet + its seeds in open markets + its undelivered
+payouts ≥ (tickers × 2 markets + 1 drill) × 2 legs × `seedPerLeg`), `todays-markets` (on a trading day from the opening bell − 5 min), `settlement` (no market
 unsettled 30 min after its bell), `delivery` (no deliverable claim 50 min after the bell),
 `feed-freshness` (every allow-listed feed younger than 26 h during a regular session). Before
 deployment it is green with a "not deployed" note.

@@ -104,7 +104,7 @@ export default function KeeperDoc() {
           [
             'Keeper (lister and relayer), a hot wallet',
             'ETH for gas (its own calls, relayed bets, payout deliveries); the USDG float for opening seeds',
-            'Keeps at least 0.002 ETH and enough USDG for every open seed. Seeds come back to it at each settlement. Its key lives only in the hosting environment.',
+            'Keeps at least 0.001 ETH, and enough USDG (in its wallet plus the seeds in its open markets) for every daily, every weekly and one drill market. Seeds come back to it at each settlement. Its key lives only in the hosting environment.',
           ],
           ['Treasury Safe', 'Fees and rounding leftovers', 'Swept automatically; nothing to spend.'],
           ['Guardian Safe (the same Safe)', 'Nothing', 'Only signs: pause new bets, allow-list feeds, allow listers.'],
@@ -123,7 +123,7 @@ export default function KeeperDoc() {
         <LI>the last successful listing run is less than 26 hours old on a trading day, and today&rsquo;s markets exist after 13:25 UTC;</LI>
         <LI>no market is more than 30 minutes past its bell without being settled (unless it is waiting on a phase change);</LI>
         <LI>no settled market has an undelivered payout older than 20 minutes;</LI>
-        <LI>the keeper holds at least 0.002 ETH and its USDG floor;</LI>
+        <LI>the keeper holds at least 0.001 ETH, and its wallet plus the seeds in its open markets reach its USDG floor;</LI>
         <LI>the RPC&rsquo;s latest block is less than 60 seconds old;</LI>
         <LI>every allowed feed has updated within 26 hours on a trading day;</LI>
         <LI>the relayer has sent a bet successfully in the last trading day, or none was requested.</LI>

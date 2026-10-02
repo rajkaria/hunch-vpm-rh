@@ -43,7 +43,9 @@ owner.
 
 ## Keeper balance low
 
-`/api/health` goes red below 0.002 ETH or below the USDG seed floor. Top up the keeper address
+`/api/health` goes red below 0.001 ETH, or when the keeper's USDG (wallet plus the seeds in its open
+markets) falls below the seed floor: (tickers × 2 + 1 drill) × 2 legs × `seedPerLeg`. Its detail line
+shows both parts. Top up the keeper address
 listed in `deployments/robinhood-mainnet.json` (ETH via Relay or Across; USDG via Across from
 USDC on Arbitrum One or Base). Seeds recycle to the keeper as markets settle.
 

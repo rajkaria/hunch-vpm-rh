@@ -6,6 +6,9 @@
 #   bash scripts/rehearse-fork.sh --keep          same, then leave anvil running for the web / keeper
 #   bash scripts/rehearse-fork.sh --port 18545    choose the port (default: a free one)
 #   RH_RPC_URL=<keyed RPC> bash scripts/rehearse-fork.sh   fork through your own RPC
+#   bash scripts/rehearse-fork.sh --template deployments/local/candidate.json
+#                                                  rehearse candidate params (seed, entry bounds, fee)
+#                                                  before writing them into the mainnet JSON
 #
 # What it proves, in order (each step fails the run if it does not hold):
 #   1. anvil forks chain 4663 at the latest block (real USDG, real Chainlink feeds, real Stock
@@ -39,11 +42,13 @@ ROOT=$(pwd)
 
 KEEP=0
 PORT=""
+PARAMS_JSON=$ROOT/deployments/robinhood-mainnet.json
 while [ $# -gt 0 ]; do
   case "$1" in
     --keep) KEEP=1 ;;
     --port) PORT="${2:?}"; shift ;;
-    -h | --help) sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --template) PARAMS_JSON=$(cd "$(dirname "${2:?}")" && pwd)/$(basename "$2"); shift ;;
+    -h | --help) sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'rehearse: unknown argument %s (see --help)\n' "$1" >&2; exit 2 ;;
   esac
   shift
@@ -66,6 +71,25 @@ SAFE_FALLBACK=0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99 # CompatibilityFallback
 MULTICALL3=0xcA11bde05977b3631167028862bE2a173976CA11
 ZERO=0x0000000000000000000000000000000000000000
 USDG_DOMAIN_SEPARATOR=0x7a3d7400b27830f4f91c2c16a082486d67c1befecaec2f53b33f1f35d5b62036
+
+# The bets follow the mainnet JSON's params, so the rehearsal lists exactly what mainnet will.
+# Alice bets A UP, then Carol bets C = S + A DOWN: the UP book's accumulator goes 1 -> 2 exactly
+# (C / (S + A) = 1), so every payout is a whole multiple of the seed and the bets (whole USDG).
+S=$(jq -r .params.seedPerLeg "$PARAMS_JSON")
+MAXE=$(jq -r .params.maxEntry "$PARAMS_JSON")
+KAPPA=$(jq -r .params.kappa "$PARAMS_JSON")
+FEE_BPS=$(jq -r .params.feeBps "$PARAMS_JSON")
+A=20000000
+if [ $((MAXE - S)) -lt "$A" ]; then A=$((MAXE - S)); fi             # C = S + A stays within the max entry
+if [ $(((KAPPA - 1) * S)) -lt "$A" ]; then A=$(((KAPPA - 1) * S)); fi # and A within the DOWN book's headroom
+C=$((S + A))
+KEEPER_FUND=25000000 # the operator's keeper float at a 1 USDG seed (docs/OPERATOR.md step 4)
+if [ $((2 * S + 5000000)) -gt "$KEEPER_FUND" ]; then KEEPER_FUND=$((2 * S + 5000000)); fi
+ALICE_FUND=$((A + 30000000))
+CAROL_FUND=$((C + 20000000))
+FEE_K=$((2 * S * FEE_BPS / 10000)) # the keeper's UP seed gains 2S
+FEE_A=$((A * FEE_BPS / 10000))     # Alice gains A
+usd() { printf '%d.%02d' $(($1 / 1000000)) $((($1 % 1000000) / 10000)); }
 
 # anvil's well-known test keys (mnemonic "test test ... junk"); never valid anywhere else
 K_DEPLOYER=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -216,25 +240,25 @@ safe_exec() { # label to calldata
 
 # ------------------------------------------------------------------ 3. funding
 step "Fund the wallets: ETH like the operator's, USDG from the USDG/WETH pool (impersonated)"
-set_eth "$DEPLOYER" 0.005 # the operator funds the deployer with ~0.003 ETH; the preflight needs 0.002
-set_eth "$KEEPER" 0.01
+set_eth "$DEPLOYER" 0.001 # what the operator sends the deployer; the preflight needs 0.0005
+set_eth "$KEEPER" 0.003 # what the operator sends the keeper
 set_eth "$ALICE" 0.001    # Alice pays gas for her bet
 set_eth "$CAROL" 0        # Carol never holds ETH: her bet is signed and relayed
 set_eth "$OWNER1" 0.01    # the Safe owner who executes Safe transactions
 set_eth "$POOL" 1         # gas for the impersonated pool
 rpc anvil_impersonateAccount "$POOL"
-send_as "USDG.transfer pool -> keeper (200 USDG)" "$POOL" "$USDG" 'transfer(address,uint256)' "$KEEPER" 200000000
-send_as "USDG.transfer pool -> Alice (50 USDG)" "$POOL" "$USDG" 'transfer(address,uint256)' "$ALICE" 50000000
-send_as "USDG.transfer pool -> Carol (50 USDG)" "$POOL" "$USDG" 'transfer(address,uint256)' "$CAROL" 50000000
+send_as "USDG.transfer pool -> keeper ($(usd "$KEEPER_FUND") USDG)" "$POOL" "$USDG" 'transfer(address,uint256)' "$KEEPER" "$KEEPER_FUND"
+send_as "USDG.transfer pool -> Alice ($(usd "$ALICE_FUND") USDG)" "$POOL" "$USDG" 'transfer(address,uint256)' "$ALICE" "$ALICE_FUND"
+send_as "USDG.transfer pool -> Carol ($(usd "$CAROL_FUND") USDG)" "$POOL" "$USDG" 'transfer(address,uint256)' "$CAROL" "$CAROL_FUND"
 rpc anvil_stopImpersonatingAccount "$POOL"
-eq "keeper USDG" "$(usdg_of "$KEEPER")" 200000000
-eq "Alice USDG" "$(usdg_of "$ALICE")" 50000000
-eq "Carol USDG" "$(usdg_of "$CAROL")" 50000000
+eq "keeper USDG" "$(usdg_of "$KEEPER")" "$KEEPER_FUND"
+eq "Alice USDG" "$(usdg_of "$ALICE")" "$ALICE_FUND"
+eq "Carol USDG" "$(usdg_of "$CAROL")" "$CAROL_FUND"
 eq "Carol ETH" "$(eth_of "$CAROL")" 0
 
 # ------------------------------------------------------------------ 4. DeployRH
 deploy() { # extra forge flags...
-  SAFE_ADDRESS="$DEPLOY_SAFE" KEEPER_ADDRESS="$KEEPER" DEPLOYMENTS_OUT="$FORK_JSON" \
+  SAFE_ADDRESS="$DEPLOY_SAFE" KEEPER_ADDRESS="$KEEPER" DEPLOYMENTS_OUT="$FORK_JSON" DEPLOYMENTS_TEMPLATE="$PARAMS_JSON" \
     FOUNDRY_BROADCAST="$BROADCAST_DIR" \
     forge script contracts/script/DeployRH.s.sol:DeployRH --root contracts --rpc-url "$RPC" \
     --private-key "$K_DEPLOYER" --sender "$DEPLOYER" "$@"
@@ -275,13 +299,13 @@ for c in StockRoundResolver HunchVPM HunchMarketFactory; do
   [ "$(J ".contracts.$c.deployTx")" != null ] && [ "$(J ".contracts.$c.block")" != null ] || die "JSON $c misses deployTx or block"
 done
 jq -e '(.startBlock | type) == "number" and (.deployedAt | type) == "string"' "$FORK_JSON" >/dev/null || die "startBlock / deployedAt"
-jq -e --slurpfile m deployments/robinhood-mainnet.json \
+jq -e --slurpfile m "$PARAMS_JSON" \
   '(.feeds | map(del(.aggregator))) == ($m[0].feeds | map(del(.aggregator))) and .params == $m[0].params' \
-  "$FORK_JSON" >/dev/null || die "the fork JSON's feeds or params differ from the mainnet JSON"
+  "$FORK_JSON" >/dev/null || die "the fork JSON's feeds or params differ from $PARAMS_JSON"
 for f in $(J '.feeds[] | .feed, .aggregator, .stockToken'); do
   [ "$f" = "$(cast to-check-sum-address "$f")" ] || die "JSON feed address is not EIP-55: $f"
 done
-say "ok  every field of the fork JSON is set, checksummed, and its feeds/params equal the mainnet JSON's"
+say "ok  every field of the fork JSON is set, checksummed, and its feeds/params equal $(basename "$PARAMS_JSON")'s"
 eq "startBlock = the resolver's deploy block" "$(J .startBlock)" "$(J .contracts.StockRoundResolver.block)"
 
 step "scripts/verify-contracts.sh --print: the exact verification commands, args checked on chain"
@@ -344,21 +368,21 @@ SPEC=$(jq -r '.[1]' <<<"$LISTING")
 eq "listing feed" "$(jq -r '.[2]' <<<"$LISTING")" "$TEST_FEED"
 eq "listing final time" "$(jq -r '.[4] | tostring' <<<"$LISTING")" "$FINAL"
 eq "resolver.specIdOf(settler, market)" "$(view "$RESOLVER" 'specIdOf(address,uint256)(bytes32)' "$VPM" "$MID")" "$SPEC"
-eq "keeper USDG after the 10 + 10 seed" "$(usdg_of "$KEEPER")" 180000000
+eq "keeper USDG after the $(usd "$S") + $(usd "$S") seed" "$(usdg_of "$KEEPER")" "$((KEEPER_FUND - 2 * S))"
 eq "factory USDG (keeps nothing)" "$(usdg_of "$FACTORY")" 0
 eq "factory allowance to the settler (zeroed)" "$(view "$USDG" 'allowance(address,address)(uint256)' "$FACTORY" "$VPM" | first)" 0
 
 # ------------------------------------------------------------------ 9. bets
-step "Alice bets 20 UP with enter (she pays gas)"
-send "USDG.approve(settler, 20) by Alice" "$K_ALICE" "$USDG" 'approve(address,uint256)' "$VPM" 20000000
-send "HunchVPM.enter UP 20 USDG (Alice)" "$K_ALICE" "$VPM" 'enter(uint256,uint8,uint256)' "$MID" 0 20000000
+step "Alice bets $(usd "$A") UP with enter (she pays gas)"
+send "USDG.approve(settler, $(usd "$A")) by Alice" "$K_ALICE" "$USDG" 'approve(address,uint256)' "$VPM" "$A"
+send "HunchVPM.enter UP $(usd "$A") USDG (Alice)" "$K_ALICE" "$VPM" 'enter(uint256,uint8,uint256)' "$MID" 0 "$A"
 
-step "Carol bets 30 DOWN gasless: EIP-712 signature over USDG's real domain, relayed by the keeper"
+step "Carol bets $(usd "$C") DOWN gasless: EIP-712 signature over USDG's real domain, relayed by the keeper"
 SALT=$(cast keccak "carol-rehearsal-$NOW")
-NONCE=$(view "$VPM" 'enterNonce(uint256,uint8,uint256,bytes32)(bytes32)' "$MID" 1 30000000 "$SALT")
+NONCE=$(view "$VPM" 'enterNonce(uint256,uint8,uint256,bytes32)(bytes32)' "$MID" 1 "$C" "$SALT")
 VALID_BEFORE=$((NOW + 1800))
 TYPED="$LOCAL/carol-authorization.json"
-jq -n --arg usdg "$USDG" --arg from "$CAROL" --arg to "$VPM" --arg vb "$VALID_BEFORE" --arg nonce "$NONCE" '{
+jq -n --arg value "$C" --arg usdg "$USDG" --arg from "$CAROL" --arg to "$VPM" --arg vb "$VALID_BEFORE" --arg nonce "$NONCE" '{
   types: {
     EIP712Domain: [{name: "name", type: "string"}, {name: "version", type: "string"},
                    {name: "chainId", type: "uint256"}, {name: "verifyingContract", type: "address"}],
@@ -368,13 +392,13 @@ jq -n --arg usdg "$USDG" --arg from "$CAROL" --arg to "$VPM" --arg vb "$VALID_BE
   },
   primaryType: "ReceiveWithAuthorization",
   domain: {name: "Global Dollar", version: "1", chainId: 4663, verifyingContract: $usdg},
-  message: {from: $from, to: $to, value: "30000000", validAfter: "0", validBefore: $vb, nonce: $nonce}
+  message: {from: $from, to: $to, value: $value, validAfter: "0", validBefore: $vb, nonce: $nonce}
 }' >"$TYPED"
 SIG=$(cast wallet sign --data --from-file "$TYPED" --private-key "$K_CAROL")
-say "Carol signed ReceiveWithAuthorization(to = HunchVPM, 30 USDG, nonce = enterNonce(market, DOWN, 30, salt))"
-send "HunchVPM.enterWithAuthorization DOWN 30 USDG (Carol, relayed)" "$K_KEEPER" "$VPM" \
+say "Carol signed ReceiveWithAuthorization(to = HunchVPM, $(usd "$C") USDG, nonce = enterNonce(market, DOWN, $(usd "$C"), salt))"
+send "HunchVPM.enterWithAuthorization DOWN $(usd "$C") USDG (Carol, relayed)" "$K_KEEPER" "$VPM" \
   'enterWithAuthorization(address,uint256,uint8,uint256,uint256,uint256,bytes32,bytes)' \
-  "$CAROL" "$MID" 1 30000000 0 "$VALID_BEFORE" "$SALT" "$SIG"
+  "$CAROL" "$MID" 1 "$C" 0 "$VALID_BEFORE" "$SALT" "$SIG"
 eq "USDG authorizationState(Carol, nonce)" "$(view "$USDG" 'authorizationState(address,bytes32)(bool)' "$CAROL" "$NONCE")" true
 eq "Carol ETH (never paid gas)" "$(eth_of "$CAROL")" 0
 # Real USDG does NOT revert a used (or cancelled) authorization: it emits AuthorizationAlreadyUsed
@@ -382,14 +406,14 @@ eq "Carol ETH (never paid gas)" "$(eth_of "$CAROL")" 0
 # or anyone could book unpaid entries against other bettors' escrow.
 reverts "replaying Carol's signed entry (HunchVPM must refuse a used authorization)" --from "$KEEPER" "$VPM" \
   'enterWithAuthorization(address,uint256,uint8,uint256,uint256,uint256,bytes32,bytes)' \
-  "$CAROL" "$MID" 1 30000000 0 "$VALID_BEFORE" "$SALT" "$SIG"
+  "$CAROL" "$MID" 1 "$C" 0 "$VALID_BEFORE" "$SALT" "$SIG"
 reverts "an entry on Carol's used nonce with a junk signature" --from "$STRANGER" "$VPM" \
   'enterWithAuthorization(address,uint256,uint8,uint256,uint256,uint256,bytes32,bytes)' \
-  "$CAROL" "$MID" 1 30000000 0 "$VALID_BEFORE" "$SALT" "0x$(printf '%0130d' 0)"
+  "$CAROL" "$MID" 1 "$C" 0 "$VALID_BEFORE" "$SALT" "0x$(printf '%0130d' 0)"
 reverts "Carol's signature for another amount" --from "$KEEPER" "$VPM" \
   'enterWithAuthorization(address,uint256,uint8,uint256,uint256,uint256,bytes32,bytes)' \
-  "$CAROL" "$MID" 1 31000000 0 "$VALID_BEFORE" "$SALT" "$SIG"
-eq "settler escrow (seed 20 + Alice 20 + Carol 30)" "$(usdg_of "$VPM")" 70000000
+  "$CAROL" "$MID" 1 "$((C - 1000000))" 0 "$VALID_BEFORE" "$SALT" "$SIG"
+eq "settler escrow (seed $(usd $((2 * S))) + Alice $(usd "$A") + Carol $(usd "$C"))" "$(usdg_of "$VPM")" "$((2 * S + A + C))"
 
 # ------------------------------------------------------------------ 10. the bell
 step "The price moves to 101.00 before the bell; nobody can resolve early; after the bell anyone can"
@@ -409,7 +433,7 @@ send "StockRoundResolver.resolve (a stranger, rounds proven on chain)" "$K_STRAN
 MARKET=$(view "$VPM" 'getMarket(uint256)(address,address,address,address,uint64,uint64,uint8,uint8,uint8,uint256,uint256,uint256)' "$MID" --json)
 eq "market status (1 = resolved)" "$(jq -r '.[7] | tostring' <<<"$MARKET")" 1
 eq "market winner (0 = UP)" "$(jq -r '.[8] | tostring' <<<"$MARKET")" 0
-eq "accepted pool" "$(jq -r '.[10] | tostring' <<<"$MARKET")" 70000000
+eq "accepted pool" "$(jq -r '.[10] | tostring' <<<"$MARKET")" "$((2 * S + A + C))"
 
 # ------------------------------------------------------------------ 11. delivery
 step "The keeper delivers every position (claimFor), fees go to the Safe, the Safe takes the residue"
@@ -421,15 +445,16 @@ done
 send "HunchVPM.sweepFees(USDG) (anyone)" "$K_STRANGER" "$VPM" 'sweepFees(address)' "$USDG"
 safe_exec "HunchVPM.claimResidue(market)" "$VPM" "$(cast calldata 'claimResidue(uint256)' "$MID")"
 
-# UP won. Books: UP seed 10 + Alice 20 (entry acc 1.0), DOWN seed 10 + Carol 30.
-#   A_UP = 10/10 (seed vintage) + 30/30 (Carol) = 2.0 ; payout = s * (1 + A_UP - entryAcc)
-#   keeper UP seed: 10 * 3.0 = 30.00, fee 2% of the 20.00 gain = 0.40 -> 29.60 (DOWN seed: 0)
-#   Alice:          20 * 2.0 = 40.00, fee 2% of the 20.00 gain = 0.40 -> 39.60
-#   Carol: 0. Pool 70.00 = 30.00 + 40.00, residue 0, fees 0.80 to the Safe.
-eq "keeper USDG: 200 - 20 seed + 29.60" "$(usdg_of "$KEEPER")" 209600000
-eq "Alice USDG:  50 - 20 + 39.60" "$(usdg_of "$ALICE")" 69600000
-eq "Carol USDG:  50 - 30" "$(usdg_of "$CAROL")" 20000000
-eq "Safe USDG:   fees 0.80 + residue 0" "$(usdg_of "$SAFE")" 800000
+# UP won. Books: UP seed S + Alice A (entry acc 1.0), DOWN seed S + Carol C = S + A.
+#   A_UP = S/S (seed vintage) + C/(S + A) (Carol) = 2.0 ; payout = s * (1 + A_UP - entryAcc)
+#   keeper UP seed: S * 3.0 = 3S, fee on the 2S gain (DOWN seed: 0)
+#   Alice:          A * 2.0 = 2A, fee on the A gain
+#   Carol: 0. Pool 2S + A + C = 3S + 2A, residue 0, both fees to the Safe.
+#   (Seed 10, A 20, C 30, fee 2%: keeper +29.60, Alice +39.60, Safe 0.80.)
+eq "keeper USDG: $(usd "$KEEPER_FUND") - $(usd $((2 * S))) seed + $(usd $((3 * S - FEE_K)))" "$(usdg_of "$KEEPER")" "$((KEEPER_FUND - 2 * S + 3 * S - FEE_K))"
+eq "Alice USDG:  $(usd "$ALICE_FUND") - $(usd "$A") + $(usd $((2 * A - FEE_A)))" "$(usdg_of "$ALICE")" "$((ALICE_FUND - A + 2 * A - FEE_A))"
+eq "Carol USDG:  $(usd "$CAROL_FUND") - $(usd "$C")" "$(usdg_of "$CAROL")" "$((CAROL_FUND - C))"
+eq "Safe USDG:   fees $(usd $((FEE_K + FEE_A))) + residue 0" "$(usdg_of "$SAFE")" "$((FEE_K + FEE_A))"
 eq "settler USDG (everything delivered)" "$(usdg_of "$VPM")" 0
 eq "factory USDG" "$(usdg_of "$FACTORY")" 0
 eq "Carol ETH (still never paid gas)" "$(eth_of "$CAROL")" 0

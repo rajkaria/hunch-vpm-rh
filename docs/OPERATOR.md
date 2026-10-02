@@ -1,181 +1,184 @@
 # Operator guide: from zero to live on Robinhood Chain
 
 Everything the operator (the person holding the keys) does to take this repository to a live
-venue at `rh.playhunch.xyz`. The build never sends a mainnet transaction and never sees a key:
-every step that needs a key, money or an outside account is here, in order, with the exact
-command. Budget: about 90 minutes, plus waiting for funds to bridge.
+venue at `rh.playhunch.xyz`. Four scripts do the work: `make-wallets.sh` (keys and Vercel
+secrets), `set-rpc.sh` (the keyed RPC), `go-live.sh` (Safe, deploy, verify, ownership) and the
+two fork rehearsals. What stays with you: funding the wallets, choosing the seed, and pushing.
+Budget: about 30 minutes plus waiting for funds to bridge.
 
 > Never paste a private key into a chat, a commit, an issue or a command line that lands in
-> shell history. Keys go into an encrypted Foundry keystore, a local `.env` (gitignored), or a
-> Vercel environment variable marked **Sensitive**.
+> shell history. The scripts keep keys in `.env` (gitignored, mode 600), a backup at
+> `~/.config/hunch-rh/mainnet.env` (mode 600) and Vercel variables marked **Sensitive**, and
+> never print them.
 
 ## 0. What you need
 
 | Item | Why | Cost |
 |---|---|---|
-| MetaMask or Rabby (browser) | Safe signers on Robinhood Chain must be injected wallets: Ledger, Trezor and WalletConnect signers are disabled in the Safe app on this chain | free |
-| Foundry (`forge`, `cast`) and pnpm 10 | deploy and verify | free |
-| An Alchemy (or QuickNode) key for Robinhood Chain mainnet | the public RPC keeps only ~10 minutes of history; the keeper, round finding and fork rehearsals need a keyed RPC | free tier |
-| ~0.012 ETH on Robinhood Chain | deployer ~0.003, keeper ~0.009 (gas for listing markets, relaying gasless bets, delivering payouts; about $0.004 per call) | ~$30 |
-| ~250 USDG on Robinhood Chain | keeper seed float (4 tickers × daily + weekly × 20 USDG = 160) plus the golden path, the refund drill and a few starter grants | ~$250, recycled |
-| A Reown (WalletConnect) project id | phone wallets connect through it | free |
+| Foundry (`forge`, `cast`), pnpm 10, `jq`, the Vercel CLI logged in to the project | the scripts | free |
+| A QuickNode (or Alchemy) endpoint for Robinhood Chain mainnet | the public RPC keeps only ~10 minutes of history; the keeper, round finding and fork rehearsals need a keyed RPC | free tier / credits |
+| ~0.004 ETH on Robinhood Chain | deployer 0.001 (Safe + deploy + ownership: ~0.0003 at 0.03 gwei), keeper 0.003 (listing, relayed bets, payouts: ~0.0002 to 0.0004 a day) | ~$10 |
+| 25 USDG on Robinhood Chain (at the recommended 1 USDG seed) | the keeper's seed float: 4 dailies + 4 weeklies + 1 drill market × 2 legs × 1 USDG = 18, plus slack; it recycles at every settlement | ~$25, recycled |
+| 5 to 20 USDG in your own betting wallet | the golden path (no ETH needed to bet) | yours |
+| A Reown (WalletConnect) project id | optional: phone wallets connect through it; without it the option is hidden | free |
 
-## 1. Create the two hot wallets
-
-The **deployer** sends the three deploy transactions and nothing else. The **keeper** lists
-markets, relays signed bets and delivers payouts; its key lives in Vercel.
+## 1. Wallets and secrets
 
 ```bash
-cast wallet new                              # prints an address + private key: this is the deployer
-cast wallet import hunch-deployer --interactive   # paste that private key; choose a password
-cast wallet new                              # a second one: this is the keeper
+bash scripts/make-wallets.sh --vercel
 ```
 
-Write down both **addresses**. Keep the keeper's private key for step 9 only (Vercel,
-Sensitive). The deployer key now lives only in your encrypted keystore `hunch-deployer`.
+It creates five fresh hot wallets and a `CRON_SECRET`, writes them to `.env` and the backup,
+prints only the addresses, and sets `KEEPER_PRIVATE_KEY` and `CRON_SECRET` (Sensitive),
+`RH_FALLBACK_RPC_URL` and `NEXT_PUBLIC_SITE_URL` in Vercel Production. Rerunning never
+replaces a key that exists (a funded wallet is never orphaned).
 
-## 2. Create the Safe (owner, guardian, treasury)
+| Wallet | Job | Needs |
+|---|---|---|
+| `DEPLOYER` | sends the deploy transactions, creates the Safe and submits its one transaction | 0.001 ETH |
+| `KEEPER` | lists markets (pays the seeds), relays signed bets, delivers payouts; its key also lives in Vercel | 0.003 ETH + the seed float |
+| `SAFE_OWNER_1..3` | owners of the 2-of-3 Safe: they only sign, the deployer pays the gas | nothing |
 
-1. Open <https://app.safe.global>, connect MetaMask or Rabby, choose network **Robinhood Chain**
-   (short name `robinhood`; add it in the wallet first if needed: chain id 4663, RPC
-   `https://rpc.mainnet.chain.robinhood.com`, explorer `https://robinhoodchain.blockscout.com`).
-2. Create a Safe with **2 of 3** owners (recommended; if all three keys are yours, say so in the
-   README's powers section, it is still better than one key). The Safe app deploys Safe v1.5.0.
-3. Copy the Safe address. It becomes the owner of the factory, the guardian of the settler
-   (can pause **new entries** only) and the treasury (receives fees and rounding residue).
+Copy `~/.config/hunch-rh/mainnet.env` into a password manager. All three Safe owners are keys
+you hold on one machine: the README's powers section must say so. To harden later, import an
+owner into MetaMask or Rabby on another device and swap the others out in the Safe app
+(<https://app.safe.global>, network Robinhood Chain; hardware and WalletConnect signers are
+disabled there on this chain).
 
-A 1-of-1 Safe works too, but the deploy script refuses it unless you pass `ALLOW_1OF1=1`, and
-the README must then say so.
+## 2. The Safe (owner, guardian, treasury)
 
-## 3. Get a keyed RPC
+`go-live.sh` (step 6) creates it: a 2-of-3 Safe v1.4.1 (SafeProxyFactory + SafeL2, the same
+contracts the fork rehearsal uses) with owners 1 to 3, at a CREATE2 address it derives and
+cross-checks against the factory, so a rerun finds it. It becomes the owner of the factory, the
+guardian of the settler (can pause **new entries** only) and the treasury (receives fees and
+rounding residue). `bash scripts/go-live.sh --check` prints its address before anything is sent.
 
-Alchemy dashboard → create app → chain **Robinhood Chain Mainnet** → copy the HTTPS URL
-(`https://robinhood-mainnet.g.alchemy.com/v2/<KEY>`). Put it in the repo's local `.env`
-(gitignored), never in a commit:
+## 3. The keyed RPC
+
+QuickNode dashboard → Create endpoint → **Robinhood Chain** → **Mainnet** → copy the HTTPS URL.
+Then, with the URL on the clipboard:
 
 ```bash
-cd hunch-vpm-rh
-printf 'RH_RPC_URL=%s\n' "$(pbpaste)" >> .env      # after copying the URL
+pbpaste | bash scripts/set-rpc.sh
 ```
 
-## 4. Fund the wallets
+It checks the endpoint answers chain id 4663 and serves old state (archive), writes `RH_RPC_URL`
+to `.env` and the backup, and sets it in Vercel Production as Sensitive. It prints only the host.
 
-Recommended route (seconds, one transaction each), from Arbitrum One or Base:
+## 4. Choose the seed, then fund the wallets
+
+The keeper lists every market with `params.seedPerLeg` USDG on each side, from
+`deployments/robinhood-mainnet.json`. That number sets the keeper's float and how much one side
+can absorb before anyone takes the other side: κ × seed − seed (κ = 30).
+
+| `seedPerLeg` | `maxEntry` | Keeper float (health floor) | One-sided room per market |
+|---|---|---|---|
+| 1 USDG (recommended for launch) | 25 USDG | 18 USDG (fund 25) | 29 USDG, then grows 30 × every opposite bet |
+| 10 USDG (the JSON today) | 100 USDG | 180 USDG (fund 200) | 290 USDG |
+
+Bets beyond the room are refused in part and the remainder is refunded; raise the seed later by
+editing the JSON (the factory accepts any seed of at least 1 USDG per listing). To switch to the
+recommended launch values:
+
+```bash
+jq '.params.seedPerLeg = "1000000" | .params.maxEntry = "25000000"' deployments/robinhood-mainnet.json > /tmp/rh.json \
+  && mv /tmp/rh.json deployments/robinhood-mainnet.json && pnpm wire
+```
+
+Then fund, from Arbitrum One or Base (seconds, one transaction each):
 
 | To | What | How |
 |---|---|---|
-| deployer | 0.003 ETH | <https://relay.link/bridge/robinhood> or <https://app.across.to> (ETH → Robinhood Chain) |
-| keeper | 0.009 ETH | same |
-| keeper | 200 USDG | <https://app.across.to>: send **USDC** from Arbitrum One or Base to Robinhood Chain; it arrives as **USDG** |
-| your own betting wallet | 20 USDG | same (for the golden path; no ETH needed to bet) |
+| `DEPLOYER` | 0.001 ETH | <https://relay.link/bridge/robinhood> or <https://app.across.to> (ETH → Robinhood Chain) |
+| `KEEPER` | 0.003 ETH | same |
+| `KEEPER` | 25 USDG (200 at a 10 USDG seed) | <https://app.across.to>: send **USDC** from Arbitrum One or Base to Robinhood Chain; it arrives as **USDG** |
+| your own betting wallet | 5 to 20 USDG | same |
 
-Check balances:
-
-```bash
-set -a; . ./.env; set +a
-cast balance <DEPLOYER_ADDRESS> --rpc-url $RH_RPC_URL --ether
-cast call 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 "balanceOf(address)(uint256)" <KEEPER_ADDRESS> --rpc-url $RH_RPC_URL
-```
+`bash scripts/go-live.sh --check` shows every balance against what it needs.
 
 ## 5. Rehearse on a fork (no money moves)
 
 ```bash
 pnpm install
-forge build --root contracts
-RH_RPC_URL=$RH_RPC_URL bash scripts/rehearse-fork.sh
+bash scripts/rehearse-fork.sh        # the whole launch and a market's life on a fork: REHEARSAL PASSED
+bash scripts/test-go-live.sh         # go-live.sh itself on a fork, run twice: GO-LIVE TEST PASSED
 ```
 
-This forks chain 4663 locally (about 75 to 100 seconds), creates a real 2-of-3 Safe, runs the
-real deploy script against real USDG, real Chainlink feeds and real Stock Tokens, accepts
-ownership from the Safe, lists a market, places a normal bet and a gasless signed bet from a
-wallet holding no ETH, refuses replays, resolves after the bell, delivers every payout, sweeps
-fees and claims the residue, and checks every balance to the unit. It must end with
-`REHEARSAL PASSED`. Then run the fork test suites once with your keyed RPC:
+`rehearse-fork.sh` forks chain 4663 locally (about 100 seconds), creates a real 2-of-3 Safe,
+runs the real deploy script against real USDG, real Chainlink feeds and real Stock Tokens,
+accepts ownership from the Safe, lists a market with the JSON's params, places a normal bet and
+a gasless signed bet from a wallet holding no ETH, refuses replays, resolves after the bell,
+delivers every payout, sweeps fees and claims the residue, and checks every balance to the unit.
+`--template <json>` rehearses candidate params before you write them into the mainnet JSON.
+`test-go-live.sh` runs `go-live.sh` with anvil's test keys and a deployer holding only 0.001 ETH,
+then runs it again and checks nothing changes. Optionally, the fork test suites:
+`RH_RPC_URL=$RH_RPC_URL forge test --root contracts --match-path 'test/fork/*'`.
+
+## 6. Go live
 
 ```bash
-RH_RPC_URL=$RH_RPC_URL forge test --root contracts --match-path 'test/fork/*'
+bash scripts/go-live.sh --check      # read-only: balances, the Safe address, the plan
+bash scripts/go-live.sh              # do it
 ```
 
-## 6. Deploy to mainnet
+In order, skipping whatever the chain shows is done (so a rerun resumes):
 
-```bash
-set -a; . ./.env; set +a
-export SAFE_ADDRESS=<your Safe>
-export KEEPER_ADDRESS=<keeper address>
-forge script contracts/script/DeployRH.s.sol:DeployRH \
-  --root contracts --rpc-url $RH_RPC_URL \
-  --account hunch-deployer --sender <DEPLOYER_ADDRESS> \
-  --broadcast --slow
-```
+1. preflight: chain 4663, the deployer's ETH (stops below 0.0006), the keeper's ETH and seed float (warns);
+2. the 2-of-3 Safe (step 2 above);
+3. `DeployRH --broadcast --slow`, whose own preflight refuses unless the chain id is 4663, the
+   Safe has code and a threshold of at least 2, USDG has 6 decimals and its pinned domain, every
+   feed has 8 decimals and the expected description, every Stock Token has the expected symbol,
+   the deployer holds at least 0.0005 ETH, the keeper is neither the deployer nor the Safe, and
+   the JSON still says `not-deployed`. It deploys `StockRoundResolver`, `HunchVPM` (guardian =
+   treasury = Safe) and `HunchMarketFactory`, allow-lists NVDA, TSLA, AAPL and COIN with 26 h
+   staleness bounds, sets the keeper as opener and starts the two-step ownership transfer. Then
+   `post-deploy.sh` reads the receipts, checks the wiring on chain, fills the transactions, L2
+   blocks, `startBlock`, `deployedAt` and `gitCommit` into the JSON and runs `pnpm wire`;
+4. `verify-contracts.sh` (step 7);
+5. the Safe accepts factory ownership (step 8);
+6. a read-back: factory owner = Safe, keeper is an opener, settler guardian and treasury = Safe.
 
-Your keystore password is prompted. Right after it finishes:
-
-```bash
-bash scripts/post-deploy.sh
-```
-
-`post-deploy.sh` reads `contracts/broadcast/DeployRH.s.sol/4663/run-latest.json`, fetches every
-receipt, checks each succeeded, reads the wiring back from chain (refusing on any mismatch),
-fills the deploy transactions, L2 blocks, `startBlock`, `deployedAt` and `gitCommit` into
-`deployments/robinhood-mainnet.json`, and runs `pnpm wire`. Running it twice writes the same
-values. If the broadcast is interrupted, rerun the same `forge script` command with `--resume`,
-then `post-deploy.sh`.
-
-The script refuses to run unless: the chain id is 4663; `SAFE_ADDRESS` has code and a
-threshold of at least 2 (or `ALLOW_1OF1=1`); USDG has 6 decimals; every feed has 8 decimals
-and the expected description; every Stock Token has the expected symbol; the deployer holds
-at least 0.002 ETH; the keeper is neither the deployer nor the Safe; the deployment JSON still
-says `not-deployed`. It prints the predicted addresses, then deploys `StockRoundResolver`, `HunchVPM` (guardian = treasury =
-Safe) and `HunchMarketFactory` (owner = deployer for one block), allow-lists NVDA, TSLA, AAPL
-(and COIN) with 26 h staleness bounds, sets the keeper as opener, starts the two-step ownership
-transfer to the Safe, reads everything back, and writes the addresses, Safe, keeper and each
-feed's current aggregator into `deployments/robinhood-mainnet.json` (post-deploy adds the rest).
+If DeployRH stops mid-broadcast: `bash scripts/go-live.sh --resume`.
 
 ## 7. Verify the contracts on Blockscout
 
-```bash
-bash scripts/verify-contracts.sh
-```
-
-It rebuilds each contract's constructor arguments from the deployment JSON, checks them against
-the tail of the creation transaction, submits to Blockscout, and falls back to Sourcify for
-anything Blockscout refuses (Blockscout's API sits behind a Cloudflare challenge). Options:
-`--verifier blockscout|sourcify` forces one; `--print` only prints the commands. Then open each
-address on <https://robinhoodchain.blockscout.com> in a browser and confirm the green
-"verified" badge.
+`go-live.sh` runs `bash scripts/verify-contracts.sh`: it rebuilds each constructor's arguments
+from the JSON, checks them against the creation transaction, submits to Blockscout and falls
+back to Sourcify for anything Blockscout refuses (its API sits behind a Cloudflare challenge). A
+failure there does not stop go-live; rerun it alone (`--verifier blockscout|sourcify`). Then
+open each address on <https://robinhoodchain.blockscout.com> and confirm the green badge.
 
 ## 8. Accept factory ownership from the Safe
 
-Safe app → New transaction → Transaction Builder → contract address = `HunchMarketFactory`
-(from the deployment JSON) → method `acceptOwnership()` → create, sign with the threshold,
-execute. Check:
+`go-live.sh` does it: owners 1 and 2 sign `acceptOwnership()` (a Safe transaction hash, sorted
+signatures) and the deployer submits `execTransaction`. By hand instead: Safe app → New
+transaction → Transaction Builder → `HunchMarketFactory` → `acceptOwnership()` → sign with two
+owners → execute. Check:
 
 ```bash
 cast call <FACTORY> "owner()(address)" --rpc-url $RH_RPC_URL     # must print the Safe
 ```
 
-## 9. Configure Vercel (project `hunch-vpm-rh`, already created and linked to GitHub)
+## 9. Vercel (project `hunch-vpm-rh`, already created and linked to GitHub)
 
-Set these in Vercel → Project → Settings → Environment Variables (Production, and Preview if
-you want previews to read chain data). Secrets are **Sensitive**:
+Steps 1 and 3 set these in Production:
 
-| Name | Value | Type |
+| Name | Set by | Type |
 |---|---|---|
-| `RH_RPC_URL` | your Alchemy URL | Sensitive |
-| `KEEPER_PRIVATE_KEY` | the keeper private key from step 1 (0x…) | Sensitive |
-| `CRON_SECRET` | `openssl rand -hex 32` | Sensitive |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | your Reown project id (without it the WalletConnect option is hidden) | Plain |
-| `NEXT_PUBLIC_SITE_URL` | `https://rh.playhunch.xyz` | Plain |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | optional keeper alerts | Sensitive |
-| `RH_FALLBACK_RPC_URL` | optional second keyed RPC (another provider); the keeper's stale double-check reads it | Sensitive |
-| `NEXT_PUBLIC_RH_RPC_URL` | optional browser RPC; defaults to the public RPC (never put a keyed URL here: it ships to browsers) | Plain |
+| `KEEPER_PRIVATE_KEY` | `make-wallets.sh --vercel` | Sensitive |
+| `CRON_SECRET` | `make-wallets.sh --vercel` | Sensitive |
+| `RH_RPC_URL` | `set-rpc.sh` | Sensitive |
+| `RH_FALLBACK_RPC_URL` | `make-wallets.sh --vercel` (the public RPC; the keeper's stale double-check reads it) | Plain |
+| `NEXT_PUBLIC_SITE_URL` | `make-wallets.sh --vercel` (`https://rh.playhunch.xyz`) | Plain |
 
-Or from the CLI in the repo root: `vercel env add KEEPER_PRIVATE_KEY production` (it prompts
-for the value; nothing lands in history).
+Still yours, all optional: `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (your Reown project id),
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (keeper alerts, Sensitive). Never put a keyed URL in
+`NEXT_PUBLIC_RH_RPC_URL`: it ships to browsers. Check with `vercel env ls production`.
 
 ## 10. Ship the addresses
 
-`post-deploy.sh` already ran `pnpm wire` (README address table and the client's embedded copy).
+`go-live.sh` (through `post-deploy.sh`) already ran `pnpm wire` (README address table and the client's
+embedded copy).
 
 ```bash
 pnpm verify                    # must end with VERIFY PASSED
@@ -188,7 +191,8 @@ git push                       # Vercel builds and deploys main to production
 ## 11. Domain and wallets
 
 1. Vercel → Project `hunch-vpm-rh` → Settings → Domains → add `rh.playhunch.xyz` (the
-   `playhunch.xyz` zone is already on Vercel, so DNS is automatic).
+   `playhunch.xyz` zone's nameservers are at Porkbun, not Vercel: if Vercel shows "Invalid
+   Configuration", add a `CNAME` record `rh` → `cname.vercel-dns.com` in Porkbun's DNS panel).
 2. <https://cloud.reown.com> → your project → Domain allow-list → add `rh.playhunch.xyz`.
 
 ## 12. First markets
@@ -203,7 +207,8 @@ curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://rh.playhunch.xyz/api/c
 pnpm --filter @hunch-rh/keeper keeper run-once open
 ```
 
-The keeper approves USDG to the factory itself and pays 20 USDG per market (10 per side); the
+The keeper approves USDG to the factory itself and pays 2 × `seedPerLeg` per market (2 USDG at the
+recommended seed); the
 seed comes back to it when the market settles.
 
 ## 13. Golden path (do this before telling anyone)

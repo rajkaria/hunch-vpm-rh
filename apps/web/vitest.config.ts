@@ -3,6 +3,11 @@ import { defineConfig } from 'vitest/config';
 
 const here = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 
+// Node 25 ships its own `localStorage` global (Web Storage, unflagged): without a
+// --localstorage-file it has no methods and shadows jsdom's, so storage calls throw. Turn it
+// off where Node knows the flag (22.4+); jsdom's storage is then the one the tests use.
+const WEBSTORAGE_OFF = process.allowedNodeEnvironmentFlags.has('--experimental-webstorage') ? ['--no-experimental-webstorage'] : [];
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -27,5 +32,9 @@ export default defineConfig({
     hookTimeout: 20_000,
 
     globals: false,
+    poolOptions: {
+      forks: { execArgv: WEBSTORAGE_OFF },
+      threads: { execArgv: WEBSTORAGE_OFF },
+    },
   },
 });

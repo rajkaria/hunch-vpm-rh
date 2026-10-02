@@ -26,7 +26,7 @@ import { decideOpen } from './decide/open.js';
  * deliverable claim 50 min after the bell fails; the relayer check is omitted (no state).
  */
 
-export const MIN_KEEPER_ETH = 2_000_000_000_000_000n; // 0.002 ETH
+export const MIN_KEEPER_ETH = 1_000_000_000_000_000n; // 0.001 ETH: two to five days of keeper gas at 0.03 gwei
 export const RPC_HEAD_MAX_AGE_SEC = 60;
 export const SETTLE_DEADLINE_SEC = 30 * 60;
 export const DELIVER_DEADLINE_SEC = SETTLE_DEADLINE_SEC + 20 * 60;
@@ -45,11 +45,38 @@ export interface HealthReport {
   checks: HealthCheck[];
 }
 
-/** Keeper USDG floor: tickers × 2 open markets × (2 × seed) + 40 USDG. */
+/**
+ * Keeper USDG floor: the seed float at its busiest, (tickers × 2 open markets, a daily and a
+ * weekly, + 1 refund drill) × 2 legs × seed. It is compared with `keeperUsdgFloat`, not the
+ * wallet balance: seeds locked in open markets are still the keeper's.
+ */
 export function keeperUsdgFloor(d: Deployment): bigint {
   const p = deploymentParams(d);
   const tickers = BigInt(d.feeds.filter((f) => f.pendingFlatRateCheck !== true).length);
-  return tickers * 2n * 2n * p.seedPerLeg + 40_000_000n;
+  return (tickers * 2n + 1n) * 2n * p.seedPerLeg;
+}
+
+/**
+ * USDG the keeper still has in the venue: its positions in open markets at offered principal,
+ * and what its settled, undelivered positions would pay now. A market whose positions were
+ * not read counts its seed when the keeper opened it and it is still open.
+ */
+export function keeperUsdgInVenue(s: KeeperState): bigint {
+  if (s.keeper === null) return 0n;
+  const me = s.keeper.address.toLowerCase();
+  let total = 0n;
+  for (const m of s.markets) {
+    const open = m.statusCode === MARKET_STATUS.Open;
+    if (m.positions === null) {
+      if (open && m.listing.opener.toLowerCase() === me) total += 2n * m.listing.seedPerLeg;
+      continue;
+    }
+    for (const p of m.positions) {
+      if (p.position.owner.toLowerCase() !== me || p.position.claimed) continue;
+      total += open ? p.position.offered : p.settlement.total;
+    }
+  }
+  return total;
 }
 
 export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: readonly CorporateAction[] = []): HealthReport {
@@ -78,9 +105,14 @@ export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: 
   }
 
   if (s.keeper !== null) {
-    checks.push({ name: 'keeper-eth', ok: s.keeper.eth >= MIN_KEEPER_ETH, detail: `${formatEther(s.keeper.eth)} ETH (floor 0.002)` });
+    checks.push({ name: 'keeper-eth', ok: s.keeper.eth >= MIN_KEEPER_ETH, detail: `${formatEther(s.keeper.eth)} ETH (floor ${formatEther(MIN_KEEPER_ETH)})` });
     const floor = keeperUsdgFloor(d);
-    checks.push({ name: 'keeper-usdg', ok: s.keeper.usdg >= floor, detail: `${formatUsdg(s.keeper.usdg)} USDG (floor ${formatUsdg(floor)})` });
+    const inVenue = keeperUsdgInVenue(s);
+    checks.push({
+      name: 'keeper-usdg',
+      ok: s.keeper.usdg + inVenue >= floor,
+      detail: `${formatUsdg(s.keeper.usdg)} USDG in the wallet + ${formatUsdg(inVenue)} in its markets (floor ${formatUsdg(floor)})`,
+    });
   }
 
   // Today's markets exist once the opening bell is 5 min away.
