@@ -1,4 +1,4 @@
-import { DOWN, PREVIEW_STATUS, UP, closingBell, loadDeployment, openingBell, type Deployment } from '@hunch-rh/client';
+import { DOWN, PREVIEW_STATUS, UP, closingBell, loadDeployment, notDeployed, openingBell, type Deployment } from '@hunch-rh/client';
 import type { Hex, PublicClient, WalletClient } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { NOT_DEPLOYED_NOTE, evaluateHealth, formatReports, keeperUsdgFloor, readKeeperState, runDrill, runJob, type RunContext } from '../src/index.js';
@@ -39,7 +39,7 @@ const ctxOf = (d: Deployment, client: PublicClient, over: Partial<RunContext> = 
 describe('T9 · runner', () => {
   it('not deployed: a clean no-op with a clear message and no chain reads', async () => {
     const { chain } = world(utc(2026, 10, 5, 12, 0));
-    const reports = await runJob('all', ctxOf(loadDeployment({ env: {} }), chain.client(), { dryRun: true }));
+    const reports = await runJob('all', ctxOf(notDeployed(loadDeployment({ env: {} })), chain.client(), { dryRun: true }));
     expect(reports.map((r) => r.job)).toEqual(['open', 'resolve', 'deliver']);
     expect(reports.every((r) => r.notes[0] === NOT_DEPLOYED_NOTE && r.actions.length === 0)).toBe(true);
     expect(chain.calls).toBe(0);
@@ -143,7 +143,7 @@ describe('T9 · runner', () => {
 describe('T9 · health', () => {
   it('not deployed: green with a truthful note', async () => {
     const { chain } = world(utc(2026, 10, 5, 12, 0));
-    const d = loadDeployment({ env: {} });
+    const d = notDeployed(loadDeployment({ env: {} }));
     const state = await readKeeperState(chain.client(), d);
     const h = evaluateHealth(state, d);
     expect(h.ok).toBe(true);

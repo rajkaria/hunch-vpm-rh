@@ -12,6 +12,7 @@ import {
   isDeployed,
   loadDeployment,
   makeRedactor,
+  notDeployed,
   parseDeployment,
   redactRpcUrl,
   urlSecrets,
@@ -28,11 +29,18 @@ describe('deployments/robinhood-mainnet.json', () => {
     expect(EMBEDDED_DEPLOYMENT).toEqual(committed);
   });
 
-  it('is not deployed yet: zero contracts, real USDG and v1 feeds', () => {
+  it('is the Robinhood Chain mainnet deployment of 2026-10-02: its contracts, Safe, keeper, USDG and v1 feeds', () => {
     const d = loadDeployment({ env: {} });
-    expect(isDeployed(d)).toBe(false);
-    expect(d.status).toBe('not-deployed');
-    expect(d.contracts.HunchVPM.address).toBe(ZERO_ADDRESS);
+    expect(isDeployed(d)).toBe(true);
+    expect(d.status).toBe('deployed');
+    expect(d.contracts.HunchVPM.address).toBe('0x4fB64Dd74E6314C6415E3dE7268ea4Dda8771917');
+    expect(d.contracts.StockRoundResolver.address).toBe('0xE8b25102a2B0414d67FDC2011F3Ba3859b149A62');
+    expect(d.contracts.HunchMarketFactory.address).toBe('0xcb7055449c98d124A12E5F03fB0eA1D41AF3b7eA');
+    expect(d.safe).toBe('0x5866308Af35fA8AbD67f88d31695aD029143F336');
+    expect(d.keeper).toBe('0xEb420AD181518814B6E3feb89A9d369Da3F5b580');
+    expect(d.startBlock).toBe(78_371_935);
+    expect(d.gitCommit).toMatch(/^[0-9a-f]{40}$/); // clean: no "-dirty"
+    expect(Object.keys(committed as object).some((k) => k.includes('['))).toBe(false); // no stray "feeds[i]" keys
     expect(d.usdg).toBe(USDG_ADDRESS);
     expect(d.feeds.map((f) => f.ticker)).toEqual(['NVDA', 'TSLA', 'AAPL', 'COIN']);
     expect(feedByTicker(d, 'coin')?.pendingFlatRateCheck).toBe(false); // passed measure-feeds on 2026-09-28 (DECISIONS.md)
@@ -71,7 +79,9 @@ describe('overrides and validation', () => {
     expect(isDeployed(loadDeployment({ env: { HUNCH_DEPLOYMENT_JSON: json } }))).toBe(true);
     expect(isDeployed(loadDeployment({ env: { NEXT_PUBLIC_HUNCH_DEPLOYMENT_JSON: json } }))).toBe(true);
     expect(isDeployed(loadDeployment({ json, env: {} }))).toBe(true);
-    expect(isDeployed(loadDeployment({ json: '', env: {} }))).toBe(false);
+    const before = JSON.stringify(notDeployed(EMBEDDED_DEPLOYMENT));
+    expect(isDeployed(loadDeployment({ env: { HUNCH_DEPLOYMENT_JSON: before, NEXT_PUBLIC_HUNCH_DEPLOYMENT_JSON: json } }))).toBe(false);
+    expect(loadDeployment({ json: '', env: {} })).toEqual(loadDeployment({ env: {} }));
   });
 
   it('checksums addresses and rejects a broken override loudly', () => {
@@ -86,7 +96,8 @@ describe('overrides and validation', () => {
     expect(problems).toContain('contracts.HunchVPM.address: zero address');
     expect(problems.some((p) => p.startsWith('usdg:'))).toBe(true);
     expect(problems.some((p) => p.startsWith('params.feeBps'))).toBe(true);
-    const notDeployedWithAddress = structuredClone(EMBEDDED_DEPLOYMENT) as unknown as Record<string, any>;
+    expect(validateDeployment({ ...deployedFixture(), 'feeds[0]': { aggregator: ZERO_ADDRESS } })).toEqual(['feeds[0]: unknown key']);
+    const notDeployedWithAddress = structuredClone(notDeployed(EMBEDDED_DEPLOYMENT)) as unknown as Record<string, any>;
     notDeployedWithAddress.contracts.HunchVPM.address = '0x00000000000000000000000000000000000000a1';
     expect(validateDeployment(notDeployedWithAddress)).toContain('contracts.HunchVPM.address: must be zero while not deployed');
   });

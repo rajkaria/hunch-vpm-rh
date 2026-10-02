@@ -1,9 +1,9 @@
-import { loadDeployment } from '@hunch-rh/client';
+import { loadDeployment, notDeployed } from '@hunch-rh/client';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';
 import { KeeperKeyError, NOT_DEPLOYED_NOTE, createKeeper, makeAlerter, makeKeeperClients, readKeeperKey, validateCorporateActions, loadCorporateActions, corporateActionIn } from '../src/index.js';
 
-const d = loadDeployment({ env: {} });
+const d = notDeployed(loadDeployment({ env: {} }));
 
 describe('keeper key and transports', () => {
   it('reads KEEPER_PRIVATE_KEY only from env, with or without 0x, and never echoes a bad value', () => {
@@ -73,7 +73,7 @@ describe('corporate actions file', () => {
 
 describe('createKeeper (route-handler facade)', () => {
   it('runs, relays and reports health truthfully before deployment, without a key', async () => {
-    const keeper = createKeeper({}, { log: { info() {}, warn() {}, error() {} } });
+    const keeper = createKeeper({}, { deployment: d, log: { info() {}, warn() {}, error() {} } });
     expect(keeper.deployment.status).toBe('not-deployed');
     const reports = await keeper.run('all', { dryRun: true });
     expect(reports.every((r) => r.notes[0] === NOT_DEPLOYED_NOTE)).toBe(true);

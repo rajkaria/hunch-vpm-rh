@@ -6,15 +6,21 @@ without a receipt is removed or moved to "Not built". Rows are added only from r
 
 ## Live now
 
+Deployed to Robinhood Chain mainnet (4663) on 2026-10-02 from commit `0c2caf2` by
+`bash scripts/go-live.sh`. Explorer: `https://robinhoodchain.blockscout.com/tx/<hash>`.
+
 | Fact | Receipt |
 |---|---|
-| _Nothing is live yet. The contracts have not been deployed to Robinhood Chain mainnet._ | `deployments/robinhood-mainnet.json` → `"status": "not-deployed"` |
+| HunchVPM is deployed at `0x4fB64Dd74E6314C6415E3dE7268ea4Dda8771917`, source verified | deploy tx `0x5e298e144e636e748630eeb953df83aaca7f2ff0c35def191d4e31513d4509fa`; Sourcify `exact_match` (creation and runtime) |
+| StockRoundResolver is deployed at `0xE8b25102a2B0414d67FDC2011F3Ba3859b149A62`, source verified | deploy tx `0x34c10e57d5c23f197cef06fac17f67116c7d4cd4004cf4cc8cb7751104ac8fd7`; Sourcify `exact_match` |
+| HunchMarketFactory is deployed at `0xcb7055449c98d124A12E5F03fB0eA1D41AF3b7eA`, source verified | deploy tx `0x15fbbec5649f4372ebb18307f58c0335787594ce22309bac587f43457eddc275`; Sourcify `exact_match` |
+| The Safe `0x5866308Af35fA8AbD67f88d31695aD029143F336` is 2 of 3; the operator holds all three owner keys | creation tx `0x516e740448b81f55c03ab6c5c0db524d037355cb73f61519e69e8df03e2f1338`; `getThreshold()` = 2, `getOwners()` = 3 |
+| The Safe owns the factory, and is the settler's guardian and treasury | Safe tx `0x2b4e41912fa602a9a4b237480fe103c4599e5c4cb6640872433efd2280045f3e` (`acceptOwnership()`); factory `owner()`, settler `guardian()` and `treasury()` = the Safe |
+| NVDA, TSLA, AAPL and COIN are allow-listed with 26 h staleness bounds | four factory txs from the deployer (`0x1120…db61`, `0x6dec…fa34`, `0x1d03…6a64`, `0xd41a…b462`); `feeds(feed)` on the factory |
+| The keeper `0xEb420AD181518814B6E3feb89A9d369Da3F5b580` may list markets | factory `openers(keeper)` = true |
 
-Rows to fill after the operator's deploy (docs/OPERATOR.md), each only with its receipt:
+Rows to fill as the venue runs, each only with its receipt:
 
-- HunchVPM deployed and verified: address, Blockscout verified link, deploy tx
-- StockRoundResolver deployed and verified
-- HunchMarketFactory deployed and verified, owned by the Safe (threshold n of m read on-chain)
 - Markets opened / settled / voided: factory `listingCount`, resolver `Resolved` events, void txs
 - Distinct bettors excluding operator wallets: list of addresses with their first entry tx
 - USDG staked / paid out: sums of `Entered.offered` / `Claimed(payout + refund)`

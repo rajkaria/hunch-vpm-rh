@@ -14,7 +14,7 @@
  * the server log.
  */
 
-import { EMBEDDED_DEPLOYMENT, ZERO_ADDRESS, isDeployed, loadDeployment, parseDeployment, type Deployment } from '@hunch-rh/client';
+import { EMBEDDED_DEPLOYMENT, isDeployed, loadDeployment, notDeployed, parseDeployment, type Deployment } from '@hunch-rh/client';
 
 export type { Deployment } from '@hunch-rh/client';
 
@@ -55,20 +55,7 @@ export function isLive(deployment: Deployment): boolean {
 }
 
 /** A deployment in the "not deployed" state (for tests and for the launching templates). */
-export const NOT_DEPLOYED: Deployment = (() => {
-  const base = parseDeployment(EMBEDDED_DEPLOYMENT, 'embedded');
-  const zero = { address: ZERO_ADDRESS, deployTx: null, block: null };
-  return {
-    ...base,
-    status: 'not-deployed',
-    deployedAt: null,
-    gitCommit: null,
-    startBlock: null,
-    contracts: { HunchVPM: zero, StockRoundResolver: zero, HunchMarketFactory: zero },
-    safe: ZERO_ADDRESS,
-    keeper: ZERO_ADDRESS,
-  };
-})();
+export const NOT_DEPLOYED: Deployment = notDeployed(parseDeployment(EMBEDDED_DEPLOYMENT, 'embedded'));
 
 /** An address from the deployment, or null while it is the zero placeholder. */
 export function addressOrNull(address: string | null | undefined): string | null {

@@ -44,6 +44,11 @@ for (const a of args) {
 const isObj = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isInt = (v) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
 
+const TOP_LEVEL_KEYS = new Set([
+  'network', 'chainId', 'status', 'deployedAt', 'gitCommit', 'startBlock', 'contracts',
+  'safe', 'keeper', 'usdg', 'multicall3', 'explorer', 'params', 'feeds',
+]);
+
 export function validate(d) {
   const p = [];
   if (!isObj(d)) return ['not an object'];
@@ -55,6 +60,7 @@ export function validate(d) {
     if (!allowZero && v.toLowerCase() === ZERO) p.push(`${path}: zero address`);
     return true;
   };
+  for (const k of Object.keys(d)) if (!TOP_LEVEL_KEYS.has(k)) p.push(`${k}: unknown key`);
   if (typeof d.network !== 'string' || d.network === '') p.push('network: missing');
   if (d.chainId !== CHAIN_ID) p.push(`chainId: expected ${CHAIN_ID}`);
   if (d.status !== 'deployed' && d.status !== 'not-deployed') p.push('status: must be "deployed" or "not-deployed"');

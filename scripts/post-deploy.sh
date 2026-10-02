@@ -157,7 +157,13 @@ jq "${JQ_ARGS[@]}" --argjson start "$START" --arg at "$DEPLOYED_AT" --arg commit
   | .startBlock = $start
   | .deployedAt = $at
   | .gitCommit = $commit
+  # forge 1.x writeJson writes DeployRH's ".feeds[i].aggregator" as a top-level key "feeds[i]":
+  # fold each into its feed entry (DeployRH read it on chain) and drop the stray key.
+  | reduce (keys_unsorted[] | select(test("^feeds\\[[0-9]+\\]$"))) as $k
+      (.; .feeds[$k | ltrimstr("feeds[") | rtrimstr("]") | tonumber] += .[$k] | del(.[$k]))
 ' "$DEPLOYMENT" >"$tmp"
+jq -e '(keys | map(select(test("\\["))) | length == 0) and (.feeds | all(.aggregator != null))' "$tmp" >/dev/null ||
+  die "the deployment JSON still has a stray array key or a feed without its aggregator: $tmp"
 mv "$tmp" "$DEPLOYMENT"
 say "wrote $DEPLOYMENT: startBlock $START, deployedAt $DEPLOYED_AT, gitCommit $COMMIT"
 

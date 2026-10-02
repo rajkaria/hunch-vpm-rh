@@ -71,6 +71,24 @@ export function isDeployed(d: Deployment): boolean {
   );
 }
 
+/**
+ * The same deployment in the "not deployed" state: zero contracts, Safe and keeper, no
+ * receipts; feeds and params kept. For tests and previews of the pre-launch venue.
+ */
+export function notDeployed(d: Deployment): Deployment {
+  const zero = { address: ZERO_ADDRESS, deployTx: null, block: null };
+  return {
+    ...d,
+    status: 'not-deployed',
+    deployedAt: null,
+    gitCommit: null,
+    startBlock: null,
+    contracts: { HunchVPM: zero, StockRoundResolver: zero, HunchMarketFactory: zero },
+    safe: ZERO_ADDRESS,
+    keeper: ZERO_ADDRESS,
+  };
+}
+
 export function deploymentParams(d: Deployment): DeploymentParamsBig {
   return {
     kappa: BigInt(d.params.kappa),
@@ -122,6 +140,11 @@ function isInt(v: unknown): v is number {
  * Every problem with a deployment object, or `[]`. The same rules are implemented in
  * `scripts/wire-deployment.mjs` (no dependencies) plus EIP-55 checksums here.
  */
+const TOP_LEVEL_KEYS = new Set([
+  'network', 'chainId', 'status', 'deployedAt', 'gitCommit', 'startBlock', 'contracts',
+  'safe', 'keeper', 'usdg', 'multicall3', 'explorer', 'params', 'feeds',
+]);
+
 export function validateDeployment(value: unknown): string[] {
   const p: string[] = [];
   if (!isObj(value)) return ['not an object'];
@@ -136,6 +159,7 @@ export function validateDeployment(value: unknown): string[] {
     return true;
   };
 
+  for (const k of Object.keys(d)) if (!TOP_LEVEL_KEYS.has(k)) p.push(`${k}: unknown key`);
   if (typeof d.network !== 'string' || d.network === '') p.push('network: missing');
   if (d.chainId !== CHAIN_ID) p.push(`chainId: expected ${CHAIN_ID}`);
   if (d.status !== 'deployed' && d.status !== 'not-deployed') p.push('status: must be "deployed" or "not-deployed"');

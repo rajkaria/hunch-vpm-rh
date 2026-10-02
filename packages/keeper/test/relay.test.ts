@@ -1,4 +1,4 @@
-import { MARKET_STATUS, UP, buildEnterAuthorization, enterNonce, randomSalt, loadDeployment } from '@hunch-rh/client';
+import { MARKET_STATUS, UP, buildEnterAuthorization, enterNonce, randomSalt, loadDeployment, notDeployed } from '@hunch-rh/client';
 import type { Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';
@@ -79,7 +79,7 @@ describe('T9 · relay validation', () => {
   });
 
   it('refuses before deployment', async () => {
-    expect(await validateRelayRequest(await signed(), ctx({ deployment: loadDeployment({ env: {} }) }))).toMatchObject({ code: 'not-deployed', status: 503 });
+    expect(await validateRelayRequest(await signed(), ctx({ deployment: notDeployed(loadDeployment({ env: {} })) }))).toMatchObject({ code: 'not-deployed', status: 503 });
   });
 
   it('bad shapes', async () => {

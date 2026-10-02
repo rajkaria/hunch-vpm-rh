@@ -6,6 +6,7 @@ import {
   UP,
   closingBell,
   loadDeployment,
+  notDeployed,
   openingBell,
   quoteForMarket,
   readListings,
@@ -103,10 +104,10 @@ describe('readVenue', () => {
   it('degrades to the not-deployed state without touching the chain', async () => {
     const { chain } = world();
     const before = chain.calls;
-    const v = await readVenue(chain.client(), loadDeployment({ env: {} }));
+    const v = await readVenue(chain.client(), notDeployed(loadDeployment({ env: {} })));
     expect(v).toMatchObject({ deployed: false, markets: [], listingCount: 0 });
     expect(chain.calls).toBe(before);
-    expect(await readListings(chain.client(), loadDeployment({ env: {} }))).toEqual([]);
+    expect(await readListings(chain.client(), notDeployed(loadDeployment({ env: {} })))).toEqual([]);
   });
 });
 
@@ -206,7 +207,7 @@ describe('readProof', () => {
 describe('readPrices', () => {
   it('reads every v1 feed before deployment (landing page tape)', async () => {
     const { chain, nowSec } = world();
-    const pre = await readPrices(chain.client(), loadDeployment({ env: {} }));
+    const pre = await readPrices(chain.client(), notDeployed(loadDeployment({ env: {} })));
     expect(pre.deployed).toBe(false);
     expect(pre.rows.map((r) => r.ticker)).toEqual(['NVDA', 'TSLA', 'AAPL', 'COIN']);
     for (const r of pre.rows) {
