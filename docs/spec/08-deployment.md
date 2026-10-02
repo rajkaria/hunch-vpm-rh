@@ -45,7 +45,9 @@ the operator with `pbpaste >> .env`), `SAFE_ADDRESS`, `KEEPER_ADDRESS`.
    `description()` matches the ticker; each Stock Token `symbol()` matches; deployer
    holds ≥ 0.002 ETH.
 2. `StockRoundResolver()` — no constructor args, no owner.
-3. `HunchVPM(guardian = SAFE_ADDRESS, treasury = SAFE_ADDRESS)`.
+3. `HunchVPM(guardian = SAFE_ADDRESS, treasury = SAFE_ADDRESS, factory = the address step 4
+   deploys to (the deployer's nonce + 1), pauser = PAUSER_ADDRESS or the deployer)`. The
+   postflight checks `factory()` equals the deployed factory.
 4. `HunchMarketFactory(settler, resolver, USDG, owner = deployer, treasury = SAFE_ADDRESS)`.
 5. `setFeed(...)` for each v1 ticker (bounds 93,600 s), `setOpener(KEEPER_ADDRESS, true)`.
 6. `transferOwnership(SAFE_ADDRESS)` (two-step); the operator accepts from the Safe app.

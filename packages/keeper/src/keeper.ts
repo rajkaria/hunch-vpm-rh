@@ -59,20 +59,29 @@ export function createKeeper(env: EnvLike = (globalThis as { process?: { env?: E
     relay: (body, meta) =>
       relayEnter(body, {
         deployment,
-        chain: chainRelayReads(clients.publicClient, deployment, clients.account ?? undefined),
+        chain: chainRelayReads(clients.publicClient, deployment, clients.relayerAccount ?? undefined),
         nowSec: meta.nowSec ?? Math.floor(Date.now() / 1000),
         country: meta.country ?? null,
         ip: meta.ip ?? null,
         limiter: meta.limiter ?? defaultRelayLimiter,
-        sender: clients.walletClient === null ? null : walletRelaySender(clients.walletClient, clients.publicClient, deployment),
+        sender: clients.relayerWalletClient === null ? null : walletRelaySender(clients.relayerWalletClient, clients.publicClient, deployment),
       }),
-    health: (o = {}) => checkHealth(clients.publicClient, deployment, { redact: clients.redact, corporateActions: loadCorporateActions(), ...(o.nowSec === undefined ? {} : { nowSec: o.nowSec }) }),
+    health: (o = {}) =>
+      checkHealth(clients.publicClient, deployment, {
+        redact: clients.redact,
+        corporateActions: loadCorporateActions(),
+        // The wallets this deployment actually sends from (after a key rotation, not the JSON's).
+        keeper: clients.account,
+        relayer: clients.relayerAccount,
+        ...(o.nowSec === undefined ? {} : { nowSec: o.nowSec }),
+      }),
     planDrill: (o = {}) => runDrill({ ...base, dryRun: true, ...(o.nowSec === undefined ? {} : { nowSec: o.nowSec }) }, { ...(o.ticker === undefined ? {} : { ticker: o.ticker }), plan: true }),
     openDrill: (o = {}) =>
       runDrill(
         { ...base, walletClient: o.dryRun === true ? null : clients.walletClient, dryRun: o.dryRun === true, ...(o.nowSec === undefined ? {} : { nowSec: o.nowSec }) },
         { ...(o.ticker === undefined ? {} : { ticker: o.ticker }) },
       ),
-    finalizeSoon: (marketId, l1BlockAtEntry, o = {}) => finalizeWhenDue(clients.publicClient, clients.walletClient, deployment, marketId, l1BlockAtEntry, o),
+    // Runs right after a relayed bet, on the relay's instance: the relayer's wallet and nonces.
+    finalizeSoon: (marketId, l1BlockAtEntry, o = {}) => finalizeWhenDue(clients.publicClient, clients.relayerWalletClient, deployment, marketId, l1BlockAtEntry, o),
   };
 }

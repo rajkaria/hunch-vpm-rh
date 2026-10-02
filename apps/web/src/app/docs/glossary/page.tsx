@@ -45,7 +45,7 @@ const VENUE_TERMS = [
   {
     id: 'safe',
     term: 'Safe',
-    definition: 'A multi-signature wallet. Hunch\'s Safe can pause new bets and allow-list feeds and listers, and receives fees.',
+    definition: 'A multi-signature wallet. Hunch\'s Safe can pause and resume new bets and new markets, name the pauser (a key that can only pause), allow-list feeds and listers, and receives fees.',
   },
   {
     id: 'ordinary-pool',

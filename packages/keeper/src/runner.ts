@@ -13,12 +13,14 @@ import {
   isDeployed,
   maybe,
   openUpDownCall,
+  readListingsFrom,
   resolveCall,
   roundReaderFromClient,
   stockRoundResolverAbi,
   sweepFeesCall,
   voidPausedCall,
   voidStaleCall,
+  voidBadAnswerCall,
   withdrawRefundForCall,
   type Deployment,
 } from '@hunch-rh/client';
@@ -59,7 +61,7 @@ export function consoleLogger(redact: (text: string) => string = (t) => t): Logg
 export interface RunContext {
   deployment: Deployment;
   publicClient: PublicClient;
-  /** Independent reader for the STALE double-check (defaults to publicClient). */
+  /** Independent reader for the STALE / BADANSWER double-check (defaults to publicClient). */
   fallbackClient?: PublicClient;
   /** null/undefined: read-only (every run is then a dry run). */
   walletClient?: WalletClient | null;
@@ -202,7 +204,29 @@ async function sendOpens(ctx: RunContext, report: JobReport, state: KeeperState,
     await page(ctx, report, 'could not approve USDG to the factory for seeds');
     return;
   }
+  const known = state.markets.length; // every listing this run read
   for (const p of affordable.slice(0, ctx.maxActions ?? 100)) {
+    if (!isDry(ctx)) {
+      // Another run (a duplicate cron delivery, a manual run-once) may have listed it since this
+      // run read the chain: the factory does not refuse a duplicate, so look again first.
+      const since = await readListingsFrom(ctx.publicClient, d, known).catch(() => null);
+      const listed =
+        since === null
+          ? null
+          : since.some(
+              (l) => l.feed.toLowerCase() === p.params.feed.toLowerCase() && BigInt(l.strikeTime) === p.params.strikeTime && BigInt(l.finalTime) === p.params.finalTime,
+            );
+      if (listed !== false) {
+        report.actions.push({
+          job: report.job,
+          kind: 'openUpDown',
+          target: p.question,
+          status: 'skipped',
+          detail: listed === null ? 'could not re-read the listings just before sending; not listing blind' : 'already listed by another run',
+        });
+        continue;
+      }
+    }
     await execute(ctx, report, 'openUpDown', p.question, openUpDownCall(d, p.params), p.reason);
   }
 }
@@ -219,6 +243,12 @@ async function runOpen(ctx: RunContext, state: KeeperState): Promise<JobReport> 
     params: deploymentParams(d),
   });
   for (const s of decision.skipped) report.notes.push(`${s.ticker} ${s.family}: ${s.reason}`);
+  if (state.entriesPaused && decision.open.length > 0) {
+    // D10: the pause stops `create` too, so every open would revert. /api/health reports the pause.
+    report.notes.push('new bets and new markets are paused: not listing (the Safe resumes)');
+    for (const p of decision.open) report.actions.push({ job: report.job, kind: 'openUpDown', target: p.question, status: 'skipped', detail: 'venue paused' });
+    return report;
+  }
   await sendOpens(ctx, report, state, decision.open);
   return report;
 }
@@ -233,7 +263,7 @@ async function previewStatus(client: PublicClient, d: Deployment, specId: Hex, s
   return v === null ? null : decodePreview(v).status;
 }
 
-/** Build the resolve candidate for one market: rounds + preview (+ the independent read when STALE). */
+/** Build the resolve candidate for one market: rounds + preview (+ the independent read when STALE or BADANSWER). */
 export async function resolutionCandidate(ctx: RunContext, m: KeeperMarket, nowSec: number): Promise<ResolveCandidate> {
   const d = ctx.deployment;
   const redact = ctx.redact ?? ((t: string) => t);
@@ -287,6 +317,9 @@ async function runResolve(ctx: RunContext, state: KeeperState): Promise<JobRepor
         break;
       case 'voidStale':
         await execute(ctx, report, 'voidStale', target, voidStaleCall(d, action), action.why);
+        break;
+      case 'voidBadAnswer':
+        await execute(ctx, report, 'voidBadAnswer', target, voidBadAnswerCall(d, action), action.why);
         break;
       case 'voidPaused':
         await execute(ctx, report, 'voidPaused', target, voidPausedCall(d, action.specId), action.why);

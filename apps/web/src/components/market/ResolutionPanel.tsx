@@ -1,6 +1,6 @@
 'use client';
 
-import { CHAIN_ID, PREVIEW_STATUS, formatPrice, resolveCall, voidMarketCall, voidPausedCall, voidStaleCall, type Deployment } from '@hunch-rh/client';
+import { CHAIN_ID, PREVIEW_STATUS, formatPrice, resolveCall, voidBadAnswerCall, voidMarketCall, voidPausedCall, voidStaleCall, type Deployment } from '@hunch-rh/client';
 import { useState } from 'react';
 import type { Hex } from 'viem';
 
@@ -39,7 +39,7 @@ function Round({ label, round, explorer, feed, bell }: { label: string; round: R
   );
 }
 
-type Action = { kind: 'resolve' | 'void-stale' | 'void-paused' | 'void-timeout'; label: string } | null;
+type Action = { kind: 'resolve' | 'void-stale' | 'void-bad-answer' | 'void-paused' | 'void-timeout'; label: string } | null;
 
 /** What `preview` says about the two proven rounds, in words, and which call settles it. */
 export function previewInWords(detail: MarketDetailJson, nowSec: number): { text: string; action: Action } {
@@ -63,6 +63,11 @@ export function previewInWords(detail: MarketDetailJson, nowSec: number): { text
       return { text: 'The price did not move between the bells, so settling refunds every bet in full.', action: { kind: 'resolve', label: 'Resolve it yourself' } };
     case PREVIEW_STATUS.STALE:
       return { text: 'A price at one of the bells was older than this market allows, so every bet is refunded in full.', action: { kind: 'void-stale', label: 'Refund everyone yourself' } };
+    case PREVIEW_STATUS.BADANSWER:
+      return {
+        text: "Chainlink's price at one of the bells is out of range (not a real price), so every bet is refunded in full.",
+        action: { kind: 'void-bad-answer', label: 'Refund everyone yourself' },
+      };
     case PREVIEW_STATUS.PAUSED:
       return nowSec >= m.finalTime + DAY
         ? { text: "Robinhood paused this token's price for more than a day, so every bet is refunded in full.", action: { kind: 'void-paused', label: 'Refund everyone yourself' } }
@@ -79,6 +84,7 @@ export function previewInWords(detail: MarketDetailJson, nowSec: number): { text
 const REASON: Record<string, string> = {
   flat: 'The price did not move between the bells, so every bet was refunded in full.',
   stale: 'A price at one of the bells was older than this market allows, so every bet was refunded in full.',
+  'bad-answer': "Chainlink's price at one of the bells was out of range, so every bet was refunded in full.",
   paused: "Robinhood paused this token's price for more than a day, so every bet was refunded in full.",
   timeout: 'Nobody settled this market within 72 hours of the bell, so it was refunded in full.',
 };
@@ -132,9 +138,11 @@ export function ResolutionPanel({
           ? resolveCall(deployment, rounds)
           : action.kind === 'void-stale'
             ? voidStaleCall(deployment, rounds)
-            : action.kind === 'void-paused'
-              ? voidPausedCall(deployment, m.specId as Hex)
-              : voidMarketCall(deployment, BigInt(m.id));
+            : action.kind === 'void-bad-answer'
+              ? voidBadAnswerCall(deployment, rounds)
+              : action.kind === 'void-paused'
+                ? voidPausedCall(deployment, m.specId as Hex)
+                : voidMarketCall(deployment, BigInt(m.id));
       const hash = await wallet.write(call);
       setSent(hash);
       const status = await wallet.waitForReceipt(hash);

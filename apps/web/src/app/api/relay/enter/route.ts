@@ -64,19 +64,23 @@ export async function POST(request: Request): Promise<Response> {
       ok: false,
       error: 'relay_failed',
       reason: 'keeper-error',
-      message: 'The relayer could not send this bet. Try again, or use "Pay gas yourself".',
-      next: 'pay-gas',
+      message: 'The relayer could not finish sending this bet. Send the same signed bet again: it can only ever be placed once.',
+      next: 'retry-same',
     });
   }
 
   let receipt: RelaySuccessBody['receipt'] = 'pending';
   let mined: TransactionReceipt | null = null;
   if (result.ok) {
-    try {
-      mined = await keeper.clients.publicClient.waitForTransactionReceipt({ hash: result.txHash, timeout: RECEIPT_WAIT_MS });
-      receipt = mined.status === 'success' ? 'confirmed' : 'reverted';
-    } catch {
-      receipt = 'pending';
+    if (result.txHash === null) {
+      receipt = 'confirmed'; // an earlier send of this signature already landed (its authorization is used)
+    } else {
+      try {
+        mined = await keeper.clients.publicClient.waitForTransactionReceipt({ hash: result.txHash, timeout: RECEIPT_WAIT_MS });
+        receipt = mined.status === 'success' ? 'confirmed' : 'reverted';
+      } catch {
+        receipt = 'pending';
+      }
     }
     if (receipt === 'confirmed' && typeof b.marketId === 'string' && /^\d+$/.test(b.marketId)) {
       // The bet is matched when its Ethereum block passes; write that match on chain right away
@@ -102,6 +106,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const { status, body: out } = relayHttp(result, receipt);
-  console.info(`[relay] ${summary} -> ${result.ok ? `sent ${result.txHash} (${receipt})` : result.code}`);
+  console.info(`[relay] ${summary} -> ${result.ok ? (result.txHash === null ? 'already on chain' : `sent ${result.txHash} (${receipt})`) : result.code}`);
   return json(out, { status, cache: 'none' });
 }

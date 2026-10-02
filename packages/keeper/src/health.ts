@@ -11,7 +11,7 @@ import {
   sessionOn,
   type Deployment,
 } from '@hunch-rh/client';
-import { formatEther, type PublicClient } from 'viem';
+import { formatEther, zeroAddress, type Address, type PublicClient } from 'viem';
 import type { CorporateAction } from './calendar.js';
 import { readKeeperState, type KeeperState } from './chainState.js';
 import { decideOpen } from './decide/open.js';
@@ -46,14 +46,15 @@ export interface HealthReport {
 }
 
 /**
- * Keeper USDG floor: the seed float at its busiest, (tickers × 2 open markets, a daily and a
- * weekly, + 1 refund drill) × 2 legs × seed. It is compared with `keeperUsdgFloat`, not the
- * wallet balance: seeds locked in open markets are still the keeper's.
+ * Keeper USDG floor: the seed float at its busiest, every enabled market open at once:
+ * (Σ enabled families over the live feeds) × 2 legs × seed. It is compared with the wallet plus
+ * `keeperUsdgInVenue`, not the wallet alone: seeds locked in open markets are still the keeper's.
+ * The refund drill is a one-off the operator funds when they run it.
  */
 export function keeperUsdgFloor(d: Deployment): bigint {
   const p = deploymentParams(d);
-  const tickers = BigInt(d.feeds.filter((f) => f.pendingFlatRateCheck !== true).length);
-  return (tickers * 2n + 1n) * 2n * p.seedPerLeg;
+  const markets = d.feeds.filter((f) => f.pendingFlatRateCheck !== true).reduce((n, f) => n + f.families.length, 0);
+  return BigInt(markets) * 2n * p.seedPerLeg;
 }
 
 /**
@@ -78,6 +79,9 @@ export function keeperUsdgInVenue(s: KeeperState): bigint {
   }
   return total;
 }
+
+const same = (a: Address | null | undefined, b: Address | null | undefined) =>
+  a !== null && a !== undefined && b !== null && b !== undefined && a.toLowerCase() === b.toLowerCase();
 
 export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: readonly CorporateAction[] = []): HealthReport {
   const checks: HealthCheck[] = [];
@@ -114,6 +118,38 @@ export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: 
       detail: `${formatUsdg(s.keeper.usdg)} USDG in the wallet + ${formatUsdg(inVenue)} in its markets (floor ${formatUsdg(floor)})`,
     });
   }
+
+  // Who holds the venue's powers (D10 wiring; the Safe's two-step ownership).
+  const w = s.wiring;
+  if (w !== undefined && w !== null) {
+    const owned = same(w.factoryOwner, d.safe) && same(w.factoryPendingOwner, zeroAddress);
+    checks.push({
+      name: 'ownership',
+      ok: owned,
+      detail: owned
+        ? 'the Safe owns the factory'
+        : same(w.factoryPendingOwner, d.safe)
+          ? `the Safe has not accepted ownership yet: ${w.factoryOwner ?? 'unreadable'} still owns the factory (execute acceptOwnership() from the Safe)`
+          : `factory owner ${w.factoryOwner ?? 'unreadable'}, pending ${w.factoryPendingOwner ?? 'unreadable'}; expected the Safe ${d.safe}`,
+    });
+    const wired = same(w.settlerFactory, d.contracts.HunchMarketFactory.address) && w.keeperIsOpener !== false;
+    checks.push({
+      name: 'wiring',
+      ok: wired,
+      detail: wired
+        ? `the settler's only creator is the factory${w.keeperIsOpener === true ? '; the keeper is an opener' : ''}${w.pauser !== null && !same(w.pauser, zeroAddress) ? `; pauser ${w.pauser}` : '; no pauser'}`
+        : !same(w.settlerFactory, d.contracts.HunchMarketFactory.address)
+          ? `HunchVPM.factory() is ${w.settlerFactory ?? 'unreadable'}, not the factory ${d.contracts.HunchMarketFactory.address}: no market can be listed`
+          : 'the keeper is not an opener on the factory (setOpener from the Safe)',
+    });
+  }
+  checks.push({
+    name: 'entries-paused',
+    ok: !s.entriesPaused,
+    detail: s.entriesPaused
+      ? 'new bets and new markets are paused (claims, refunds and settlement are not); only the Safe resumes'
+      : 'new bets and new markets are open',
+  });
 
   // Today's markets exist once the opening bell is 5 min away.
   const session = isCovered(today) && isTradingDay(today) ? sessionOn(today) : null;
@@ -162,12 +198,39 @@ export function evaluateHealth(s: KeeperState, d: Deployment, corporateActions: 
 export async function checkHealth(
   client: PublicClient,
   d: Deployment,
-  options: { nowSec?: number; corporateActions?: readonly CorporateAction[]; redact?: (text: string) => string } = {},
+  options: {
+    nowSec?: number;
+    corporateActions?: readonly CorporateAction[];
+    redact?: (text: string) => string;
+    /** The keeper key's address in this environment (default: the deployment JSON's keeper). */
+    keeper?: Address | null;
+    /** The relayer's address when it is a separate key (RELAYER_PRIVATE_KEY). */
+    relayer?: Address | null;
+  } = {},
 ): Promise<HealthReport> {
   const redact = options.redact ?? ((t: string) => t);
   try {
-    const state = await readKeeperState(client, d, options.nowSec === undefined ? {} : { nowSec: options.nowSec });
-    return evaluateHealth(state, d, options.corporateActions ?? []);
+    const keeper = options.keeper ?? null;
+    const state = await readKeeperState(client, d, {
+      ...(options.nowSec === undefined ? {} : { nowSec: options.nowSec }),
+      ...(keeper === null ? {} : { keeper }),
+    });
+    const report = evaluateHealth(state, d, options.corporateActions ?? []);
+    if (!state.deployed) return report;
+    if (keeper !== null && !same(keeper, d.keeper)) {
+      report.checks.push({
+        name: 'keeper-key',
+        ok: false,
+        detail: `the keeper key here is ${keeper}, the deployment JSON names ${d.keeper}: update .keeper, pnpm wire, redeploy`,
+      });
+    }
+    const relayer = options.relayer ?? null;
+    if (relayer !== null && !same(relayer, keeper)) {
+      const eth = await client.getBalance({ address: relayer });
+      report.checks.push({ name: 'relayer-eth', ok: eth >= MIN_KEEPER_ETH, detail: `${formatEther(eth)} ETH on the relayer ${relayer} (floor 0.002)` });
+    }
+    report.ok = report.checks.every((c) => c.ok);
+    return report;
   } catch (error) {
     return {
       ok: false,

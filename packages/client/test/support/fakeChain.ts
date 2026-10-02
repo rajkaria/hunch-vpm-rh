@@ -32,8 +32,24 @@ export const FACTORY: Address = getAddress('0x0000000000000000000000000000000000
 export const SAFE: Address = getAddress('0x00000000000000000000000000000000000000b1');
 export const KEEPER: Address = getAddress('0x00000000000000000000000000000000000000c1');
 
+/**
+ * The configuration the tests are written against: seed 10 USDG per leg, bets 1 to 100 USDG,
+ * daily and weekly markets on every feed. The JSON holds the operator's current tuning, which
+ * changes without touching the mechanics; the tests do not follow it.
+ */
+function withReferenceConfig(d: Record<string, any>): Record<string, any> {
+  d.params = { ...d.params, seedPerLeg: '10000000', minEntry: '1000000', maxEntry: '100000000' };
+  d.feeds = d.feeds.map((f: Record<string, unknown>) => ({ ...f, families: ['daily', 'weekly'] }));
+  return d;
+}
+
+/** The committed deployment with the reference configuration, in its committed status. */
+export function referenceDeployment(): Deployment {
+  return parseDeployment(withReferenceConfig(structuredClone(EMBEDDED_DEPLOYMENT) as unknown as Record<string, any>));
+}
+
 export function deployedDeployment(): Deployment {
-  const d = structuredClone(EMBEDDED_DEPLOYMENT) as unknown as Record<string, any>;
+  const d = withReferenceConfig(structuredClone(EMBEDDED_DEPLOYMENT) as unknown as Record<string, any>);
   d.status = 'deployed';
   d.deployedAt = '2026-09-21T10:00:00Z';
   d.gitCommit = 'test';
@@ -79,6 +95,13 @@ export class FakeChain {
   readonly usdgBalances = new Map<string, bigint>();
   readonly allowances = new Map<string, bigint>();
   readonly openers = new Set<string>([KEEPER.toLowerCase()]);
+  /** Factory ownership (two-step, the Safe accepted) and the settler's D10 wiring. */
+  factoryOwner: Address = SAFE;
+  factoryPendingOwner: Address = '0x0000000000000000000000000000000000000000';
+  settlerFactory: Address = FACTORY;
+  pauser: Address = '0x0000000000000000000000000000000000000000';
+  /** Runs before each `simulateContract` (a test can let "another run" act mid-job). */
+  beforeSimulate: ((functionName: string, args: readonly unknown[]) => void) | null = null;
   /** Calls simulated through `simulateContract` (what a runner would send). */
   readonly simulated: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
   calls = 0;
@@ -225,6 +248,10 @@ export class FakeChain {
         return [...this.feeds.keys()][Number(args[0])];
       case 'openers':
         return this.openers.has((args[0] as string).toLowerCase());
+      case 'owner':
+        return this.factoryOwner;
+      case 'pendingOwner':
+        return this.factoryPendingOwner;
     }
     throw new Error(`execution reverted: factory.${fn}`);
   }
@@ -243,6 +270,10 @@ export class FakeChain {
     switch (fn) {
       case 'entriesPaused':
         return this.entriesPaused;
+      case 'factory':
+        return this.settlerFactory;
+      case 'pauser':
+        return this.pauser;
       case 'feesAccrued':
         return this.feesAccrued;
       case 'marketCount':
@@ -350,6 +381,7 @@ export class FakeChain {
         return '0x';
       },
       async simulateContract(c: { address: Address; functionName: string; args?: readonly unknown[] }) {
+        self.beforeSimulate?.(c.functionName, c.args ?? []);
         self.simulated.push({ address: c.address, functionName: c.functionName, args: c.args ?? [] });
         return { request: c, result: undefined };
       },

@@ -1,7 +1,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { MarketCard, changePpm, directionVsStrike } from '@/components/market/MarketCard';
+import { MarketCard, changePpm, directionVsStrike, splitQuestion } from '@/components/market/MarketCard';
 import { MarketGrid } from '@/components/market/MarketGrid';
 import { NOT_DEPLOYED } from '@/lib/deployment';
 import type { MarketCardData } from '@/lib/view/types';
@@ -37,7 +37,60 @@ describe('direction and change against the strike', () => {
   });
 });
 
+describe('splitQuestion', () => {
+  it('sets the day a market runs apart from its question', () => {
+    expect(splitQuestion('Will NVDA close UP today? · Tue Sep 29')).toEqual({ title: 'Will NVDA close UP today?', when: 'Tue Sep 29' });
+    expect(splitQuestion('Will TSLA finish the week UP? · Tue Sep 29 → Fri Oct 2')).toEqual({
+      title: 'Will TSLA finish the week UP?',
+      when: 'Tue Sep 29 → Fri Oct 2',
+    });
+    expect(splitQuestion('Will NVDA finish the week UP?')).toEqual({ title: 'Will NVDA finish the week UP?', when: null });
+  });
+});
+
 describe('<MarketCard>', () => {
+  it('reads like a Hunch card: tag, clock, question, the day, the split and both sides as tiles', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW * 1000);
+    const { container } = render(<MarketCard market={LIVE} now={NOW} />);
+    const card = within(container);
+    expect(card.getByText(/NVDA · Daily/)).toBeTruthy();
+    expect(card.getByText('Live')).toBeTruthy();
+    expect(card.getByText('03:20:00')).toBeTruthy(); // to the 4:00 pm bell
+    expect(card.getByRole('heading', { level: 3 }).textContent).toBe('Will NVDA close UP today?');
+    expect(card.getByText('Tue Sep 29')).toBeTruthy();
+    expect(card.getByText('60%').className).toMatch(/\bnum\b/); // 120 of 200 staked is on UP
+    expect(container.querySelector('article')?.getAttribute('aria-label')).toBe(LIVE.question);
+  });
+
+  it('says so when nobody has bet yet, and draws an even split rather than an empty bar', () => {
+    const { container } = render(<MarketCard market={{ ...LIVE, pool: { up: 0n, down: 0n } }} now={NOW} />);
+    expect(within(container).getByText('No bets yet')).toBeTruthy();
+    expect(container.querySelector<HTMLElement>('[style*="width"]')?.style.width).toBe('50%');
+  });
+
+  it('turns the clock coral in the last hour before the bell', () => {
+    const late = LIVE.finalTime - 1_200;
+    const { container } = render(<MarketCard market={LIVE} now={late} />);
+    expect(within(container).getByText('Live').closest('span.uppercase')?.className).toMatch(/text-coral/);
+  });
+
+  it('a paused market takes no bets and says nothing about collecting', () => {
+    render(<MarketCard market={{ ...LIVE, acceptingBets: false }} now={NOW} />);
+    expect(screen.getByText('Paused')).toBeTruthy();
+    expect(screen.queryByText(/Bet now/)).toBeNull();
+  });
+
+  it('a frozen market says Chainlink settles it next; a void one says every stake came back', () => {
+    const { unmount } = render(<MarketCard market={{ ...LIVE, phase: 'frozen' }} now={1_790_713_000} />);
+    expect(screen.getByText('Settling')).toBeTruthy();
+    expect(screen.getByText('Closed at 4:00 pm ET. Chainlink settles it next.')).toBeTruthy();
+    unmount();
+    render(<MarketCard market={{ ...LIVE, phase: 'void' }} now={1_790_720_000} />);
+    expect(screen.getByText('Void · refunded')).toBeTruthy();
+    expect(screen.getByText('Every stake was refunded in full.')).toBeTruthy();
+  });
+
   it('renders the outcomes as the words UP and DOWN, never colour alone', () => {
     const { container } = render(<MarketCard market={LIVE} now={NOW} />);
     const card = within(container);
@@ -83,6 +136,16 @@ describe('<MarketGrid>', () => {
     render(<MarketGrid markets={[]} deployment={NOT_DEPLOYED} now={NOW} />);
     expect(screen.getByText('Markets open at the next opening bell once the venue is live.')).toBeTruthy();
     expect(screen.queryByRole('link', { name: /Will .* close UP today/ })).toBeNull();
+  });
+
+  it('before launch shows one dashed template per ticker, never as a link and never with a number', () => {
+    const { container } = render(<MarketGrid markets={[]} deployment={NOT_DEPLOYED} now={NOW} />);
+    const board = within(container).getByRole('list', { name: 'The markets planned for launch' });
+    const templates = within(board).getAllByRole('listitem');
+    expect(templates).toHaveLength(Math.min(4, NOT_DEPLOYED.feeds.filter((feed) => feed.families.length > 0).length));
+    expect(within(board).getAllByText('Template')).toHaveLength(templates.length);
+    expect(within(board).queryAllByRole('link')).toHaveLength(0);
+    expect(board.textContent).not.toMatch(/\d+\.\d{2}/);
   });
 
   it('lists every market it is given', () => {

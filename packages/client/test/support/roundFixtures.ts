@@ -94,7 +94,8 @@ export function proveLikeTheResolver(byId: ReadonlyMap<bigint, RoundData>, lates
   };
   const round = get(x);
   if (round === null || round.updatedAt > t) return 'badProof';
-  if (round.answer <= 0n || round.answer >= 10n ** 14n) return 'badAnswer';
+  // The band is checked only once x is proven the round in effect (resolver L-3 fix).
+  const band = round.answer <= 0n || round.answer >= 10n ** 14n ? 'badAnswer' : 'ok';
   const phase = x >> 64n;
   const current = latestId >> 64n;
   if (phase > current) return 'badProof';
@@ -109,7 +110,7 @@ export function proveLikeTheResolver(byId: ReadonlyMap<bigint, RoundData>, lates
   }
   if ((x & ((1n << 64n) - 1n)) !== (1n << 64n) - 1n) {
     const next = get(x + 1n);
-    if (next !== null) return next.updatedAt > t ? 'ok' : 'badProof';
+    if (next !== null) return next.updatedAt > t ? band : 'badProof';
   }
-  return x === latestId || laterPrinted ? 'ok' : 'badProof';
+  return x === latestId || laterPrinted ? band : 'badProof';
 }

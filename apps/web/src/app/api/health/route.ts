@@ -1,7 +1,8 @@
 /**
  * GET /api/health: 200 only when every keeper check holds (docs/spec/06-keeper-and-ops.md
- * §Health), else 503 with the failing checks. For an uptime monitor. Never cached, and no secret
- * in the body: balances and ages only.
+ * §Health), else 503 with the failing checks. For an uptime monitor. No secret in the body:
+ * balances and ages only. The report is reused for 30 s per instance, so polling it cannot turn
+ * into load on the keeper's RPC quota.
  */
 
 import { json } from '@/lib/api/http';
@@ -11,9 +12,27 @@ import { getKeeper } from '@/lib/server/keeper';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+type Keeper = ReturnType<typeof getKeeper>;
+type Report = Awaited<ReturnType<Keeper['health']>>;
+const REUSE_MS = 30_000;
+let last: { keeper: Keeper; at: number; report: Report } | null = null;
+let inFlight: { keeper: Keeper; report: Promise<Report> } | null = null;
+
 export async function GET(): Promise<Response> {
   try {
-    const report = await getKeeper().health();
+    const keeper = getKeeper();
+    let report: Report;
+    if (last !== null && last.keeper === keeper && Date.now() - last.at < REUSE_MS) report = last.report;
+    else {
+      if (inFlight === null || inFlight.keeper !== keeper) {
+        const pending = keeper.health().finally(() => {
+          if (inFlight?.report === pending) inFlight = null;
+        });
+        inFlight = { keeper, report: pending };
+      }
+      report = await inFlight.report;
+      last = { keeper, at: Date.now(), report };
+    }
     return json(report, { status: report.ok ? 200 : 503, cache: 'none' });
   } catch {
     const deployment = readDeployment();

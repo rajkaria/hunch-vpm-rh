@@ -94,8 +94,9 @@ export function SafePanel({ safe }: { safe: SafeInfo }) {
         </div>
       </div>
       <p className="mt-4 border-t border-edge pt-4 text-sm leading-relaxed text-muted">
-        One Safe is the guardian and treasury of the betting contract and the owner of the market factory. It can pause new
-        bets and choose which price feeds and which listing wallet are allowed. It cannot move a stake, set a price, or
+        One Safe is the guardian and treasury of the betting contract and the owner of the market factory. It can pause and
+        resume new bets and new markets (a pauser key it names can only pause) and choose which price feeds and which
+        listing wallet are allowed. It cannot move a stake, set a price, or
         stop claims, refunds or settlement. The threshold is read on-chain, not typed here.
       </p>
     </div>
@@ -194,6 +195,7 @@ export function SettledMarkets({ rows }: { rows: SettledMarketRow[] }) {
 
 const DRILL_REASON: Record<NonNullable<RefundDrillData['reason']>, string> = {
   stale: 'The closing price was provably older than the market allowed.',
+  'bad-answer': 'The Chainlink price in effect at a bell was provably out of range.',
   flat: 'The price did not move between the bells.',
   paused: "Robinhood paused the token's price for a corporate action.",
   timeout: 'Nobody settled it within 72 hours of the bell.',

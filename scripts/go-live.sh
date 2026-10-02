@@ -16,7 +16,8 @@
 #   3. contracts/script/DeployRH.s.sol --broadcast, then scripts/post-deploy.sh (receipts -> JSON, pnpm wire)
 #   4. scripts/verify-contracts.sh (Blockscout, Sourcify fallback); a failure here is reported, not fatal
 #   5. the Safe accepts factory ownership: owners 1 and 2 sign acceptOwnership(), the deployer submits
-#   6. read-back from chain: factory owner = Safe, keeper is an opener, settler guardian and treasury = Safe
+#   6. read-back from chain: factory owner = Safe, keeper is an opener, settler guardian and treasury = Safe,
+#      the settler's only creator is the factory and its pauser is the deployer (or PAUSER_ADDRESS)
 # It deploys and wires contracts only and never moves USDG: the keeper pays the seeds itself when
 # the Vercel cron (or the operator) lists markets.
 set -euo pipefail
@@ -98,16 +99,15 @@ step "1. Preflight"
 [ "$(cast chain-id --rpc-url "$RPC")" = "4663" ] || die "RH_RPC_URL is not Robinhood Chain mainnet (chain id 4663)"
 [ "$(lc "$KEEPER_ADDRESS")" != "$(lc "$DEPLOYER_ADDRESS")" ] || die "the keeper must not be the deployer"
 SEED=$(jq -r .params.seedPerLeg "$MAINNET_JSON")
-TICKERS=$(jq '[.feeds[] | select(.pendingFlatRateCheck != true)] | length' "$MAINNET_JSON")
-FLOAT=$(((TICKERS * 2 + 1) * 2 * SEED)) # packages/keeper/src/health.ts keeperUsdgFloor
-FIRST_RUN=$((TICKERS * 2 * 2 * SEED))   # the first listing run: every daily + every weekly
+MARKETS=$(jq '[.feeds[] | select(.pendingFlatRateCheck != true) | .families | length] | add // 0' "$MAINNET_JSON")
+FLOAT=$((MARKETS * 2 * SEED)) # packages/keeper/src/health.ts keeperUsdgFloor: every enabled market open
 dep_eth=$(cast balance --rpc-url "$RPC" "$DEPLOYER_ADDRESS")
 kep_eth=$(cast balance --rpc-url "$RPC" "$KEEPER_ADDRESS")
 kep_usdg=$(view "$USDG" 'balanceOf(address)(uint256)' "$KEEPER_ADDRESS" | first)
 say "gas price  $(cast from-wei "$(cast gas-price --rpc-url "$RPC")" gwei) gwei"
 say "deployer   $DEPLOYER_ADDRESS  $(cast from-wei "$dep_eth") ETH"
 say "keeper     $KEEPER_ADDRESS  $(cast from-wei "$kep_eth") ETH, $(usd "$kep_usdg") USDG"
-say "seed       $(usd "$SEED") USDG per side: the first listing run takes $(usd "$FIRST_RUN"), the health floor is $(usd "$FLOAT")"
+say "seed       $(usd "$SEED") USDG per side, $MARKETS markets enabled: the float (health floor) is $(usd "$FLOAT")"
 deployed=0
 [ "$(json_status)" = "not-deployed" ] || deployed=1
 if [ "$deployed" = "0" ] && [ "$dep_eth" -lt "$DEPLOYER_MIN_WEI" ]; then
@@ -236,6 +236,8 @@ if [ "$deployed" = "1" ]; then
   check "keeper is an opener" "$(view "$FACTORY" 'openers(address)(bool)' "$KEEPER_ADDRESS")" true
   check "settler guardian = Safe" "$(view "$VPM" 'guardian()(address)')" "$SAFE"
   check "settler treasury = Safe" "$(view "$VPM" 'treasury()(address)')" "$SAFE"
+  check "settler's only creator = the factory (D10)" "$(view "$VPM" 'factory()(address)')" "$FACTORY"
+  check "settler pauser = ${PAUSER_ADDRESS:-the deployer}" "$(view "$VPM" 'pauser()(address)')" "${PAUSER_ADDRESS:-$DEPLOYER_ADDRESS}"
   [ "$CHECK_ONLY" = "1" ] || [ "$bad" = "0" ] || die "the read-back disagrees with the plan (above)"
 fi
 

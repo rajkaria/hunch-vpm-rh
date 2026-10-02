@@ -14,7 +14,7 @@ handlers `apps/web/src/app/api/cron/[job]/route.ts`, scheduled by Vercel Cron in
 | Job | Schedule (UTC, Vercel Cron) | What it does |
 |---|---|---|
 | `open` | `*/10 12-13 * * 1-5` | Ensures today's **daily** markets exist for every allow-listed ticker (and Monday's / launch day's **weekly** markets), created before 09:30 ET. Uses the NYSE calendar (`keeper/calendar/nyse-2026.json`: holidays + early closes) and the corporate-action list; skips a ticker with an action in the window. |
-| `resolve` | `*/2 20-21 * * 1-5` and `7 * * * *` | For every market past its final time and not settled: find strike/final rounds, `preview`, then `resolve` (FLAT voids inside it), or `voidStale` / `voidPaused` per the policy below. |
+| `resolve` | `*/2 20-21 * * 1-5`, `*/5 17-18 * * 1-5` (1:00 pm ET early closes) and `7 * * * *` | For every market past its final time and not settled: find strike/final rounds, `preview`, then `resolve` (FLAT voids inside it), or `voidStale` / `voidPaused` per the policy below. |
 | `deliver` | `*/5 * * * *` | For every settled market: `claimFor` each unclaimed position with a non-zero payout or refund, one call per position so a Paxos-frozen address fails alone; `withdrawRefundFor` any refused remainder in open markets once its vintage is final; `sweepFees(usdg)` when accrued > 5 USDG. |
 | `relay` | on request (`POST /api/relay/enter`) | Takes a bettor's signed USDG authorization + market/side/amount/salt, checks it off-chain (domain, nonce = `enterNonce`, validity window, 1–100 USDG, market open, geo), simulates, sends `enterWithAuthorization` from the keeper key, returns the tx hash. Rate limit 10/min per IP and per `from`. The bettor can always submit the same call themselves. |
 | `health` | on request (`/api/health`) | See below. |
@@ -39,9 +39,10 @@ timeout remains the backstop.
 
 | Wallet | Holds | Refill rule |
 |---|---|---|
-| Keeper / opener / relayer (hot EOA, key only in Vercel env `KEEPER_PRIVATE_KEY`, marked sensitive) | ETH for gas (its own calls, relayed bets, claim deliveries); USDG seed float | Keep ≥ 0.002 ETH and ≥ (tickers × 2 markets × 20 USDG + 40) USDG. Seeds recycle back to it on settlement. Health goes red below the floor. |
+| Keeper / opener / relayer (hot EOA, key only in Vercel env `KEEPER_PRIVATE_KEY`, marked sensitive) | ETH for gas (its own calls, relayed bets, claim deliveries); USDG seed float | Keep ≥ 0.002 ETH and a float of ≥ (tickers × 2 markets × 20 USDG + 40) USDG, counting the seed in its open markets (seeds cannot lose and recycle back on settlement). Health goes red below the floor. |
 | Treasury Safe | fees, residue | Swept automatically; no operational need to spend. |
-| Guardian Safe (same Safe) | nothing | Only signs `setEntriesPaused`, `setFeed`, `setOpener`. |
+| Guardian Safe (same Safe) | nothing | Only signs `setEntriesPaused`, `setPauser`, `setFeed`, `setOpener`. |
+| Pauser (one key kept offline, by default the deployer's) | a little ETH | Only `setEntriesPaused(true)`: pauses new entries and new markets; cannot resume. |
 
 The keeper key is never in the repo, never in chat, never in logs (`redact.ts` from
 hunch-vpm keeps redaction). Set with `vercel env add KEEPER_PRIVATE_KEY production`
@@ -67,8 +68,8 @@ posts failures to a Telegram chat if `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
 
 ## Runbook (kept in the internal folder; summary here)
 
-- **Pause new entries** (bug suspected): Safe → `HunchVPM.setEntriesPaused(true)`. Claims
-  and settlement keep working.
+- **Pause new entries and new markets** (bug suspected): pauser (fast, one key) or Safe →
+  `HunchVPM.setEntriesPaused(true)`. Claims and settlement keep working; only the Safe resumes.
 - **Feed misbehaving:** Safe → `factory.setFeed(feed, ticker, …, allowed=false)`; the
   keeper stops listing it; existing markets settle or void on their own proofs.
 - **Keeper key leaked:** Safe → `factory.setOpener(old, false)`, rotate key in Vercel,

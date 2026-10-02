@@ -69,6 +69,19 @@ export const stockRoundResolverAbiGenerated = [
   },
   {
     "type": "function",
+    "name": "STATUS_BAD_ANSWER",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint8",
+        "name": "",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "STATUS_BAD_PROOF",
     "inputs": [],
     "outputs": [
@@ -410,6 +423,29 @@ export const stockRoundResolverAbiGenerated = [
   },
   {
     "type": "function",
+    "name": "voidBadAnswer",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "specId",
+        "internalType": "bytes32"
+      },
+      {
+        "type": "uint80",
+        "name": "strikeRound",
+        "internalType": "uint80"
+      },
+      {
+        "type": "uint80",
+        "name": "finalRound",
+        "internalType": "uint80"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "voidPaused",
     "inputs": [
       {
@@ -568,6 +604,37 @@ export const stockRoundResolverAbiGenerated = [
   },
   {
     "type": "event",
+    "name": "VoidedBadAnswer",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "specId",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "type": "uint256",
+        "name": "marketId",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "type": "uint80",
+        "name": "strikeRound",
+        "indexed": false,
+        "internalType": "uint80"
+      },
+      {
+        "type": "uint80",
+        "name": "finalRound",
+        "indexed": false,
+        "internalType": "uint80"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "VoidedPaused",
     "inputs": [
       {
@@ -644,6 +711,11 @@ export const stockRoundResolverAbiGenerated = [
   {
     "type": "error",
     "name": "MarketNotOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotBadAnswer",
     "inputs": []
   },
   {

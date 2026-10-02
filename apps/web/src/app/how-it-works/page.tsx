@@ -3,12 +3,14 @@ import type { Metadata } from 'next';
 import { B, C, Callout, H2, H3, LI, Lead, P, Table, Terms, Toc, UL } from '@/components/docs/prose';
 import { RulesBox } from '@/components/market/RulesBox';
 import { AccruedSteps } from '@/components/mechanism/AccruedSteps';
+import { EarlyPaysMore } from '@/components/mechanism/EarlyPaysMore';
 import { HowItWorksSteps } from '@/components/mechanism/HowItWorksSteps';
 import {
   WorkedExampleAccumulators,
   WorkedExampleBets,
   WorkedExamplePayouts,
 } from '@/components/mechanism/WorkedExampleTable';
+import { WhyRobinhoodChain } from '@/components/trust/WhyRobinhoodChain';
 import { Container } from '@/components/ui/Container';
 import { ButtonLink, SectionHeading, TextLink } from '@/components/ui/primitives';
 import { GLOSSARY } from '@/content/glossary';
@@ -30,6 +32,7 @@ const SECTIONS = [
   { id: 'worked-example', label: 'A week, worked through' },
   { id: 'settlement', label: 'How the bell settles it' },
   { id: 'what-it-does-not-do', label: 'What it does not do' },
+  { id: 'why-robinhood-chain', label: 'Why Robinhood Chain' },
   { id: 'for-the-curious', label: 'For the curious' },
   { id: 'provenance', label: 'The paper and what came before' },
 ] as const;
@@ -141,6 +144,9 @@ export default function HowItWorksPage() {
             <span className="num text-paper">{formatAmount(meiFee)}</span>, and nothing is taken from her stake.
           </P>
           <div className="mt-8">
+            <EarlyPaysMore />
+          </div>
+          <div className="mt-8">
             <AccruedSteps />
           </div>
 
@@ -207,6 +213,15 @@ export default function HowItWorksPage() {
               buy-back desk is on the roadmap.
             </LI>
           </UL>
+
+          <H2 id="why-robinhood-chain">Why Robinhood Chain</H2>
+          <P>
+            Stated as dependencies, not praise: what this venue needs and where each piece comes from. Take one away and the
+            product does not work.
+          </P>
+          <div className="mt-6">
+            <WhyRobinhoodChain />
+          </div>
 
           <H2 id="for-the-curious">For the curious</H2>
           <P>

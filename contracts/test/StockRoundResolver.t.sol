@@ -334,6 +334,60 @@ contract StockRoundResolverTest is ResolverBase {
         resolver.resolve(specId, r2, r4);
     }
 
+    /// @notice L-3 of the second review: a garbage answer on the round IN EFFECT at a bell used
+    ///         to fail the proof before uniqueness was checked, so neither `resolve` nor
+    ///         `voidStale` could ever run and the market waited 72 h for the settler timeout.
+    ///         The round is now proven first; its garbage answer then refunds at once.
+    function test_AProvenGarbageAnswerVoidsThroughVoidBadAnswer() public {
+        feed.setRound(r4, 7_424_400_000_000_000_000, F - 2 hours); // the final round in effect is garbage
+        vm.expectRevert(StockRoundResolver.BadAnswer.selector);
+        resolver.resolve(specId, r2, r4);
+        vm.expectRevert(StockRoundResolver.BadAnswer.selector);
+        resolver.voidStale(specId, r2, r4);
+        (uint8 st,,,,) = resolver.preview(specId, r2, r4);
+        assertEq(st, resolver.STATUS_BAD_ANSWER());
+
+        vm.expectEmit(address(resolver));
+        emit StockRoundResolver.VoidedBadAnswer(specId, MARKET, r2, r4);
+        vm.prank(makeAddr("anyone"));
+        resolver.voidBadAnswer(specId, r2, r4);
+        assertTrue(resolver.settled(specId));
+        (uint8 status,) = _settlerState();
+        assertEq(status, 2, "voided: everyone refunded");
+        vm.expectRevert(StockRoundResolver.AlreadySettled.selector);
+        resolver.voidBadAnswer(specId, r2, r4);
+    }
+
+    function test_VoidBadAnswerNeedsTheRoundsInEffectAndAGarbageAnswer() public {
+        vm.expectRevert(StockRoundResolver.NotBadAnswer.selector);
+        resolver.voidBadAnswer(specId, r2, r4); // both answers sane: resolve instead
+
+        // Garbage on a round that is NOT in effect proves nothing: nobody can pick a bad round.
+        feed.setRound(r1, -1, S - 3 hours);
+        vm.expectRevert(StockRoundResolver.BadProof.selector);
+        resolver.voidBadAnswer(specId, r1, r4);
+        vm.expectRevert(StockRoundResolver.BadProof.selector);
+        resolver.resolve(specId, r1, r4);
+        (uint8 st,,,,) = resolver.preview(specId, r1, r4);
+        assertEq(st, resolver.STATUS_BAD_PROOF());
+        feed.setRound(r5, 0, F + 5 minutes);
+        vm.expectRevert(StockRoundResolver.BadProof.selector);
+        resolver.voidBadAnswer(specId, r2, r5); // after the bell
+
+        feed.setRound(r2, 0, S - 10 minutes); // the strike round in effect is garbage
+        vm.expectRevert(StockRoundResolver.BadProof.selector);
+        resolver.voidBadAnswer(specId, r4, r2); // final before strike
+        vm.warp(F);
+        vm.expectRevert(StockRoundResolver.TooEarly.selector);
+        resolver.voidBadAnswer(specId, r2, r4);
+        vm.warp(F + 60);
+        resolver.voidBadAnswer(specId, r2, r4);
+        (uint8 status,) = _settlerState();
+        assertEq(status, 2);
+        vm.expectRevert(StockRoundResolver.AlreadySettled.selector);
+        resolver.resolve(specId, r2, r4);
+    }
+
     // ================================================================== staleness
 
     function test_AStaleStrikeCannotResolveOnlyVoidStale() public {
@@ -474,7 +528,10 @@ contract StockRoundResolverTest is ResolverBase {
         assertEq(st, 3, "FLAT");
         feed.setRound(r2, -5, S - 10 minutes);
         (st,,,,) = resolver.preview(specId, r2, r4);
-        assertEq(st, 5, "BADPROOF: garbage answer");
+        assertEq(st, 7, "BADANSWER: the proven strike round's answer is garbage");
+        (st,,,,) = resolver.preview(specId, r1, r4);
+        assertEq(st, 5, "BADPROOF: r1 is not the round in effect at the strike");
+        feed.setRound(r2, 181e8, S - 10 minutes);
 
         vm.warp(F);
         (st,,,,) = resolver.preview(specId, r2, r4);

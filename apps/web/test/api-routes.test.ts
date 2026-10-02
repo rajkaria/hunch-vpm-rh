@@ -21,6 +21,7 @@ import { POST as relay } from '@/app/api/relay/enter/route';
 import { BUSY_MESSAGE, relayHttp } from '@/lib/api/relay';
 import { cronAuthorized } from '@/lib/api/cron';
 import { setKeeper } from '@/lib/server/keeper';
+import { KEEPER_LOCK_KEY, lockFromEnv } from '@hunch-rh/keeper';
 
 const TX = `0x${'cd'.repeat(32)}` as const;
 const SIGNATURE = `0x${'5a'.repeat(65)}`;
@@ -90,7 +91,9 @@ describe('relay error mapping', () => {
     expect(fail('insufficient-balance')).toMatchObject({ status: 422, body: { error: 'insufficient_balance', next: 'get-usdg' } });
     expect(fail('simulation-failed')).toMatchObject({ status: 422, body: { error: 'simulation_failed' } });
     expect(fail('rate-limited')).toMatchObject({ status: 429, body: { error: 'rate_limited' } });
-    expect(fail('send-failed')).toMatchObject({ status: 502, body: { error: 'relay_failed', next: 'pay-gas' } });
+    // A failed send may still have landed: resend the same signature, never "pay gas" (a second bet).
+    expect(fail('send-failed')).toMatchObject({ status: 502, body: { error: 'relay_failed', next: 'retry-same' } });
+    expect(fail('contract-signer')).toMatchObject({ status: 400, body: { error: 'contract_signer', next: 'pay-gas' } });
     expect(fail('relayer-unavailable')).toMatchObject({ status: 503, body: { error: 'relay_unavailable', next: 'pay-gas' } });
     expect(fail('not-deployed')).toMatchObject({ status: 503, body: { error: 'not_deployed' } });
   });
@@ -149,10 +152,10 @@ describe('POST /api/relay/enter', () => {
     setKeeper(fakeKeeper({ relay: vi.fn(async () => ({ ok: false, code: 'send-failed', status: 502, message: 'Could not send.' })) as never }));
     const failed = await relay(relayRequest(BODY));
     expect(failed.status).toBe(502);
-    expect(await failed.json()).toMatchObject({ error: 'relay_failed', next: 'pay-gas' });
+    expect(await failed.json()).toMatchObject({ error: 'relay_failed', next: 'retry-same' });
   });
 
-  it('400 for a body that is not JSON, 502 (with the pay-gas hint) when the keeper throws', async () => {
+  it('400 for a body that is not JSON, 502 (resend the same signature) when the keeper throws', async () => {
     setKeeper(fakeKeeper());
     expect((await relay(relayRequest('{not json'))).status).toBe(400);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -161,7 +164,7 @@ describe('POST /api/relay/enter', () => {
     expect(response.status).toBe(502);
     const text = await response.text();
     expect(text).not.toContain('SECRETKEY123');
-    expect(JSON.parse(text)).toMatchObject({ error: 'relay_failed', next: 'pay-gas' });
+    expect(JSON.parse(text)).toMatchObject({ error: 'relay_failed', next: 'retry-same' });
   });
 });
 
@@ -192,6 +195,22 @@ describe('GET /api/cron/[job]', () => {
     expect(keeper.run).toHaveBeenCalledWith('deliver');
     expect(await response.json()).toMatchObject({ ok: true, job: 'deliver', reports: [{ job: 'deliver', notes: ['nothing to do'] }] });
     expect(response.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('one keeper run at a time: a job that finds the lock held skips, and the lock is released after a run', async () => {
+    const keeper = fakeKeeper();
+    setKeeper(keeper);
+    vi.stubEnv('CRON_SECRET', 'correct-horse-battery-staple');
+    const held = await lockFromEnv({}).acquire(KEEPER_LOCK_KEY, 60);
+    expect(held).not.toBeNull();
+    const skipped = await call('resolve', 'Bearer correct-horse-battery-staple');
+    expect(skipped.status).toBe(200);
+    expect(await skipped.json()).toMatchObject({ ok: true, job: 'resolve', skipped: expect.stringMatching(/another keeper run/) });
+    expect(keeper.run).not.toHaveBeenCalled();
+    await held!.release();
+    expect((await call('resolve', 'Bearer correct-horse-battery-staple')).status).toBe(200);
+    expect((await call('deliver', 'Bearer correct-horse-battery-staple')).status).toBe(200); // released after the first run
+    expect(keeper.run).toHaveBeenCalledTimes(2);
   });
 
   it('404 for an unknown job (after auth)', async () => {
@@ -238,6 +257,15 @@ describe('GET /api/health', () => {
     const body = (await response.json()) as { ok: boolean; checks: { name: string; ok: boolean }[] };
     expect(body.ok).toBe(false);
     expect(body.checks.filter((c) => !c.ok).map((c) => c.name)).toEqual(['keeper-eth']);
+  });
+
+  it('reuses one report for 30 s, so polling cannot load the RPC', async () => {
+    const keeper = fakeKeeper();
+    setKeeper(keeper);
+    await health();
+    await health();
+    await Promise.all([health(), health()]);
+    expect(keeper.health).toHaveBeenCalledTimes(1);
   });
 
   it('503 with a plain check when the keeper cannot start', async () => {

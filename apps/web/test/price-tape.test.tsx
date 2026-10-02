@@ -1,23 +1,17 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PriceTape } from '@/components/landing/PriceTape';
 import { TICKERS } from '@/content/tickers';
 import type { PriceSnapshot } from '@/lib/view/types';
 
-const FRIDAY_CLOSE = Date.UTC(2026, 8, 25, 19, 56) / 1000;
-const SATURDAY = Date.UTC(2026, 8, 26, 15, 0) / 1000;
-
-// PriceTape takes the server's `now`, then re-reads the client clock on mount: pin that clock
-// to the same Saturday, or the ages drift with the real date.
-beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(SATURDAY * 1000);
-});
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
+
+const FRIDAY_CLOSE = Date.UTC(2026, 8, 25, 19, 56) / 1000;
+const SATURDAY = Date.UTC(2026, 8, 26, 15, 0) / 1000;
 
 function snapshot(answer: string | null, status: PriceSnapshot['status']): PriceSnapshot {
   return {
@@ -36,6 +30,9 @@ function snapshot(answer: string | null, status: PriceSnapshot['status']): Price
 
 describe('<PriceTape>', () => {
   it("shows each price with its honest age on a weekend", () => {
+    // The tape re-reads the clock once it mounts, so the weekend has to be the clock's too.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(SATURDAY * 1000);
     render(<PriceTape initial={snapshot('22566018707', 'live')} now={SATURDAY} />);
     expect(screen.getAllByText('225.66').length).toBeGreaterThanOrEqual(TICKERS.length);
     expect(screen.getAllByText(/Fri 3:56 pm ET/).length).toBeGreaterThanOrEqual(TICKERS.length);

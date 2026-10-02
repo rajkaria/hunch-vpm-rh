@@ -5,29 +5,29 @@ import type { Deployment } from './types.js';
 export const EMBEDDED_DEPLOYMENT: Deployment = {
   "network": "robinhood-mainnet",
   "chainId": 4663,
-  "status": "deployed",
-  "deployedAt": "2026-10-02T16:24:37Z",
-  "gitCommit": "0c2caf25fc8bcb09668bfb9cf718619b61d8cc10",
-  "startBlock": 78371935,
+  "status": "not-deployed",
+  "deployedAt": null,
+  "gitCommit": null,
+  "startBlock": null,
   "contracts": {
     "HunchVPM": {
-      "address": "0x4fB64Dd74E6314C6415E3dE7268ea4Dda8771917",
-      "deployTx": "0x5e298e144e636e748630eeb953df83aaca7f2ff0c35def191d4e31513d4509fa",
-      "block": 78371948
+      "address": "0x0000000000000000000000000000000000000000",
+      "deployTx": null,
+      "block": null
     },
     "StockRoundResolver": {
-      "address": "0xE8b25102a2B0414d67FDC2011F3Ba3859b149A62",
-      "deployTx": "0x34c10e57d5c23f197cef06fac17f67116c7d4cd4004cf4cc8cb7751104ac8fd7",
-      "block": 78371935
+      "address": "0x0000000000000000000000000000000000000000",
+      "deployTx": null,
+      "block": null
     },
     "HunchMarketFactory": {
-      "address": "0xcb7055449c98d124A12E5F03fB0eA1D41AF3b7eA",
-      "deployTx": "0x15fbbec5649f4372ebb18307f58c0335787594ce22309bac587f43457eddc275",
-      "block": 78371978
+      "address": "0x0000000000000000000000000000000000000000",
+      "deployTx": null,
+      "block": null
     }
   },
-  "safe": "0x5866308Af35fA8AbD67f88d31695aD029143F336",
-  "keeper": "0xEb420AD181518814B6E3feb89A9d369Da3F5b580",
+  "safe": "0x0000000000000000000000000000000000000000",
+  "keeper": "0x0000000000000000000000000000000000000000",
   "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
   "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11",
   "explorer": "https://robinhoodchain.blockscout.com",
@@ -35,9 +35,9 @@ export const EMBEDDED_DEPLOYMENT: Deployment = {
     "kappa": 30,
     "feeBps": 200,
     "voidTimeoutSec": 259200,
-    "seedPerLeg": "10000000",
+    "seedPerLeg": "1000000",
     "minEntry": "1000000",
-    "maxEntry": "100000000"
+    "maxEntry": "25000000"
   },
   "feeds": [
     {
@@ -48,8 +48,7 @@ export const EMBEDDED_DEPLOYMENT: Deployment = {
       "maxStrikeAge": 93600,
       "maxFinalAge": 93600,
       "families": [
-        "daily",
-        "weekly"
+        "daily"
       ]
     },
     {
@@ -60,8 +59,7 @@ export const EMBEDDED_DEPLOYMENT: Deployment = {
       "maxStrikeAge": 93600,
       "maxFinalAge": 93600,
       "families": [
-        "daily",
-        "weekly"
+        "daily"
       ]
     },
     {
@@ -71,10 +69,7 @@ export const EMBEDDED_DEPLOYMENT: Deployment = {
       "stockToken": "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
       "maxStrikeAge": 93600,
       "maxFinalAge": 93600,
-      "families": [
-        "daily",
-        "weekly"
-      ]
+      "families": []
     },
     {
       "ticker": "COIN",
@@ -83,10 +78,7 @@ export const EMBEDDED_DEPLOYMENT: Deployment = {
       "stockToken": "0x6330D8C3178a418788dF01a47479c0ce7CCF450b",
       "maxStrikeAge": 93600,
       "maxFinalAge": 93600,
-      "families": [
-        "daily",
-        "weekly"
-      ],
+      "families": [],
       "pendingFlatRateCheck": false
     }
   ]

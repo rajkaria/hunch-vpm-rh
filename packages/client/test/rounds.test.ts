@@ -96,7 +96,7 @@ describe.each(TICKERS)('T8r · %s (captured series)', (ticker) => {
       if (got.isLatest) expect(got.round.roundId).toBe(latestId);
       else expect(got.next!.updatedAt > t, `next after t=${t}`).toBe(true);
       expect(got.sane).toBe(isSaneRound(want));
-      expect(got.provable).toBe(isSaneRound(want));
+      expect(got.provable).toBe(true); // the round in effect always proves once x + 1 (or latest) is known
       maxReads = Math.max(maxReads, reader.reads);
     }
     // latestRoundData + binary search over the phase + the x+1 read.
@@ -148,20 +148,20 @@ describe('T8r · SPY phase 1 garbage (rounds 1–7 hold 18-decimal answers)', ()
     expect(isSaneRound(rounds[7]!)).toBe(true);
   });
 
-  it('finds such a round but marks it unprovable (the resolver reverts BadProof)', async () => {
+  it('finds such a round, proves it, and flags its answer (the resolver voids it with voidBadAnswer)', async () => {
     const t = rounds[3]!.updatedAt;
     const got = await findLastAtOrBefore(new SeriesReader(rounds, BigInt(fixture.latestRoundId)), fixture.feed, t);
     expect(got.kind).toBe('found');
     if (got.kind !== 'found') return;
     expect(got.round.roundId).toBe(rounds[3]!.roundId);
     expect(got.sane).toBe(false);
-    expect(got.provable).toBe(false);
+    expect(got.provable).toBe(true);
     const res = await findResolutionRounds(new SeriesReader(rounds, BigInt(fixture.latestRoundId)), {
       feed: fixture.feed,
       strikeTime: t,
       finalTime: rounds[20]!.updatedAt,
     });
-    expect(res.ok && res.expected).toBe('BADPROOF');
+    expect(res.ok && res.expected).toBe('BADANSWER');
   });
 });
 
@@ -183,7 +183,7 @@ describe('T8r · derived series (transformations of captured data, labelled)', (
       expect(got.kind === 'found' && got.round.roundId, `t=${t}`).toBe(want.roundId);
       if (got.kind === 'found' && !got.isLatest) {
         const nextPresent = holed.some((r) => r.roundId === got.round.roundId + 1n);
-        expect(got.provable).toBe(nextPresent && isSaneRound(want));
+        expect(got.provable).toBe(nextPresent);
       }
     }
   });
@@ -292,12 +292,14 @@ describe('T8r · overlapping phases (TRANSFORMED from the captured NVDA series)'
         expect(got.currentPhase).toBe(phaseOf(latestId));
         if (got.phase < got.currentPhase) crossPhase++;
         // the finder's verdict is the resolver's verdict
-        expect(got.provable, `t=${t}`).toBe(proveLikeTheResolver(byId, latestId, got.round.roundId, t) === 'ok');
-        expect(got.provable, `t=${t}`).toBe(isSaneRound(want)); // NVDA's first rounds hold 18-decimal garbage
+        const verdict = proveLikeTheResolver(byId, latestId, got.round.roundId, t);
+        expect(got.provable, `t=${t}`).toBe(verdict === 'ok' || verdict === 'badAnswer');
+        expect(verdict === 'badAnswer', `t=${t}`).toBe(!isSaneRound(want)); // NVDA's first rounds hold 18-decimal garbage
+        expect(got.sane, `t=${t}`).toBe(isSaneRound(want));
         // and no other round proves for t (every round of every phase, sampled)
         for (let i = 0; i < rounds.length; i += 5) {
           const x = rounds[i]!.roundId;
-          if (x !== want.roundId) expect(proveLikeTheResolver(byId, latestId, x, t), `x=${x} t=${t}`).not.toBe('ok');
+          if (x !== want.roundId) expect(['ok', 'badAnswer'], `x=${x} t=${t}`).not.toContain(proveLikeTheResolver(byId, latestId, x, t));
         }
       }
       expect(crossPhase, 'the tape exercises a round in an earlier phase than the current one').toBeGreaterThan(0);
@@ -329,7 +331,7 @@ describe('T8r · overlapping phases (TRANSFORMED from the captured NVDA series)'
             expect(res.finalRound).toBe(f!.roundId);
             expect(res.finalRound >= res.strikeRound, 'the resolver requires finalRound >= strikeRound').toBe(true);
             const expected = !isSaneRound(s) || !isSaneRound(f!)
-              ? 'BADPROOF'
+              ? 'BADANSWER'
               : s.roundId === f!.roundId || s.answer === f!.answer
                 ? 'FLAT'
                 : f!.answer > s.answer

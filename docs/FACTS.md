@@ -6,8 +6,23 @@ without a receipt is removed or moved to "Not built". Rows are added only from r
 
 ## Live now
 
-Deployed to Robinhood Chain mainnet (4663) on 2026-10-02 from commit `0c2caf2` by
-`bash scripts/go-live.sh`. Explorer: `https://robinhoodchain.blockscout.com/tx/<hash>`.
+_Filled by the redeploy from the hardened contracts (D10, voidBadAnswer, strike guard); see
+"Superseded" below for why the first deploy is not the venue._
+
+Rows to fill as the venue runs, each only with its receipt:
+
+- Markets opened / settled / voided: factory `listingCount`, resolver `Resolved` events, void txs
+- Distinct bettors excluding operator wallets: list of addresses with their first entry tx
+- USDG staked / paid out: sums of `Entered.offered` / `Claimed(payout + refund)`
+- Early vs late (hero market): market id, positions, payout txs
+- Refund drill: void tx, refund txs
+
+## Superseded: the first deploy (2026-10-02, never used)
+
+Deployed from commit `0c2caf2`, which predates the second review's hardening (`a23d4a4`: D10,
+`voidBadAnswer`, the past-strike guard). It never listed a market or held USDG; the venue was
+redeployed from the hardened source and these addresses are not used by the app or the keeper.
+The Safe below is the same Safe the redeploy uses.
 
 | Fact | Receipt |
 |---|---|
@@ -18,14 +33,6 @@ Deployed to Robinhood Chain mainnet (4663) on 2026-10-02 from commit `0c2caf2` b
 | The Safe owns the factory, and is the settler's guardian and treasury | Safe tx `0x2b4e41912fa602a9a4b237480fe103c4599e5c4cb6640872433efd2280045f3e` (`acceptOwnership()`); factory `owner()`, settler `guardian()` and `treasury()` = the Safe |
 | NVDA, TSLA, AAPL and COIN are allow-listed with 26 h staleness bounds | four factory txs from the deployer (`0x1120…db61`, `0x6dec…fa34`, `0x1d03…6a64`, `0xd41a…b462`); `feeds(feed)` on the factory |
 | The keeper `0xEb420AD181518814B6E3feb89A9d369Da3F5b580` may list markets | factory `openers(keeper)` = true |
-
-Rows to fill as the venue runs, each only with its receipt:
-
-- Markets opened / settled / voided: factory `listingCount`, resolver `Resolved` events, void txs
-- Distinct bettors excluding operator wallets: list of addresses with their first entry tx
-- USDG staked / paid out: sums of `Entered.offered` / `Claimed(payout + refund)`
-- Early vs late (hero market): market id, positions, payout txs
-- Refund drill: void tx, refund txs
 
 ## Built, not yet proven on mainnet
 

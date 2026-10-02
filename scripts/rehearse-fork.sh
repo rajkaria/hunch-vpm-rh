@@ -15,8 +15,10 @@
 #      Tokens, the real Safe v1.4.1 factory);
 #   2. a real 2-of-3 Safe is created through SafeProxyFactory v1.4.1 + SafeL2;
 #   3. wallets are funded like the operator's (small ETH; USDG from the USDG/WETH pool);
-#   4. DeployRH refuses a 1-of-1 Safe (no ALLOW_1OF1), then deploys for real with --broadcast
-#      against the 2-of-3 Safe, running every mainnet preflight check on the forked chain;
+#   4. DeployRH refuses a 1-of-1 Safe (no ALLOW_1OF1); its dry run (no --broadcast) passes every
+#      check and writes nothing; then it deploys for real with --broadcast against the 2-of-3
+#      Safe, running every mainnet preflight check on the forked chain, and the settler's only
+#      creator is the factory (D10) with the deployer as its pause-only pauser;
 #   5. scripts/post-deploy.sh completes the fork deployment JSON from the receipts and reads
 #      the wiring back from the chain; the JSON is checked field by field (EIP-55 included);
 #   6. scripts/verify-contracts.sh --print derives the verification commands and checks the
@@ -269,8 +271,16 @@ if out=$(deploy 2>&1); then die "DeployRH accepted a 1-of-1 Safe"; fi
 printf '%s' "$out" | grep -q "use a threshold of at least 2" || die "unexpected DeployRH failure: $(printf '%s' "$out" | tail -5)"
 say "ok  refused: $(printf '%s' "$out" | grep -o 'DeployRH: the Safe is 1-of-1[^"]*' | head -1)"
 
-step "DeployRH --broadcast (the mainnet command, with anvil's key 0 as the deployer)"
+step "DeployRH dry run (no --broadcast): every check passes, nothing is sent or written"
 DEPLOY_SAFE=$SAFE
+before=$( { shasum "$FORK_JSON" 2>/dev/null || echo absent; } | awk '{print $1}')
+nonce_before=$(cast nonce "$DEPLOYER" --rpc-url "$RPC")
+out=$(deploy 2>&1) || die "DeployRH dry run failed: $(printf '%s' "$out" | tail -8)"
+printf '%s' "$out" | grep -q "DRY RUN: every check passed" || die "the dry run did not say DRY RUN"
+eq "fork JSON after the dry run (unchanged)" "$( { shasum "$FORK_JSON" 2>/dev/null || echo absent; } | awk '{print $1}')" "$before"
+eq "deployer nonce after the dry run (nothing sent)" "$(cast nonce "$DEPLOYER" --rpc-url "$RPC")" "$nonce_before"
+
+step "DeployRH --broadcast (the mainnet command, with anvil's key 0 as the deployer)"
 deploy --broadcast --slow >"$LOCAL/deploy.log" 2>&1 || die "DeployRH failed: $(tail -20 "$LOCAL/deploy.log")"
 grep -E '^\s+(ok |Preflight|StockRoundResolver|HunchVPM|HunchMarketFactory)' "$LOCAL/deploy.log" | sed 's/^ */     /' | head -12
 RUN="$BROADCAST_DIR/DeployRH.s.sol/4663/run-latest.json"
@@ -290,6 +300,12 @@ VPM=$(J .contracts.HunchVPM.address)
 RESOLVER=$(J .contracts.StockRoundResolver.address)
 FACTORY=$(J .contracts.HunchMarketFactory.address)
 eq "JSON status" "$(J .status)" deployed
+eq "HunchVPM.factory() (D10: the only creator)" "$(view "$VPM" 'factory()(address)')" "$FACTORY"
+eq "HunchVPM.pauser() (D10: the deployer by default)" "$(view "$VPM" 'pauser()(address)')" "$DEPLOYER"
+reverts "HunchVPM.create from anyone but the factory (D10)" --from "$KEEPER" "$VPM" \
+  'create(address,uint256[],uint256,uint64,uint64,address,address,uint16,uint128,uint128)' \
+  "$USDG" '[10000000,10000000]' 30 "$(( $(cast block latest --field timestamp --rpc-url "$RPC") + 86400 ))" 259200 "$KEEPER" "$KEEPER" 0 0 0
+reverts "HunchVPM.setEntriesPaused(false) from the pauser (D10: it can never resume)" --from "$DEPLOYER" "$VPM" 'setEntriesPaused(bool)' false
 eq "JSON safe" "$(J .safe)" "$SAFE"
 eq "JSON keeper" "$(J .keeper)" "$KEEPER"
 eq "JSON gitCommit" "$(J .gitCommit | cut -c1-40)" "$(git rev-parse HEAD)"

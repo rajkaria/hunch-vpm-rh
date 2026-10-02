@@ -204,7 +204,7 @@ contract MechanicsVectorsTest is HunchBase {
         internal
     {
         c = Ctx(name, kappa, feeBps, seedUp, seedDown, result, 0, 0);
-        vpm = new HunchVPM(guardian, treasury);
+        vpm = new HunchVPM(guardian, treasury, creator, address(0)); // D10: `creator` stands in for the factory
         vm.prank(creator);
         usdg.approve(address(vpm), type(uint256).max);
         uint256 base = block.number + 10;

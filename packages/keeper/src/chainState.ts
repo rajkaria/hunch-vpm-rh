@@ -62,6 +62,18 @@ export interface FeedState {
   answer: bigint | null;
 }
 
+/** Who holds the venue's powers, read back from the chain (health's ownership and wiring checks). */
+export interface VenueWiring {
+  factoryOwner: Address | null;
+  factoryPendingOwner: Address | null;
+  /** `HunchVPM.factory()`: the only address that may create markets (D10). */
+  settlerFactory: Address | null;
+  /** `HunchVPM.pauser()`: may pause, never unpause (D10). */
+  pauser: Address | null;
+  /** `factory.openers(keeper)`; null without a keeper address. */
+  keeperIsOpener: boolean | null;
+}
+
 export interface KeeperState {
   deployed: boolean;
   nowSec: number;
@@ -71,6 +83,8 @@ export interface KeeperState {
   markets: KeeperMarket[];
   feeds: FeedState[];
   keeper: { address: Address; eth: bigint; usdg: bigint; allowanceToFactory: bigint } | null;
+  /** Read when deployed; absent in hand-built states (tests). */
+  wiring?: VenueWiring | null;
 }
 
 export interface ReadStateOptions {
@@ -95,6 +109,13 @@ export async function readKeeperState(client: PublicClient, d: Deployment, optio
     base.push({ address: v, abi: hunchVpmAbi, functionName: 'entriesPaused' });
     base.push({ address: v, abi: hunchVpmAbi, functionName: 'feesAccrued', args: [d.usdg] });
     for (const feed of d.feeds) base.push({ address: f, abi: hunchMarketFactoryAbi, functionName: 'feeds', args: [feed.feed] });
+    base.push(
+      { address: f, abi: hunchMarketFactoryAbi, functionName: 'owner' },
+      { address: f, abi: hunchMarketFactoryAbi, functionName: 'pendingOwner' },
+      { address: v, abi: hunchVpmAbi, functionName: 'factory' },
+      { address: v, abi: hunchVpmAbi, functionName: 'pauser' },
+    );
+    if (keeper !== null) base.push({ address: f, abi: hunchMarketFactoryAbi, functionName: 'openers', args: [keeper] });
   }
   if (keeper !== null) {
     base.push({ address: d.usdg, abi: usdgAbi, functionName: 'balanceOf', args: [keeper] });
@@ -115,6 +136,7 @@ export async function readKeeperState(client: PublicClient, d: Deployment, optio
   let entriesPaused = false;
   let feesAccrued = 0n;
   const allowed: (boolean | null)[] = d.feeds.map(() => null);
+  let wiring: VenueWiring | null = null;
   if (deployed) {
     entriesPaused = must<boolean>(r[k++], 'entriesPaused');
     feesAccrued = must<bigint>(r[k++], 'feesAccrued');
@@ -122,6 +144,13 @@ export async function readKeeperState(client: PublicClient, d: Deployment, optio
       const info = maybe(r[k++]);
       allowed[i] = info === null ? false : decodeFeedInfo(info).allowed;
     });
+    wiring = {
+      factoryOwner: maybe<Address>(r[k++]),
+      factoryPendingOwner: maybe<Address>(r[k++]),
+      settlerFactory: maybe<Address>(r[k++]),
+      pauser: maybe<Address>(r[k++]),
+      keeperIsOpener: keeper === null ? null : maybe<boolean>(r[k++]),
+    };
   }
   const keeperState =
     keeper === null
@@ -136,7 +165,7 @@ export async function readKeeperState(client: PublicClient, d: Deployment, optio
     answer: latest[i]?.answer ?? null,
   }));
 
-  if (!deployed) return { deployed, nowSec, head, entriesPaused, feesAccrued, markets: [], feeds, keeper: keeperState };
+  if (!deployed) return { deployed, nowSec, head, entriesPaused, feesAccrued, markets: [], feeds, keeper: keeperState, wiring };
 
   const listings = await readListings(client, d);
   const per: Call[] = [];
@@ -171,7 +200,7 @@ export async function readKeeperState(client: PublicClient, d: Deployment, optio
     };
   });
 
-  if (options.withPositions === false) return { deployed, nowSec, head, entriesPaused, feesAccrued, markets, feeds, keeper: keeperState };
+  if (options.withPositions === false) return { deployed, nowSec, head, entriesPaused, feesAccrued, markets, feeds, keeper: keeperState, wiring };
   const wanted = markets.filter((m) => m.statusCode === MARKET_STATUS.Open || m.listing.finalTime >= nowSec - window);
   const all = await readAllPositions(client, d, wanted.map((m) => m.listing));
   for (const m of wanted) {
@@ -181,5 +210,5 @@ export async function readKeeperState(client: PublicClient, d: Deployment, optio
     const pending = mine.find((p) => !p.position.finalized);
     m.vintageBlock = pending === undefined ? null : pending.position.vintage;
   }
-  return { deployed, nowSec, head, entriesPaused, feesAccrued, markets, feeds, keeper: keeperState };
+  return { deployed, nowSec, head, entriesPaused, feesAccrued, markets, feeds, keeper: keeperState, wiring };
 }

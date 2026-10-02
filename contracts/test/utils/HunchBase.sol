@@ -37,6 +37,7 @@ abstract contract HunchBase is Test {
     address internal creator = makeAddr("creator");
     address internal relayer = makeAddr("relayer");
     address internal stranger = makeAddr("stranger");
+    address internal pauser = makeAddr("pauser");
 
     uint256 internal alicePk = 0xA11CE;
     uint256 internal bobPk = 0xB0B;
@@ -54,7 +55,7 @@ abstract contract HunchBase is Test {
         vm.warp(1_790_000_000); // 2026-09-21, a realistic unix time
         vm.roll(23_000_000); // an L1 block number, which is what `block.number` reads on 4663
         usdg = new MockUSDG();
-        vpm = new HunchVPM(guardian, treasury);
+        vpm = new HunchVPM(guardian, treasury, creator, pauser); // D10: `creator` stands in for the factory
         alice = vm.addr(alicePk);
         bob = vm.addr(bobPk);
         carol = vm.addr(carolPk);

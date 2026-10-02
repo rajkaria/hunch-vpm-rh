@@ -62,8 +62,9 @@ contract ForkE2ETest is ForkBase {
         // DeployRH's order: resolver → settler(guardian = treasury = Safe) → factory → feeds →
         // opener → two-step hand-over to the Safe.
         resolver = new StockRoundResolver();
-        vpm = new HunchVPM(safe, safe);
+        vpm = new HunchVPM(safe, safe, vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1), address(0)); // D10: names the factory
         factory = new HunchMarketFactory(vpm, resolver, IERC20Like(RH.USDG), address(this), safe);
+        assertEq(vpm.factory(), address(factory), "D10 wiring");
         feed = new MockAggregator("TEST / USD");
         token = new MockStockToken("TEST");
         factory.setFeed(address(feed), address(token), "TEST", RH.MAX_AGE, RH.MAX_AGE, true);

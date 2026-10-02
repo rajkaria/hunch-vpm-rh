@@ -2,7 +2,7 @@ import { DOWN, PREVIEW_STATUS, UP, closingBell, loadDeployment, notDeployed, ope
 import type { Hex, PublicClient, WalletClient } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { NOT_DEPLOYED_NOTE, evaluateHealth, formatReports, keeperUsdgFloor, readKeeperState, runDrill, runJob, type RunContext } from '../src/index.js';
-import { FACTORY, FakeChain, KEEPER, deployedDeployment } from '../../client/test/support/fakeChain.js';
+import { FACTORY, FakeChain, KEEPER, SAFE, deployedDeployment } from '../../client/test/support/fakeChain.js';
 import { bruteForce, loadRoundFixture, roundsOf } from '../../client/test/support/roundFixtures.js';
 
 const utc = (y: number, m: number, day: number, h: number, min = 0) => Date.UTC(y, m - 1, day, h, min) / 1000;
@@ -66,6 +66,25 @@ describe('T9 · runner', () => {
     expect(chain.simulated[0]).toMatchObject({ address: d.usdg, functionName: 'approve', args: [FACTORY, 8n * 20_000_000n] });
     expect(chain.simulated.slice(1).map((c) => c.functionName)).toEqual(Array.from({ length: 8 }, () => 'openUpDown'));
     expect(w.sent.length).toBe(9);
+  });
+
+  it('open (live): a market another run listed meanwhile is not listed twice', async () => {
+    const { d, chain } = world(utc(2026, 10, 5, 12, 0));
+    chain.usdgBalances.set(KEEPER.toLowerCase(), 1_000_000_000n);
+    const nvda = d.feeds.find((f) => f.ticker === 'NVDA')!;
+    let raced = false;
+    chain.beforeSimulate = (fn) => {
+      if (fn !== 'approve' || raced) return;
+      raced = true; // a duplicate cron delivery lists NVDA's daily between our read and our send
+      chain.open({ feed: nvda.feed, strikeTime: openingBell('2026-10-05'), finalTime: closingBell('2026-10-05') });
+    };
+    const w = wallet();
+    const [report] = await runJob('open', ctxOf(d, chain.client(), { walletClient: w }));
+    const skipped = report!.actions.filter((a) => a.status === 'skipped');
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]!.detail).toBe('already listed by another run');
+    expect(skipped[0]!.target).toMatch(/NVDA/);
+    expect(chain.simulated.filter((c) => c.functionName === 'openUpDown')).toHaveLength(7);
   });
 
   it('open (live): skips the approval when the allowance covers the seeds; pages when the float is short', async () => {
@@ -179,14 +198,14 @@ describe('T9 · health', () => {
     const now = utc(2026, 9, 25, 15, 0); // Fri, in session
     const { d, chain } = world(now);
     const floor = keeperUsdgFloor(d);
-    expect(floor).toBe((4n * 2n + 1n) * 2n * 10_000_000n); // (4 tickers × daily + weekly + drill) × 2 legs × seed
+    expect(floor).toBe(4n * 2n * 2n * 10_000_000n); // 4 tickers × (daily + weekly) × 2 legs × seed
     const usdg = async () => evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === 'keeper-usdg')!;
     // Today's four dailies are listed: 80 USDG of seed left the wallet but is still the keeper's.
     const ids = d.feeds.map((f) => chain.open({ feed: f.feed, strikeTime: openingBell('2026-09-25'), finalTime: closingBell('2026-09-25') }));
     chain.usdgBalances.set(KEEPER.toLowerCase(), floor - 80_000_000n);
     let c = await usdg();
     expect(c.ok).toBe(true);
-    expect(c.detail).toMatch(/100\.00 USDG in the wallet \+ 80\.00 in its markets \(floor 180\.00\)/);
+    expect(c.detail).toMatch(/80\.00 USDG in the wallet \+ 80\.00 in its markets \(floor 160\.00\)/);
     // A market another opener listed is not the keeper's float.
     chain.open({ feed: d.feeds[0]!.feed, strikeTime: openingBell('2026-09-25'), finalTime: closingBell('2026-09-25'), opener: '0x0000000000000000000000000000000000000C0C' });
     expect((await usdg()).detail).toMatch(/\+ 80\.00 in its markets/);
@@ -199,6 +218,41 @@ describe('T9 · health', () => {
     // The float erodes below the floor: red.
     chain.usdgBalances.set(KEEPER.toLowerCase(), 0n);
     expect((await usdg()).ok).toBe(false);
+  });
+
+  it('ownership, D10 wiring and the pause are health checks', async () => {
+    const now = utc(2026, 9, 29, 15, 0);
+    const { d, chain } = world(now);
+    const check = async (name: string) => evaluateHealth(await readKeeperState(chain.client(), d), d).checks.find((c) => c.name === name)!;
+    expect(await check('ownership')).toMatchObject({ ok: true, detail: 'the Safe owns the factory' });
+    expect((await check('wiring')).ok).toBe(true);
+    expect((await check('entries-paused')).ok).toBe(true);
+
+    // Right after DeployRH: the deployer still owns the factory until the Safe accepts.
+    chain.factoryOwner = '0x00000000000000000000000000000000000000d1';
+    chain.factoryPendingOwner = SAFE;
+    const pending = await check('ownership');
+    expect(pending.ok).toBe(false);
+    expect(pending.detail).toMatch(/acceptOwnership/);
+    chain.factoryOwner = SAFE;
+    chain.factoryPendingOwner = '0x0000000000000000000000000000000000000000';
+
+    chain.settlerFactory = '0x00000000000000000000000000000000000000e1'; // a settler that names another factory
+    expect((await check('wiring')).detail).toMatch(/no market can be listed/);
+    chain.settlerFactory = FACTORY;
+    chain.openers.clear();
+    expect((await check('wiring')).detail).toMatch(/not an opener/);
+    chain.openers.add(KEEPER.toLowerCase());
+
+    chain.entriesPaused = true;
+    expect(await check('entries-paused')).toMatchObject({ ok: false });
+    chain.now = utc(2026, 9, 30, 12, 0); // Wed, before the bell: the dailies are due
+    const w = wallet();
+    const [report] = await runJob('open', ctxOf(d, chain.client(), { walletClient: w }));
+    expect(report!.notes.join(' ')).toMatch(/paused: not listing/);
+    expect(report!.actions.length).toBeGreaterThan(0);
+    expect(report!.actions.every((a) => a.status === 'skipped')).toBe(true);
+    expect(w.sent).toHaveLength(0); // D10: every open would revert while paused
   });
 
   it('RPC head age and feed freshness during a session', async () => {

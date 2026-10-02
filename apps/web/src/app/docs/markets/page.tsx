@@ -205,11 +205,12 @@ export default function MarketsDoc() {
         </Step>
         <Step n={3} title="Preview">
           <C>preview(specId, strikeRound, finalRound)</C> on the settlement contract returns the status (1 UP, 2 DOWN, 3
-          FLAT, 4 STALE, 5 BADPROOF, 6 PAUSED) and both prices, without sending anything.
+          FLAT, 4 STALE, 5 BADPROOF, 6 PAUSED, 7 BADANSWER) and both prices, without sending anything.
         </Step>
         <Step n={4} title="Settle">
           UP, DOWN or FLAT: call <C>resolve(specId, strikeRound, finalRound)</C>. STALE: call{' '}
-          <C>voidStale(specId, strikeRound, finalRound)</C>. Any wallet can; the gas is well under a cent. Once betting
+          <C>voidStale(specId, strikeRound, finalRound)</C>. BADANSWER (a price out of range): call{' '}
+          <C>voidBadAnswer(specId, strikeRound, finalRound)</C>. Any wallet can; the gas is well under a cent. Once betting
           opens, each market page has a &ldquo;Resolve it yourself&rdquo; button that does this for you.
         </Step>
       </OL>

@@ -29,7 +29,7 @@ contract SameBlockSettlementTest is Test {
         vm.warp(1_790_000_000);
         vm.roll(23_000_000);
         ref = new VestedParimutuel();
-        vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"));
+        vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"), address(this), address(0)); // D10: this test is the factory
         usdg = new MockUSDG();
         T = uint64(block.timestamp + 1 hours);
         usdg.mint(victim, 10_000e6);
@@ -48,6 +48,22 @@ contract SameBlockSettlementTest is Test {
         s = new uint256[](2);
         s[0] = a;
         s[1] = b;
+    }
+
+    /// @dev D10: only the factory creates HunchVPM markets. This test stands in for it: `who`
+    ///      pays the seed and receives both seed legs, exactly as HunchMarketFactory hands them
+    ///      to its opener, so the D8 sequences below are the reference's, market for market.
+    function _createAs(address who, uint256[] memory seed, uint256 kappa, uint64 t, address res)
+        internal
+        returns (uint256 m)
+    {
+        vm.prank(who);
+        usdg.transfer(address(this), seed[0] + seed[1]);
+        usdg.approve(address(vpm), seed[0] + seed[1]);
+        uint256 first = vpm.positionCount();
+        m = vpm.create(IERC20(address(usdg)), seed, kappa, t, 1 days, res, res, 0, 0, 0);
+        vpm.transferPosition(first, who);
+        vpm.transferPosition(first + 1, who);
     }
 
     /// @notice The drain, on the reference: the attacker opens its own market (resolver = itself,
@@ -83,14 +99,11 @@ contract SameBlockSettlementTest is Test {
     ///         same block (D8), so the DOWN stake is accepted and lost, the UP seed leg is paid
     ///         once, and the victim market's escrow is untouched.
     function test_HunchVPMSettlesTheSameSequenceCorrectly() public {
-        vm.prank(victim);
-        vpm.create(IERC20(address(usdg)), _seed(2_500e6, 2_500e6), 30, T + 7 days, 1 days, victim, victim, 0, 0, 0);
+        _createAs(victim, _seed(2_500e6, 2_500e6), 30, T + 7 days, victim);
 
-        vm.startPrank(attacker);
-        uint256 m = vpm.create(
-            IERC20(address(usdg)), _seed(10e6, 10e6), type(uint256).max, T, 1 days, attacker, attacker, 0, 0, 0
-        );
+        uint256 m = _createAs(attacker, _seed(10e6, 10e6), type(uint256).max, T, attacker);
         uint256 up = vpm.positionCount() - 2;
+        vm.startPrank(attacker);
         vm.roll(block.number + 1);
         vm.warp(T - 1);
         uint256 e = vpm.enter(m, 1, 1_000e6);
@@ -114,10 +127,9 @@ contract SameBlockSettlementTest is Test {
 
     /// @notice A void in the same block finalizes too, and refunds every entry exactly once.
     function test_AVoidInTheLastEntrysBlockRefundsExactlyOnce() public {
-        vm.prank(victim);
-        vpm.create(IERC20(address(usdg)), _seed(2_500e6, 2_500e6), 30, T + 7 days, 1 days, victim, victim, 0, 0, 0);
+        _createAs(victim, _seed(2_500e6, 2_500e6), 30, T + 7 days, victim);
+        uint256 m = _createAs(attacker, _seed(10e6, 10e6), 2, T, attacker);
         vm.startPrank(attacker);
-        uint256 m = vpm.create(IERC20(address(usdg)), _seed(10e6, 10e6), 2, T, 1 days, attacker, attacker, 0, 0, 0);
         vm.roll(block.number + 1);
         vm.warp(T - 1);
         uint256 e = vpm.enter(m, 1, 1_000e6); // κ = 2: accepted 10, 990 refused
@@ -139,9 +151,9 @@ contract SameBlockSettlementTest is Test {
     /// @notice When the block HAS advanced (the only case the reference was written for), D8
     ///         changes nothing: both settlers finalize the same vintage at settlement.
     function test_InALaterBlockBothSettlersAgree() public {
+        uint256 b = _createAs(attacker, _seed(10e6, 10e6), 30, T, attacker);
         vm.startPrank(attacker);
         uint256 a = ref.create(RefIERC20(address(usdg)), _seed(10e6, 10e6), 30, T, 1 days, attacker, attacker);
-        uint256 b = vpm.create(IERC20(address(usdg)), _seed(10e6, 10e6), 30, T, 1 days, attacker, attacker, 0, 0, 0);
         vm.roll(block.number + 1);
         vm.warp(T - 1);
         uint256 ea = ref.enter(a, 1, 100e6);
@@ -156,5 +168,14 @@ contract SameBlockSettlementTest is Test {
         assertEq(abi.encode(fa, aa, xa), abi.encode(fb, ab, xb));
         assertEq(abi.encode(ref.getBook(a, 0)), abi.encode(vpm.getBook(b, 0)));
         assertEq(abi.encode(ref.getBook(a, 1)), abi.encode(vpm.getBook(b, 1)));
+    }
+
+    /// @notice D10: on HunchVPM the attacker cannot even open the market the drain needs (its
+    ///         own resolver, κ unbounded). Only the factory creates markets, and the factory
+    ///         lists only binary κ = 30 USDG markets resolved by StockRoundResolver.
+    function test_D10_TheAttackerCannotOpenItsOwnMarket() public {
+        vm.prank(attacker);
+        vm.expectRevert(HunchVPM.NotFactory.selector);
+        vpm.create(IERC20(address(usdg)), _seed(10e6, 10e6), type(uint256).max, T, 1 days, attacker, attacker, 0, 0, 0);
     }
 }

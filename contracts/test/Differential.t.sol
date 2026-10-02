@@ -41,7 +41,7 @@ contract DifferentialTest is Test {
         vm.warp(1_790_000_000);
         vm.roll(23_000_000);
         ref = new VestedParimutuel();
-        hun = new HunchVPM(guardian, treasury);
+        hun = new HunchVPM(guardian, treasury, address(this), address(0)); // D10: the test stands in as the factory
         tokR = new MockUSDG();
         tokH = new MockUSDG();
         for (uint256 i = 0; i < 6; i++) {

@@ -29,17 +29,17 @@ describe('deployments/robinhood-mainnet.json', () => {
     expect(EMBEDDED_DEPLOYMENT).toEqual(committed);
   });
 
-  it('is the Robinhood Chain mainnet deployment of 2026-10-02: its contracts, Safe, keeper, USDG and v1 feeds', () => {
+  it('is the committed Robinhood Chain mainnet deployment: real USDG, v1 feeds, the launch configuration', () => {
     const d = loadDeployment({ env: {} });
-    expect(isDeployed(d)).toBe(true);
-    expect(d.status).toBe('deployed');
-    expect(d.contracts.HunchVPM.address).toBe('0x4fB64Dd74E6314C6415E3dE7268ea4Dda8771917');
-    expect(d.contracts.StockRoundResolver.address).toBe('0xE8b25102a2B0414d67FDC2011F3Ba3859b149A62');
-    expect(d.contracts.HunchMarketFactory.address).toBe('0xcb7055449c98d124A12E5F03fB0eA1D41AF3b7eA');
-    expect(d.safe).toBe('0x5866308Af35fA8AbD67f88d31695aD029143F336');
-    expect(d.keeper).toBe('0xEb420AD181518814B6E3feb89A9d369Da3F5b580');
-    expect(d.startBlock).toBe(78_371_935);
-    expect(d.gitCommit).toMatch(/^[0-9a-f]{40}$/); // clean: no "-dirty"
+    if (isDeployed(d)) {
+      for (const c of Object.values(d.contracts)) expect(c.address).not.toBe(ZERO_ADDRESS);
+      expect(d.safe).not.toBe(ZERO_ADDRESS);
+      expect(d.keeper).toBe('0xEb420AD181518814B6E3feb89A9d369Da3F5b580');
+      expect(d.startBlock).toBeGreaterThan(78_371_935); // after the superseded 2026-10-02 deploy (FACTS.md)
+      expect(d.gitCommit).toMatch(/^[0-9a-f]{40}$/); // clean: no "-dirty"
+    } else {
+      expect(d.contracts.HunchVPM.address).toBe(ZERO_ADDRESS);
+    }
     expect(Object.keys(committed as object).some((k) => k.includes('['))).toBe(false); // no stray "feeds[i]" keys
     expect(d.usdg).toBe(USDG_ADDRESS);
     expect(d.feeds.map((f) => f.ticker)).toEqual(['NVDA', 'TSLA', 'AAPL', 'COIN']);
@@ -51,10 +51,11 @@ describe('deployments/robinhood-mainnet.json', () => {
       kappa: 30n,
       feeBps: 200,
       voidTimeoutSec: 259_200n,
-      seedPerLeg: 10_000_000n,
+      seedPerLeg: 1_000_000n, // launch tuning: the keeper float is 4 USDG (NVDA and TSLA dailies)
       minEntry: 1_000_000n,
-      maxEntry: 100_000_000n,
+      maxEntry: 25_000_000n,
     });
+    expect(d.feeds.map((f) => [f.ticker, f.families])).toEqual([['NVDA', ['daily']], ['TSLA', ['daily']], ['AAPL', []], ['COIN', []]]);
   });
 });
 

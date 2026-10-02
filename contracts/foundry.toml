@@ -60,7 +60,7 @@ robinhood = "${RH_RPC_URL}"
 # The vendored reference implementation and its suite must stay byte-for-byte
 # identical to what was published with the paper — the formatter never touches them.
 # HunchVPM is the reference plus tagged diffs (DIFF.md); formatting it would rewrite every
-# aligned comment of the reference and bury the seven real diffs, so it is ignored too.
+# aligned comment of the reference and bury the ten real diffs, so it is ignored too.
 [fmt]
 ignore = [
   "src/reference/VestedParimutuel.sol",

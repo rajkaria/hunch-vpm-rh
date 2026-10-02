@@ -13,8 +13,13 @@ export interface PowerRow {
 export const POWERS: readonly PowerRow[] = [
   {
     who: 'Safe (guardian of HunchVPM)',
-    can: ['pause ', { strong: 'new entries' }],
+    can: ['pause and resume ', { strong: 'new entries and new markets' }, '; name or remove the pauser'],
     cannot: 'pause or block claims, refunds, resolution; move any stake; set any price',
+  },
+  {
+    who: 'Pauser (one key the Safe names)',
+    can: ['pause ', { strong: 'new entries and new markets' }],
+    cannot: 'resume them; anything else',
   },
   {
     who: 'Safe (owner of factory)',
@@ -23,13 +28,13 @@ export const POWERS: readonly PowerRow[] = [
   },
   {
     who: 'Opener (keeper hot wallet)',
-    can: ['list a new market, paying the seed itself; owns the seed legs it paid for'],
+    can: ['list a new market through the factory (the only creator HunchVPM accepts), paying the seed itself; owns the seed legs it paid for'],
     cannot: "change or close an existing market; touch anyone else's position",
   },
   {
     who: 'Anyone',
     can: [
-      "resolve with the two proven rounds; void on proven staleness or a 24 h oracle pause; relay a bettor's signed entry; deliver claims and refunds to owners; sweep fees to the treasury",
+      "resolve with the two proven rounds; void on proven staleness, a proven out-of-range price or a 24 h oracle pause; relay a bettor's signed entry; deliver claims and refunds to owners; sweep fees to the treasury",
     ],
     cannot: "choose the outcome; send anyone's funds anywhere but to their owner",
   },

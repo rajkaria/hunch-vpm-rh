@@ -18,7 +18,7 @@ Budget: about 30 minutes plus waiting for funds to bridge.
 | Foundry (`forge`, `cast`), pnpm 10, `jq`, the Vercel CLI logged in to the project | the scripts | free |
 | A QuickNode (or Alchemy) endpoint for Robinhood Chain mainnet | the public RPC keeps only ~10 minutes of history; the keeper, round finding and fork rehearsals need a keyed RPC | free tier / credits |
 | ~0.004 ETH on Robinhood Chain | deployer 0.001 (Safe + deploy + ownership: ~0.0003 at 0.03 gwei), keeper 0.003 (listing, relayed bets, payouts: ~0.0002 to 0.0004 a day) | ~$10 |
-| 25 USDG on Robinhood Chain (at the recommended 1 USDG seed) | the keeper's seed float: 4 dailies + 4 weeklies + 1 drill market × 2 legs × 1 USDG = 18, plus slack; it recycles at every settlement | ~$25, recycled |
+| 6 USDG or more on Robinhood Chain | the keeper's seed float: 4 USDG for the launch configuration (NVDA and TSLA dailies at a 1 USDG seed), 2 for the refund drill; it recycles at every settlement (step 4) | ~$6, recycled |
 | 5 to 20 USDG in your own betting wallet | the golden path (no ETH needed to bet) | yours |
 | A Reown (WalletConnect) project id | optional: phone wallets connect through it; without it the option is hidden | free |
 
@@ -35,7 +35,7 @@ replaces a key that exists (a funded wallet is never orphaned).
 
 | Wallet | Job | Needs |
 |---|---|---|
-| `DEPLOYER` | sends the deploy transactions, creates the Safe and submits its one transaction | 0.001 ETH |
+| `DEPLOYER` | sends the deploy transactions, creates the Safe and submits its one transaction; afterwards the venue's pauser (D10: pauses new bets and new markets in one transaction, never resumes them) | 0.001 ETH |
 | `KEEPER` | lists markets (pays the seeds), relays signed bets, delivers payouts; its key also lives in Vercel | 0.003 ETH + the seed float |
 | `SAFE_OWNER_1..3` | owners of the 2-of-3 Safe: they only sign, the deployer pays the gas | nothing |
 
@@ -65,24 +65,26 @@ pbpaste | bash scripts/set-rpc.sh
 It checks the endpoint answers chain id 4663 and serves old state (archive), writes `RH_RPC_URL`
 to `.env` and the backup, and sets it in Vercel Production as Sensitive. It prints only the host.
 
-## 4. Choose the seed, then fund the wallets
+## 4. Choose the markets and the seed, then fund the wallets
 
-The keeper lists every market with `params.seedPerLeg` USDG on each side, from
-`deployments/robinhood-mainnet.json`. That number sets the keeper's float and how much one side
-can absorb before anyone takes the other side: κ × seed − seed (κ = 30).
+Two settings in `deployments/robinhood-mainnet.json` size the keeper's float: `params.seedPerLeg`
+(USDG on each side of every market it lists; the factory accepts 1 USDG or more) and each feed's
+`families` (`daily`, `weekly`, both or none). The float, and `/api/health`'s floor, is every
+enabled market open at once: enabled markets × 2 legs × seed. Seeds come back at each settlement.
+The seed also sets how much one side can absorb before anyone takes the other: κ × seed − seed
+(κ = 30); bets beyond that are refused in part and the remainder refunded.
 
-| `seedPerLeg` | `maxEntry` | Keeper float (health floor) | One-sided room per market |
+| Configuration | Markets a day | Keeper float | One-sided room per market |
 |---|---|---|---|
-| 1 USDG (recommended for launch) | 25 USDG | 18 USDG (fund 25) | 29 USDG, then grows 30 × every opposite bet |
-| 10 USDG (the JSON today) | 100 USDG | 180 USDG (fund 200) | 290 USDG |
+| Seed 1 USDG, NVDA and TSLA dailies, bets up to 25 USDG (**the JSON today**) | 2 | 4 USDG | 29 USDG, then grows 30 × every opposite bet |
+| Seed 1 USDG, all four tickers, daily + weekly | 8 | 16 USDG (fund 25) | 29 USDG |
+| Seed 10 USDG, all four tickers, daily + weekly, bets up to 100 USDG | 8 | 160 USDG (fund 200) | 290 USDG |
 
-Bets beyond the room are refused in part and the remainder is refunded; raise the seed later by
-editing the JSON (the factory accepts any seed of at least 1 USDG per listing). To switch to the
-recommended launch values:
+To enable more markets later (AAPL and COIN stay allow-listed on chain and on the price tape):
 
 ```bash
-jq '.params.seedPerLeg = "1000000" | .params.maxEntry = "25000000"' deployments/robinhood-mainnet.json > /tmp/rh.json \
-  && mv /tmp/rh.json deployments/robinhood-mainnet.json && pnpm wire
+jq '.feeds |= map(.families = ["daily", "weekly"])' deployments/robinhood-mainnet.json > /tmp/rh.json \
+  && mv /tmp/rh.json deployments/robinhood-mainnet.json && pnpm wire     # then commit and push
 ```
 
 Then fund, from Arbitrum One or Base (seconds, one transaction each):
@@ -91,10 +93,11 @@ Then fund, from Arbitrum One or Base (seconds, one transaction each):
 |---|---|---|
 | `DEPLOYER` | 0.001 ETH | <https://relay.link/bridge/robinhood> or <https://app.across.to> (ETH → Robinhood Chain) |
 | `KEEPER` | 0.003 ETH | same |
-| `KEEPER` | 25 USDG (200 at a 10 USDG seed) | <https://app.across.to>: send **USDC** from Arbitrum One or Base to Robinhood Chain; it arrives as **USDG** |
+| `KEEPER` | the float above, plus 2 USDG for the refund drill | <https://app.across.to>: send **USDC** from Arbitrum One or Base to Robinhood Chain; it arrives as **USDG** |
 | your own betting wallet | 5 to 20 USDG | same |
 
 `bash scripts/go-live.sh --check` shows every balance against what it needs.
+
 
 ## 5. Rehearse on a fork (no money moves)
 
@@ -128,9 +131,11 @@ In order, skipping whatever the chain shows is done (so a rerun resumes):
 3. `DeployRH --broadcast --slow`, whose own preflight refuses unless the chain id is 4663, the
    Safe has code and a threshold of at least 2, USDG has 6 decimals and its pinned domain, every
    feed has 8 decimals and the expected description, every Stock Token has the expected symbol,
-   the deployer holds at least 0.0005 ETH, the keeper is neither the deployer nor the Safe, and
-   the JSON still says `not-deployed`. It deploys `StockRoundResolver`, `HunchVPM` (guardian =
-   treasury = Safe) and `HunchMarketFactory`, allow-lists NVDA, TSLA, AAPL and COIN with 26 h
+   the deployer holds at least 0.0005 ETH, the keeper is neither the deployer nor the Safe nor a
+   Safe owner, the pauser is not the keeper, and the JSON still says `not-deployed`. It deploys
+   `StockRoundResolver`, `HunchVPM` (guardian = treasury = Safe; D10: its only creator is the
+   factory's predicted address, its pauser the deployer or `PAUSER_ADDRESS`) and
+   `HunchMarketFactory`, allow-lists NVDA, TSLA, AAPL and COIN with 26 h
    staleness bounds, sets the keeper as opener and starts the two-step ownership transfer. Then
    `post-deploy.sh` reads the receipts, checks the wiring on chain, fills the transactions, L2
    blocks, `startBlock`, `deployedAt` and `gitCommit` into the JSON and runs `pnpm wire`;
@@ -150,7 +155,8 @@ open each address on <https://robinhoodchain.blockscout.com> and confirm the gre
 
 ## 8. Accept factory ownership from the Safe
 
-`go-live.sh` does it: owners 1 and 2 sign `acceptOwnership()` (a Safe transaction hash, sorted
+Until the Safe accepts, the deployer still owns the factory and `/api/health` reports `ownership`
+red. `go-live.sh` does it right after the deploy: owners 1 and 2 sign `acceptOwnership()` (a Safe transaction hash, sorted
 signatures) and the deployer submits `execTransaction`. By hand instead: Safe app → New
 transaction → Transaction Builder → `HunchMarketFactory` → `acceptOwnership()` → sign with two
 owners → execute. Check:
@@ -160,6 +166,10 @@ cast call <FACTORY> "owner()(address)" --rpc-url $RH_RPC_URL     # must print th
 ```
 
 ## 9. Vercel (project `hunch-vpm-rh`, already created and linked to GitHub)
+
+Two project settings the crons depend on: the team must be on the **Pro** plan (Hobby runs crons at
+most once a day; `vercel.json` needs every 2, 5 and 10 minutes), and Settings → General → **Root
+Directory** must be empty (the repo root), or the root `vercel.json` and its crons are ignored.
 
 Steps 1 and 3 set these in Production:
 
@@ -171,8 +181,13 @@ Steps 1 and 3 set these in Production:
 | `RH_FALLBACK_RPC_URL` | `make-wallets.sh --vercel` (the public RPC; the keeper's stale double-check reads it) | Plain |
 | `NEXT_PUBLIC_SITE_URL` | `make-wallets.sh --vercel` (`https://rh.playhunch.xyz`) | Plain |
 
-Still yours, all optional: `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (your Reown project id),
-`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (keeper alerts, Sensitive). Never put a keyed URL in
+Still yours, all optional but recommended: `RELAYER_PRIVATE_KEY` (a third hot key holding only
+~0.005 ETH, never USDG: it sends gasless bets instead of the keeper, so the public relay never
+races the cron jobs' nonces), `KV_REST_API_URL` and `KV_REST_API_TOKEN` (Vercel → Storage →
+Upstash Redis: the cron jobs then run one at a time across instances), a second keyed RPC from
+another provider in `RH_FALLBACK_RPC_URL` (the keeper auto-refunds a stale or garbage price only
+when this independent read agrees), `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (your Reown project
+id), `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (keeper alerts, Sensitive). Never put a keyed URL in
 `NEXT_PUBLIC_RH_RPC_URL`: it ships to browsers. Check with `vercel env ls production`.
 
 ## 10. Ship the addresses
@@ -242,7 +257,8 @@ and delivers every refund. `/proof` shows the void and the refund transactions.
 1. UptimeRobot or Better Stack (free) → HTTP monitor on
    `https://rh.playhunch.xyz/api/health` every 5 minutes, alert to your phone. It returns 200
    only when every check passes (markets listed, nothing overdue, keeper funded, feeds fresh,
-   RPC live).
+   RPC live, the Safe owns the factory, the settler's only creator is the factory, new bets not
+   paused).
 2. Optional: set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` for keeper failure pages.
 
 ## 16. Before submitting

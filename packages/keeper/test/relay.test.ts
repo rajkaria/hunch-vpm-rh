@@ -2,7 +2,7 @@ import { MARKET_STATUS, UP, buildEnterAuthorization, enterNonce, randomSalt, loa
 import type { Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';
-import { RateLimiter, relayEnter, validateRelayRequest, type RelayChain, type RelayContext, type RelayRequest } from '../src/index.js';
+import { RELAY_GAS_BASE, RateLimiter, relayEnter, relayGasLimit, validateRelayRequest, type RelayChain, type RelayContext, type RelayRequest } from '../src/index.js';
 import { deployedDeployment } from '../../client/test/support/fakeChain.js';
 
 const d = deployedDeployment();
@@ -78,6 +78,38 @@ describe('T9 · relay validation', () => {
     ).toMatchObject({ ok: false, code: 'send-failed', status: 502 });
   });
 
+  it('every send carries a gas limit sized to the entry, never an open-ended estimate', async () => {
+    const gases: bigint[] = [];
+    const sims: (bigint | undefined)[] = [];
+    const sender = { send: async (_r: unknown, gas: bigint) => (gases.push(gas), `0x${'cd'.repeat(32)}` as Hex) };
+    const busyBook = chain({
+      market: async () => ({ statusCode: MARKET_STATUS.Open, resolutionTime: NOW + 3600, minEntry: 1_000_000n, maxEntry: 100_000_000n, pending: 120n }),
+      simulate: async (_r, gas) => (sims.push(gas), { ok: true }),
+    });
+    await relayEnter(await signed(), { ...ctx(), sender });
+    await relayEnter(await signed(), { ...ctx({ chain: busyBook }), sender });
+    expect(gases).toEqual([RELAY_GAS_BASE, relayGasLimit(120n)]);
+    expect(sims).toEqual([relayGasLimit(120n)]);
+    expect(relayGasLimit(10_000n)).toBe(relayGasLimit(200n)); // D9 caps a batch at 200 entries
+    expect(relayGasLimit(200n) < 9_000_000n).toBe(true);
+  });
+
+  it('a failed send whose authorization is used on chain reports the bet as landed, never "pay gas yourself"', async () => {
+    const used = new Set<string>();
+    const req = await signed();
+    const landed = await relayEnter(req, {
+      ...ctx({ chain: chain({ used }) }),
+      sender: {
+        send: async (r) => {
+          // the first attempt reached the sequencer; the client-side retry then fails
+          used.add(enterNonce({ hunchVpm: d.contracts.HunchVPM.address, marketId: r.marketId, outcome: r.outcome, amount: r.amount, salt: r.salt }));
+          throw new Error('nonce too low');
+        },
+      },
+    });
+    expect(landed).toMatchObject({ ok: true, txHash: null });
+  });
+
   it('refuses before deployment', async () => {
     expect(await validateRelayRequest(await signed(), ctx({ deployment: notDeployed(loadDeployment({ env: {} })) }))).toMatchObject({ code: 'not-deployed', status: 503 });
   });
@@ -117,8 +149,12 @@ describe('T9 · relay validation', () => {
     expect(await validateRelayRequest({ ...req, amount: '6000000' }, ctx())).toMatchObject({ code: 'bad-signature' });
     const stranger = privateKeyToAccount(generatePrivateKey());
     expect(await validateRelayRequest({ ...req, from: stranger.address }, ctx())).toMatchObject({ code: 'bad-signature' });
-    // A smart wallet cannot be recovered; it goes on to the on-chain simulation.
-    expect((await validateRelayRequest({ ...req, from: stranger.address }, ctx({ chain: chain({ isContract: async () => true }) }))).ok).toBe(true);
+    // A smart wallet (ERC-1271) cannot be recovered and its check runs its own code: it pays gas itself.
+    expect(await validateRelayRequest({ ...req, from: stranger.address }, ctx({ chain: chain({ isContract: async () => true }) }))).toMatchObject({
+      ok: false,
+      code: 'contract-signer',
+      status: 400,
+    });
   });
 
   it('geo: US, CA, GB and CH are refused (451)', async () => {
@@ -137,6 +173,25 @@ describe('T9 · relay validation', () => {
     expect(await validateRelayRequest(await signed(), ctx({ limiter: ipLimiter }))).toMatchObject({ code: 'rate-limited' });
     // The window slides.
     expect((await validateRelayRequest(await signed(), ctx({ limiter: ipLimiter, nowSec: NOW + 61 }))).ok).toBe(true);
+  });
+
+  it("rate limit: junk naming someone else's wallet cannot use up that wallet's budget", async () => {
+    const limiter = new RateLimiter(10, 60_000);
+    const victim = await signed();
+    const forged = { ...victim, amount: '6000000' }; // a signature that does not recover to `from`
+    for (let i = 0; i < 20; i++) {
+      expect(await validateRelayRequest(forged, ctx({ limiter, ip: `192.0.2.${i}` }))).toMatchObject({ code: 'bad-signature' });
+    }
+    expect((await validateRelayRequest(await signed(), ctx({ limiter }))).ok).toBe(true);
+  });
+
+  it('rate limit: a busy retry (full batch) does not count against the wallet', async () => {
+    const limiter = new RateLimiter(2, 60_000);
+    const busy = chain({ simulate: async () => ({ ok: false, reason: 'reverted: VintageFull' }) });
+    for (let i = 0; i < 5; i++) {
+      expect(await validateRelayRequest(await signed(), ctx({ limiter, chain: busy, ip: `192.0.2.${i}` }))).toMatchObject({ code: 'simulation-failed' });
+    }
+    expect((await validateRelayRequest(await signed(), ctx({ limiter, ip: '192.0.2.99' }))).ok).toBe(true);
   });
 
   it('market state: unknown, settled, frozen, paused', async () => {

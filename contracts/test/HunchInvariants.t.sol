@@ -70,7 +70,7 @@ contract HunchHandler is Test {
     uint256 public settles;
 
     constructor() {
-        vpm = new HunchVPM(GUARDIAN, TREASURY);
+        vpm = new HunchVPM(GUARDIAN, TREASURY, address(this), address(0)); // D10: the handler is the factory
         ref = new VestedParimutuel();
         usdg = new MockUSDG();
         tokR = new MockUSDG();

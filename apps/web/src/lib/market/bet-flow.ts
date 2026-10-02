@@ -28,7 +28,8 @@ export type Phase =
   | { kind: 'approve-pending'; hash: Hex }
   | { kind: 'entering' }
   | { kind: 'confirming'; hash: Hex; path: BetPath }
-  | { kind: 'confirmed'; hash: Hex; path: BetPath; amount: bigint; side: BetSide }
+  /** `hash: null`: the bet is on chain (its signed authorization is used) but this page never saw the transaction. */
+  | { kind: 'confirmed'; hash: Hex | null; path: BetPath; amount: bigint; side: BetSide }
   | { kind: 'error'; message: string; next: RelayNext };
 
 export const IN_FLIGHT: ReadonlySet<Phase['kind']> = new Set(['switching', 'signing', 'relaying', 'busy', 'checking', 'approving', 'approve-pending', 'entering', 'confirming']);

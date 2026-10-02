@@ -70,7 +70,7 @@ contract VintageStuffingTest is Test {
     /// @notice HunchVPM: the 201st entry of a vintage waits for the next block; a full vintage
     ///         finalizes, and settles, comfortably inside a block.
     function test_HunchVPMCapsAVintageSoItAlwaysFinalizes() public {
-        HunchVPM vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"));
+        HunchVPM vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"), address(this), address(0));
         usdg.approve(address(vpm), type(uint256).max);
         uint256 id = vpm.create(IERC20(address(usdg)), _seed(), 30, T, 1 days, resolver, resolver, 0, 0, 0);
         assertEq(vpm.MAX_VINTAGE_ENTRIES(), 200);
@@ -100,7 +100,7 @@ contract VintageStuffingTest is Test {
     }
 
     function test_TheNextBlockOpensAFreshVintage() public {
-        HunchVPM vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"));
+        HunchVPM vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"), address(this), address(0));
         usdg.approve(address(vpm), type(uint256).max);
         uint256 id = vpm.create(IERC20(address(usdg)), _seed(), 30, T, 1 days, resolver, resolver, 0, 0, 0);
         vm.roll(block.number + 1);
@@ -273,7 +273,7 @@ contract VintageStuffingTest is Test {
     // ================================================================== helpers
 
     function _vpm() internal returns (HunchVPM vpm) {
-        vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"));
+        vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"), address(this), address(0));
         usdg.approve(address(vpm), type(uint256).max);
         vm.prank(stuffer);
         usdg.approve(address(vpm), type(uint256).max);

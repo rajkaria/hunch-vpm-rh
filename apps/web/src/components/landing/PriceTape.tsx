@@ -34,9 +34,7 @@ function Cell({
   return (
     <li
       aria-hidden={hidden || undefined}
-      className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap border-r border-edge-soft px-4 py-2.5 sm:px-5 ${
-        hidden ? 'motion-reduce:hidden' : ''
-      }`}
+      className={`mr-2 flex shrink-0 items-center gap-2 rounded-tag border border-edge bg-paper/4 py-1.5 pr-3 pl-1.5 whitespace-nowrap ${hidden ? 'motion-reduce:hidden' : ''}`}
     >
       <TickerMark ticker={reading.ticker} size="sm" />
       <span className="text-[13px] font-semibold text-paper">{reading.ticker}</span>
@@ -47,7 +45,7 @@ function Cell({
           <span
             // Keyed by round: a new Chainlink round re-mounts the figure and runs the flash once.
             key={flash ?? 'steady'}
-            className={`num rounded-[4px] px-1 text-[14px] text-paper ${flash === undefined ? '' : 'motion-safe:animate-flash'}`}
+            className={`num rounded-[4px] px-0.5 text-[13px] text-paper ${flash === undefined ? '' : 'motion-safe:animate-flash'}`}
           >
             <span className="sr-only">{reading.name} Stock Token, </span>
             {formatPrice(answer)}
@@ -65,7 +63,7 @@ function Cell({
 }
 
 /**
- * The live Chainlink price tape under the header.
+ * The live Chainlink price tape, a rounded strip under the hero like the Hunch landing page's.
  *
  * Server-rendered with the readings the page was built with, then polled every 15 s while the
  * tab is visible. A failed poll keeps the last values on screen and says "retrying". The strip
@@ -126,29 +124,30 @@ export function PriceTape({ initial, now: serverNow }: { initial: PriceSnapshot;
   const readings = snapshot.readings;
 
   return (
-    <section aria-label="Chainlink prices on Robinhood Chain" className="border-b border-edge bg-ghost">
-      <div className="mx-auto flex w-full max-w-[1180px] flex-col lg:flex-row lg:items-stretch lg:px-6">
-        <div className="flex min-h-9 items-center gap-2 border-b border-edge-soft px-4 text-[11px] text-faint sm:px-6 lg:shrink-0 lg:border-b-0 lg:border-r lg:px-0 lg:pr-5">
-          <span
-            aria-hidden
-            className={`h-1.5 w-1.5 shrink-0 rounded-pill ${status.live && !failed ? 'bg-lime motion-safe:animate-pulse' : 'bg-paper/30'}`}
-          />
-          <span className="min-w-0 truncate lg:overflow-visible lg:whitespace-nowrap">
-            <span className="font-semibold text-muted">Chainlink prices</span> ·{' '}
-            {failed ? 'Price unavailable, retrying' : status.text}
-          </span>
-        </div>
-        <div className="relative min-w-0 flex-1 overflow-hidden motion-reduce:overflow-x-auto">
-          <ul className="flex w-max motion-safe:animate-tape motion-safe:hover:[animation-play-state:paused]">
-            {readings.map((reading) => (
-              <Cell key={reading.ticker} reading={reading} now={now} flash={changed[reading.ticker]} />
-            ))}
-            {/* The second copy makes the loop seamless; it is decoration, hidden from assistive tech. */}
-            {readings.map((reading) => (
-              <Cell key={`${reading.ticker}-copy`} reading={reading} now={now} flash={changed[reading.ticker]} hidden />
-            ))}
-          </ul>
-        </div>
+    <section
+      aria-label="Chainlink prices on Robinhood Chain"
+      className="flex flex-col overflow-hidden rounded-card border border-edge bg-raised sm:flex-row sm:items-stretch"
+    >
+      <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-edge-soft px-4 text-[11px] text-faint sm:border-r sm:border-b-0">
+        <span
+          aria-hidden
+          className={`h-1.5 w-1.5 shrink-0 rounded-pill ${status.live && !failed ? 'bg-lime motion-safe:animate-pulse' : 'bg-paper/30'}`}
+        />
+        <span className="min-w-0 truncate sm:overflow-visible sm:whitespace-nowrap">
+          <span className="font-semibold text-muted">Chainlink prices</span> ·{' '}
+          {failed ? 'Price unavailable, retrying' : status.text}
+        </span>
+      </div>
+      <div className="relative min-w-0 flex-1 overflow-hidden py-2 pl-3 [mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)] motion-reduce:overflow-x-auto motion-reduce:[mask-image:none]">
+        <ul className="flex w-max motion-safe:animate-tape motion-safe:hover:[animation-play-state:paused]">
+          {readings.map((reading) => (
+            <Cell key={reading.ticker} reading={reading} now={now} flash={changed[reading.ticker]} />
+          ))}
+          {/* The second copy makes the loop seamless; it is decoration, hidden from assistive tech. */}
+          {readings.map((reading) => (
+            <Cell key={`${reading.ticker}-copy`} reading={reading} now={now} flash={changed[reading.ticker]} hidden />
+          ))}
+        </ul>
       </div>
     </section>
   );

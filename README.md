@@ -62,17 +62,18 @@ five minutes before the bell. (Amounts floored to the cent; the contract pays Me
    effect at the opening and closing bell. Payouts are delivered to owners automatically.
 
 Every market refunds in full if the price did not move (same round), if either price is older
-than its bound (26 h), or if Robinhood pauses the token's price for a corporate action for more
-than a day. The rules box on every market says so before you bet.
+than its bound (26 h) or out of range (not a real price), or if Robinhood pauses the token's
+price for a corporate action for more than a day. The rules box on every market says so before you bet.
 
 ## Powers
 
 | Who | Can | Cannot |
 |---|---|---|
-| Safe (guardian of HunchVPM) | pause **new entries** | pause or block claims, refunds, resolution; move any stake; set any price |
+| Safe (guardian of HunchVPM) | pause and resume **new entries and new markets**; name or remove the pauser | pause or block claims, refunds, resolution; move any stake; set any price |
+| Pauser (one key the Safe names) | pause **new entries and new markets** | resume them; anything else |
 | Safe (owner of factory) | allow-list a feed, its Stock Token and its staleness bounds; add/remove an opener | change a listed market's feed, times, bounds, seed, fee or caps |
-| Opener (keeper hot wallet) | list a new market, paying the seed itself; owns the seed legs it paid for | change or close an existing market; touch anyone else's position |
-| Anyone | resolve with the two proven rounds; void on proven staleness or a 24 h oracle pause; relay a bettor's signed entry; deliver claims and refunds to owners; sweep fees to the treasury | choose the outcome; send anyone's funds anywhere but to their owner |
+| Opener (keeper hot wallet) | list a new market through the factory (the only creator HunchVPM accepts), paying the seed itself; owns the seed legs it paid for | change or close an existing market; touch anyone else's position |
+| Anyone | resolve with the two proven rounds; void on proven staleness, a proven out-of-range price or a 24 h oracle pause; relay a bettor's signed entry; deliver claims and refunds to owners; sweep fees to the treasury | choose the outcome; send anyone's funds anywhere but to their owner |
 | StockRoundResolver | settle its registered markets per the spec | anything else (it has no owner) |
 
 The Safe is 2 of 3, and at launch the operator holds all three owner keys: treat its powers as one
@@ -82,8 +83,8 @@ person's. They are limited to the left column above; no key can move a bettor's 
 
 | Contract | What it does |
 |---|---|
-| [`HunchVPM`](contracts/src/HunchVPM.sol) | The settler: the paper's reference `VestedParimutuel`, byte for byte, plus nine listed changes (fee on winners' gains, claims delivered to owners by anyone, per-market entry caps, an entries-only pause, gasless signed entry, views, events, same-block settlement finalize, vintage size cap). [`DIFF.md`](contracts/DIFF.md) is the literal diff; CI fails on any hunk not in the list |
-| [`StockRoundResolver`](contracts/src/StockRoundResolver.sol) | UP/DOWN from two proven Chainlink rounds: each must be the last round at or before its bell. FLAT and proven staleness refund. No owner, no price input |
+| [`HunchVPM`](contracts/src/HunchVPM.sol) | The settler: the paper's reference `VestedParimutuel`, byte for byte, plus ten listed changes (fee on winners' gains, claims delivered to owners by anyone, per-market entry caps, an entries pause, gasless signed entry, views, events, same-block settlement finalize, vintage size cap, and factory-only market creation with a pause-only pauser). [`DIFF.md`](contracts/DIFF.md) is the literal diff; CI fails on any hunk not in the list |
+| [`StockRoundResolver`](contracts/src/StockRoundResolver.sol) | UP/DOWN from two proven Chainlink rounds: each must be the last round at or before its bell. FLAT, proven staleness and a proven out-of-range price refund. No owner, no price input |
 | [`HunchMarketFactory`](contracts/src/HunchMarketFactory.sol) | Lists a market in one transaction (seed, create, register spec, hand seed legs to the opener) and keeps an on-chain listing table. Owned by the Safe |
 
 What the test suite proves, in [`contracts/test`](contracts/test): the settler equals the
@@ -98,15 +99,13 @@ Measured gas is in [`GAS.md`](contracts/GAS.md).
 ## Deployment
 
 <!-- deployment:start -->
-Network: Robinhood Chain mainnet (chain 4663). Status: **deployed** (2026-10-02T16:24:37Z). Source: `deployments/robinhood-mainnet.json`.
+Network: Robinhood Chain mainnet (chain 4663). Status: **not deployed yet**. Source: `deployments/robinhood-mainnet.json`.
 
 | What | Address |
 |---|---|
-| HunchVPM | [`0x4fB6…1917`](https://robinhoodchain.blockscout.com/address/0x4fB64Dd74E6314C6415E3dE7268ea4Dda8771917) |
-| StockRoundResolver | [`0xE8b2…9A62`](https://robinhoodchain.blockscout.com/address/0xE8b25102a2B0414d67FDC2011F3Ba3859b149A62) |
-| HunchMarketFactory | [`0xcb70…b7eA`](https://robinhoodchain.blockscout.com/address/0xcb7055449c98d124A12E5F03fB0eA1D41AF3b7eA) |
-| Safe (owner, guardian, treasury) | [`0x5866…F336`](https://robinhoodchain.blockscout.com/address/0x5866308Af35fA8AbD67f88d31695aD029143F336) |
-| Keeper (opener, relayer) | [`0xEb42…b580`](https://robinhoodchain.blockscout.com/address/0xEb420AD181518814B6E3feb89A9d369Da3F5b580) |
+| HunchVPM | not deployed yet |
+| StockRoundResolver | not deployed yet |
+| HunchMarketFactory | not deployed yet |
 | USDG | [`0x5fc5…d168`](https://robinhoodchain.blockscout.com/address/0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168) |
 | NVDA Chainlink feed · Stock Token | [`0x379E…9F15`](https://robinhoodchain.blockscout.com/address/0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15) · [`0xd060…9EEC`](https://robinhoodchain.blockscout.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC) |
 | TSLA Chainlink feed · Stock Token | [`0x4A11…7C38`](https://robinhoodchain.blockscout.com/address/0x4A1166a659A55625345e9515b32adECea5547C38) · [`0x322F…3b2d`](https://robinhoodchain.blockscout.com/address/0x322F0929c4625eD5bAd873c95208D54E1c003b2d) |

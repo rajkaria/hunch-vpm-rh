@@ -17,8 +17,11 @@ import {IHunchSettler} from "./interfaces/IHunchSettler.sol";
 ///         the same round, or equal answers → FLAT, which voids the market (full refunds).
 ///         A reading older than the spec's age bound makes the market refundable through
 ///         `voidStale` (never through `resolve`, so a mistaken call cannot destroy a good
-///         market). Robinhood's corporate-action flag (`oraclePaused()` on the Stock Token)
-///         blocks resolution; if it is still set 24 h after the bell, `voidPaused` refunds.
+///         market). A proven round whose answer is outside the sanity band (garbage, e.g. an
+///         18-decimal answer on an 8-decimal feed) makes it refundable through `voidBadAnswer`
+///         at once, instead of leaving it to the settler's 72 h timeout. Robinhood's
+///         corporate-action flag (`oraclePaused()` on the Stock Token) blocks resolution; if
+///         it is still set 24 h after the bell, `voidPaused` refunds.
 ///
 ///         There is no owner, no admin and no price input. A spec is immutable once
 ///         registered (its id is its hash), and only a market's creator can register it.
@@ -68,7 +71,8 @@ contract StockRoundResolver {
         uint256 at;
     }
 
-    /// @dev Result of checking "x is the last round at or before T".
+    /// @dev Result of checking "x is the last round at or before T". `BadAnswer`: x IS that
+    ///      round, but its answer is outside the sanity band (so it can only void the market).
     enum Proof {
         Ok,
         BadProof,
@@ -91,6 +95,7 @@ contract StockRoundResolver {
     uint8 public constant STATUS_STALE = 4;
     uint8 public constant STATUS_BAD_PROOF = 5;
     uint8 public constant STATUS_PAUSED = 6;
+    uint8 public constant STATUS_BAD_ANSWER = 7;
 
     /// @notice Sanity band for a proven answer: 0 < answer < 1e14 (i.e. below $1,000,000 at 8
     ///         decimals). Early rounds of some Robinhood Chain feeds hold 18-decimal garbage,
@@ -142,6 +147,7 @@ contract StockRoundResolver {
     );
     event VoidedStale(bytes32 indexed specId, uint256 indexed marketId, uint80 strikeRound, uint80 finalRound);
     event VoidedPaused(bytes32 indexed specId, uint256 indexed marketId);
+    event VoidedBadAnswer(bytes32 indexed specId, uint256 indexed marketId, uint80 strikeRound, uint80 finalRound);
 
     // ------------------------------------------------------------------ errors
 
@@ -163,6 +169,7 @@ contract StockRoundResolver {
     error Stale();
     error NotStale();
     error NotPaused();
+    error NotBadAnswer();
 
     // ================================================================== registration
 
@@ -208,7 +215,8 @@ contract StockRoundResolver {
     ///         `finalTime`, once. `strikeRound` must be the round in effect at strikeTime and
     ///         `finalRound` the one in effect at finalTime: the last round with updatedAt ≤ T
     ///         of the highest feed phase that has any round with updatedAt ≤ T (else
-    ///         `BadProof`, `BadAnswer` or `PhaseBoundary`). Reverts `OraclePaused` while the
+    ///         `BadProof` or `PhaseBoundary`), with an answer in the sanity band (else
+    ///         `BadAnswer`; `voidBadAnswer` refunds). Reverts `OraclePaused` while the
     ///         Stock Token's oracle is paused and `Stale` if a reading exceeds its age bound
     ///         (use `voidStale`). Otherwise resolves UP or DOWN, or voids on FLAT. The caller
     ///         cannot choose the outcome and gains nothing by calling.
@@ -241,6 +249,27 @@ contract StockRoundResolver {
         IHunchSettler(s.settler).voidMarket(s.marketId);
     }
 
+    /// @notice Void (refund) a market whose price in effect at a bell is garbage: both rounds
+    ///         must prove as the rounds in effect at their bells, exactly as for `resolve`, and
+    ///         at least one answer must be outside the sanity band (0 < answer < MAX_ANSWER).
+    ///         Anyone may call it, strictly after `finalTime`; it reverts `NotBadAnswer` if both
+    ///         answers are sane (then `resolve` or `voidStale` applies), so nobody can void a
+    ///         market that has a good answer, and nobody can choose which rounds count.
+    function voidBadAnswer(bytes32 specId, uint80 strikeRound, uint80 finalRound) external {
+        Spec memory s = _unsettled(specId);
+        if (finalRound < strikeRound) revert BadProof();
+        uint256 latest = _latestRoundId(s.feed);
+        (Proof p1,,) = _prove(s.feed, strikeRound, s.strikeTime, latest);
+        (Proof p2,,) = _prove(s.feed, finalRound, s.finalTime, latest);
+        if (p1 != Proof.BadAnswer) _requireProof(p1);
+        if (p2 != Proof.BadAnswer) _requireProof(p2);
+        if (p1 != Proof.BadAnswer && p2 != Proof.BadAnswer) revert NotBadAnswer();
+
+        settled[specId] = true;
+        emit VoidedBadAnswer(specId, s.marketId, strikeRound, finalRound);
+        IHunchSettler(s.settler).voidMarket(s.marketId);
+    }
+
     /// @notice Void (refund) a market whose Stock Token oracle is still paused (Robinhood's
     ///         corporate-action flag) 24 h after `finalTime`. Anyone may call it; it reverts
     ///         `NotPaused` if the flag has cleared (then `resolve` works). An unreadable flag
@@ -260,11 +289,11 @@ contract StockRoundResolver {
 
     /// @notice What `resolve(specId, strikeRound, finalRound)` would do now, without reverting:
     ///         0 not ready (at or before finalTime), 1 UP, 2 DOWN, 3 FLAT (void), 4 STALE (use
-    ///         `voidStale`), 5 BADPROOF (a round is not the one in effect at its time, an
-    ///         answer is out of band, a later phase has a round at or before the time (phase
-    ///         boundary), or an unknown spec), 6 PAUSED. The
-    ///         readings are returned whenever both rounds could be read. Anyone may call it;
-    ///         it ignores `settled` (read that separately).
+    ///         `voidStale`), 5 BADPROOF (a round is not the one in effect at its time, a later
+    ///         phase has a round at or before the time (phase boundary), or an unknown spec),
+    ///         6 PAUSED, 7 BADANSWER (both rounds are the ones in effect and an answer is out of
+    ///         band: use `voidBadAnswer`). The readings are returned whenever both rounds could
+    ///         be read. Anyone may call it; it ignores `settled` (read that separately).
     function preview(bytes32 specId, uint80 strikeRound, uint80 finalRound)
         external
         view
@@ -278,8 +307,11 @@ contract StockRoundResolver {
         uint256 latest = _latestRoundId(s.feed);
         (p1, strikeAnswer, strikeAt) = _prove(s.feed, strikeRound, s.strikeTime, latest);
         (p2, finalAnswer, finalAt) = _prove(s.feed, finalRound, s.finalTime, latest);
-        if (p1 != Proof.Ok || p2 != Proof.Ok || finalRound < strikeRound) {
+        if (!_inEffect(p1) || !_inEffect(p2) || finalRound < strikeRound) {
             return (STATUS_BAD_PROOF, strikeAnswer, strikeAt, finalAnswer, finalAt);
+        }
+        if (p1 == Proof.BadAnswer || p2 == Proof.BadAnswer) {
+            return (STATUS_BAD_ANSWER, strikeAnswer, strikeAt, finalAnswer, finalAt);
         }
         Reading memory strike = Reading({answer: strikeAnswer, at: strikeAt});
         Reading memory fin = Reading({answer: finalAnswer, at: finalAt});
@@ -327,10 +359,20 @@ contract StockRoundResolver {
         if (p == Proof.PhaseBoundary) revert PhaseBoundary();
     }
 
+    /// @dev The round is the one in effect at its time (its answer may still be out of band).
+    function _inEffect(Proof p) internal pure returns (bool) {
+        return p == Proof.Ok || p == Proof.BadAnswer;
+    }
+
+    /// @dev Ok if the proven round's answer is in the sanity band, else BadAnswer.
+    function _band(int256 answer) internal pure returns (Proof) {
+        return answer <= 0 || answer >= MAX_ANSWER ? Proof.BadAnswer : Proof.Ok;
+    }
+
     /// @dev Is round `x` of `feed` the round in effect at `t`: the last round with updatedAt ≤ t
     ///      of the HIGHEST phase that has any round with updatedAt ≤ t? `latest` is the proxy's
     ///      latest round id (0 if unreadable), read once by the caller for both proofs.
-    ///      (1) x exists, updatedAt(x) ≤ t, and 0 < answer(x) < MAX_ANSWER;
+    ///      (1) x exists and updatedAt(x) ≤ t;
     ///      (2) x's phase p is at most the proxy's current phase P (the phase of `latest`; an
     ///          unreadable latest round proves nothing), and no phase from p + 1 to P has a round
     ///          at or before t: each one's first round is absent or after t (else
@@ -343,6 +385,9 @@ contract StockRoundResolver {
     ///      Unique: were x (phase p) and y (phase q > p) both accepted, y ≤ t would make the
     ///      first round of phase q at or before t, which (2) refuses for x; within one phase,
     ///      (3) admits only the last round at or before t.
+    ///      Only once x is proven the round in effect is its answer checked: 0 < answer(x) <
+    ///      MAX_ANSWER, else `BadAnswer` (the market can then only void, `voidBadAnswer`). A
+    ///      garbage answer on a round that is not in effect is `BadProof`, like any other.
     function _prove(address feed, uint80 x, uint256 t, uint256 latest)
         internal
         view
@@ -351,7 +396,6 @@ contract StockRoundResolver {
         bool present;
         (present, answer, at) = _round(feed, x);
         if (!present || at > t) return (Proof.BadProof, answer, at);
-        if (answer <= 0 || answer >= MAX_ANSWER) return (Proof.BadAnswer, answer, at);
 
         // the top 16 bits of a uint80 proxy id are the phase; `latest` is at most a uint80
         uint256 phase = x >> 64;
@@ -372,9 +416,9 @@ contract StockRoundResolver {
         // forge-lint: disable-next-line(unsafe-typecast)
         if (uint64(x) != type(uint64).max) {
             (bool nextPresent,, uint256 nextAt) = _round(feed, x + 1);
-            if (nextPresent) return (nextAt > t ? Proof.Ok : Proof.BadProof, answer, at);
+            if (nextPresent) return (nextAt > t ? _band(answer) : Proof.BadProof, answer, at);
         }
-        if (x == latest || laterPrinted) return (Proof.Ok, answer, at);
+        if (x == latest || laterPrinted) return (_band(answer), answer, at);
         return (Proof.BadProof, answer, at);
     }
 

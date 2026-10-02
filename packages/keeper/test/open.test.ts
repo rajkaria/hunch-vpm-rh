@@ -1,8 +1,9 @@
-import { closingBell, loadDeployment, openingBell, deploymentParams, type FeedConfig } from '@hunch-rh/client';
+import { closingBell, openingBell, deploymentParams, type FeedConfig } from '@hunch-rh/client';
 import { describe, expect, it } from 'vitest';
 import { decideOpen, planRefundDrill, type ExistingListing, type OpenInput } from '../src/index.js';
+import { referenceDeployment } from '../../client/test/support/fakeChain.js';
 
-const d = loadDeployment({ env: {} });
+const d = referenceDeployment();
 const params = deploymentParams(d);
 const utc = (y: number, m: number, day: number, h: number, min = 0) => Date.UTC(y, m - 1, day, h, min) / 1000;
 // COIN passed its FLAT-rate check on 2026-09-28 and is live in the deployment; these tests pin it

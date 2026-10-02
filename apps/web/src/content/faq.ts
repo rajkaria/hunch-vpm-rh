@@ -61,7 +61,7 @@ export const FAQ: readonly FaqItem[] = [
     id: 'refunds',
     q: "What if the price doesn't move, or the feed stops?",
     a: [
-      "If the opening and closing prices are the same, every bet is refunded in full with no fee. The same happens if either price is more than 26 hours old at its bell (the feed missed its daily update), or if Robinhood pauses the token's price for a corporate action for more than a day.",
+      "If the opening and closing prices are the same, every bet is refunded in full with no fee. The same happens if either price is more than 26 hours old at its bell (the feed missed its daily update), if either price is out of range (not a real price), or if Robinhood pauses the token's price for a corporate action for more than a day.",
       'If nobody settles a market at all, anyone can refund it 72 hours after the bell.',
     ],
     teaser: true,

@@ -397,6 +397,19 @@ export async function readListings(client: ReadClient, d: Deployment): Promise<L
   return loadListings(client, d, Array.from({ length: count }, (_, i) => i));
 }
 
+/**
+ * Listings from index `from` to the current `listingCount` (the keeper re-checks just before
+ * listing, so two overlapping runs cannot list the same market twice).
+ */
+export async function readListingsFrom(client: ReadClient, d: Deployment, from: number): Promise<Listing[]> {
+  if (!isDeployed(d)) return [];
+  const count = Number(
+    must<bigint>((await callMany(client, [{ address: d.contracts.HunchMarketFactory.address, abi: hunchMarketFactoryAbi, functionName: 'listingCount' }]))[0], 'listingCount'),
+  );
+  if (count <= from) return [];
+  return loadListings(client, d, Array.from({ length: count - from }, (_, i) => from + i));
+}
+
 export interface PositionView {
   id: bigint;
   marketId: bigint;

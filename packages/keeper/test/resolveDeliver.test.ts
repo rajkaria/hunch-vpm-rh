@@ -51,6 +51,21 @@ describe('T9 · resolve vs void vs page', () => {
     ).toBe('page');
   });
 
+  it('BADANSWER: a garbage price at a bell voids like STALE, only when an independent read agrees', () => {
+    const bad = { ...base, rounds, preview: PREVIEW_STATUS.BADANSWER };
+    expect(decideResolve(bad, FINAL + 600).kind).toBe('wait');
+    expect(needsConfirmation(bad, FINAL + 900)).toBe(true);
+    expect(decideResolve(bad, FINAL + 900).kind).toBe('retry');
+    expect(decideResolve({ ...bad, confirm: { rounds, preview: PREVIEW_STATUS.BADANSWER } }, FINAL + 900)).toMatchObject({
+      kind: 'voidBadAnswer',
+      specId,
+      strikeRound: rounds.strikeRound,
+      finalRound: rounds.finalRound,
+    });
+    expect(decideResolve({ ...bad, confirm: { rounds, preview: PREVIEW_STATUS.UP } }, FINAL + 900).kind).toBe('page');
+    expect(decideResolve({ ...bad, confirm: { rounds, preview: PREVIEW_STATUS.STALE } }, FINAL + 900).kind).toBe('page');
+  });
+
   it('PAUSED: retries, voidPaused only from +24 h', () => {
     const paused = { ...base, rounds, preview: PREVIEW_STATUS.PAUSED };
     expect(decideResolve(paused, FINAL + 3600).kind).toBe('retry');

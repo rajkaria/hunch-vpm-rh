@@ -11,7 +11,7 @@ interface IERC20 {
     function balanceOf(address account) external view returns (uint256); // D5: every pull is checked
 }
 
-/// @title  HunchVPM — the reference Vested Parimutuel plus diffs D1–D9 and nothing else
+/// @title  HunchVPM — the reference Vested Parimutuel plus diffs D1–D10 and nothing else
 /// @notice One contract, many markets. Implements the mechanism of the paper
 ///         "The Vested Parimutuel" exactly as its reference settler does:
 ///           * Rule 1 (flow vesting) and Rule 2 (capacity matching), §4.1;
@@ -37,6 +37,11 @@ interface IERC20 {
 ///         holds at most MAX_VINTAGE_ENTRIES entries and at most MAX_VINTAGE_WORK
 ///         entry-outcome pairs (finalizing is linear in both), and a finite κ is at most
 ///         MAX_KAPPA (κ·a at finalization could otherwise overflow and revert every exit).
+///         D10: pre-deploy hardening. Only the venue's factory, fixed at deployment, may create
+///         a market (every market shares one escrow, so an attacker-made market with odd
+///         parameters could otherwise turn any accounting bug into a drain of the venue's
+///         markets); the pause also stops new markets; a pauser the guardian names may pause
+///         but never unpause; and a claim refuses a position whose vintage is not finalized.
 /// @dev    Block vintages are applied lazily (design "A" in the README): entries of
 ///         the current block are buffered with their OFFERED amount; the vintage is
 ///         finalized — rationed (§4.4 iii), vested against the vintage-start books
@@ -47,7 +52,7 @@ interface IERC20 {
 ///         in the entry transaction; §6 (c)'s "same-transaction refund" holds only when
 ///         acceptance is knowable in that transaction, which under the §4.4 batching
 ///         rule is never the case for an entry that is not the last of its block.
-///         D1–D9: every line changed relative to src/reference/VestedParimutuel.sol carries
+///         D1–D10: every line changed relative to src/reference/VestedParimutuel.sol carries
 ///         its diff tag; scripts/diff-reference.sh (contracts/DIFF.md) rejects untagged hunks.
 contract HunchVPM {
     // ------------------------------------------------------------------ constants
@@ -137,11 +142,20 @@ contract HunchVPM {
     Market[] internal markets;
     Position[] public positions;
     uint256 private locked = 1;
-    /// @notice D4: the only address that may pause new entries (the Safe). It can do nothing else.
+    /// @notice D4: the only address that may pause and unpause new entries (the Safe), and name
+    ///         the pauser (D10). It can do nothing else.
     address public immutable guardian;
+    /// @notice D10: the only address that may create markets (the venue's HunchMarketFactory).
+    ///         Fixed at deployment.
+    address public immutable factory;
     /// @notice D1: the only address swept fees can go to (the Safe). Fixed at deployment.
     address public immutable treasury;
+    /// @notice D10: may pause new entries and new markets, and nothing else: it cannot unpause.
+    ///         Named by the guardian; zero means none. A fast hand for an incident, while the
+    ///         guardian (a multisig) decides whether to resume.
+    address public pauser;
     /// @notice D4: while true, `enter` and `enterWithAuthorization` revert; nothing else changes.
+    ///         D10: `create` reverts too (no new seed goes into a paused venue).
     bool public entriesPaused;
     /// @notice D1: fees taken from winners' gains and not yet swept, per settlement token.
     mapping(address => uint256) public feesAccrued;
@@ -161,6 +175,7 @@ contract HunchVPM {
     event FeeAccrued(uint256 indexed positionId, uint256 fee); // D1, D7
     event FeesSwept(address indexed token, address indexed to, uint256 amount); // D1, D7
     event EntriesPaused(bool paused); // D4, D7
+    event PauserSet(address indexed pauser); // D10
 
     error InvalidKappa();
     error InvalidSeed();          // F3 / P11: a leg left unbacked voids the market at creation
@@ -191,6 +206,7 @@ contract HunchVPM {
     error VintageFull();          // D9: this block's vintage is full (MAX_VINTAGE_ENTRIES or MAX_VINTAGE_WORK)
     error AuthorizationUsed();    // D5: the signed authorization's nonce is already used or cancelled
     error NotPaid();              // D5: a pull did not raise the settler's balance by the amount
+    error NotFactory();           // D10: only the factory fixed at deployment may create a market
 
     modifier nonReentrant() {
         if (locked != 1) revert Reentrancy();
@@ -199,23 +215,37 @@ contract HunchVPM {
         locked = 1;
     }
 
-    /// @notice D1, D4: fixes the guardian and the treasury for the life of the contract.
-    ///         There is no owner and no way to change either address.
-    /// @param  guardian_ may pause and unpause new entries, and nothing else (D4)
+    /// @notice D1, D4, D10: fixes the guardian, the treasury and the factory for the life of the
+    ///         contract. There is no owner and no way to change any of the three.
+    /// @param  guardian_ may pause and unpause new entries and name the pauser, and nothing else (D4, D10)
     /// @param  treasury_ receives swept fees, and nothing else (D1)
-    constructor(address guardian_, address treasury_) {
+    /// @param  factory_  the only address that may create markets (D10)
+    /// @param  pauser_   may pause, never unpause (D10); zero for none, the guardian can change it
+    constructor(address guardian_, address treasury_, address factory_, address pauser_) {
         if (guardian_ == address(0) || treasury_ == address(0)) revert ZeroAddress();
+        if (factory_ == address(0)) revert ZeroAddress(); // D10
         guardian = guardian_;
         treasury = treasury_;
+        factory = factory_; // D10
+        pauser = pauser_; // D10
+        emit PauserSet(pauser_); // D10
     }
 
-    /// @notice D4: pause or unpause NEW entries (`enter`, `enterWithAuthorization`) in every
-    ///         market. Only the guardian may call it. It can never block resolution, voids,
-    ///         claims, refunds, residue, fee sweeps or position transfers, and moves no funds.
+    /// @notice D4: pause or unpause NEW entries (`enter`, `enterWithAuthorization`) and, D10, new
+    ///         markets (`create`), in every market. The guardian may pause and unpause; the
+    ///         pauser (D10) may only pause. It can never block resolution, voids, claims,
+    ///         refunds, residue, fee sweeps or position transfers, and moves no funds.
     function setEntriesPaused(bool paused) external {
-        if (msg.sender != guardian) revert NotGuardian();
+        if (msg.sender != guardian && !(paused && msg.sender == pauser)) revert NotGuardian(); // D10: the pauser pauses only
         entriesPaused = paused;
         emit EntriesPaused(paused);
+    }
+
+    /// @notice D10: name (or, with zero, remove) the pauser. Only the guardian may call it.
+    function setPauser(address pauser_) external {
+        if (msg.sender != guardian) revert NotGuardian(); // D10
+        pauser = pauser_;
+        emit PauserSet(pauser_);
     }
 
     // ================================================================== creation (§4.4)
@@ -237,8 +267,9 @@ contract HunchVPM {
     /// @param  feeBps         D1: fee on each winning claim's gain, basis points, ≤ MAX_FEE_BPS
     /// @param  minEntry       D3: smallest offered amount per entry, 0 = no bound (immutable)
     /// @param  maxEntry       D3: largest offered amount per entry, 0 = no bound (immutable)
-    ///         Anyone may create a market; the creator gains no power over it beyond owning
-    ///         its seed legs. Nothing about a market can be changed after this call.
+    ///         D10: only `factory` may create a market, and not while paused. The creator gains
+    ///         no power over it beyond owning its seed legs. Nothing about a market can be
+    ///         changed after this call.
     function create(
         IERC20 token,
         uint256[] calldata seed,
@@ -251,6 +282,8 @@ contract HunchVPM {
         uint128 minEntry, // D3
         uint128 maxEntry // D3
     ) external nonReentrant returns (uint256 marketId) {
+        if (msg.sender != factory) revert NotFactory(); // D10: one escrow, one known creator
+        if (entriesPaused) revert EntriesArePaused(); // D10: no new seed into a paused venue
         if (seed.length < 2 || seed.length > 255) revert InvalidOutcomes(); // D1, D3: `n` inlined (stack)
         if (kappa < 1) revert InvalidKappa();
         if (kappa > MAX_KAPPA && kappa != KAPPA_UNBOUNDED) revert InvalidKappa(); // D9: κ·a never overflows
@@ -634,6 +667,7 @@ contract HunchVPM {
         Market storage m = markets[p.marketId];
         if (m.status == Status.Open) revert NotSettled();
         // resolve/void finalized the last vintage, so p.finalized holds here.
+        if (!p.finalized) revert NotFinalized(); // D10: and if it ever did not, pay nothing (the F1 drain)
 
         uint256 payout;
         uint256 fee; // D1
