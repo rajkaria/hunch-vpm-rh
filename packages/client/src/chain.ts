@@ -45,6 +45,13 @@ export interface PublicClientOptions {
   fallbackRpcUrls?: readonly (string | undefined | null)[] | undefined;
   /** Leave the public RPC out of the fallback list (for a second, independent reader). */
   excludePublicRpc?: boolean | undefined;
+  /**
+   * RPCs that must not be asked for `eth_getLogs`: their plan caps the block range far below a
+   * market's life (QuickNode's Discover plan answers HTTP 413 above 5 blocks; paid plans stop at
+   * 10,000, about 17 minutes of this chain). The fallback skips them for logs only, without a
+   * request, and asks the next RPC (the public RPC serves millions of blocks per query).
+   */
+  noLogsRpcUrls?: readonly (string | undefined | null)[] | undefined;
   /** Per-request timeout in ms (default 8000). */
   timeoutMs?: number | undefined;
   /** Retries per transport before falling back (default 2). */
@@ -74,13 +81,16 @@ export function rpcUrlsFor(options: PublicClientOptions = {}): string[] {
 /**
  * A viem public client for chain 4663: `fallback([...http(url, { timeout: 8000,
  * retryCount: 2 })])` across the primary RPC, any extra fallbacks and the public RPC,
- * with Multicall3 batching of concurrent reads. Works in Node, a Next.js server and
- * the browser.
+ * with Multicall3 batching of concurrent reads, and `eth_getLogs` kept off the RPCs in
+ * `noLogsRpcUrls`. Works in Node, a Next.js server and the browser.
  */
 export function makePublicClient(options: PublicClientOptions = {}): HunchPublicClient {
   const timeout = options.timeoutMs ?? 8_000;
   const retryCount = options.retryCount ?? 2;
-  const transports = rpcUrlsFor(options).map((url) => http(url, { timeout, retryCount }));
+  const noLogs = new Set((options.noLogsRpcUrls ?? []).flatMap((url) => (url?.trim() ? [url.trim()] : [])));
+  const transports = rpcUrlsFor(options).map((url) =>
+    http(url, { timeout, retryCount, ...(noLogs.has(url) ? { methods: { exclude: ['eth_getLogs'] } } : {}) }),
+  );
   const transport = transports.length === 1 ? transports[0]! : fallback(transports);
   return createPublicClient({
     chain: robinhoodChain,

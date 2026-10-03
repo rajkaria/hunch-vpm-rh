@@ -186,7 +186,10 @@ Still yours, all optional but recommended: `RELAYER_PRIVATE_KEY` (a third hot ke
 races the cron jobs' nonces), `KV_REST_API_URL` and `KV_REST_API_TOKEN` (Vercel → Storage →
 Upstash Redis: the cron jobs then run one at a time across instances), a second keyed RPC from
 another provider in `RH_FALLBACK_RPC_URL` (the keeper auto-refunds a stale or garbage price only
-when this independent read agrees), `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (your Reown project
+when this independent read agrees), `RH_LOGS_RPC_URL` (an RPC whose plan serves `eth_getLogs` over long
+block ranges, for entry times and transaction links; `RH_RPC_URL` is never asked for logs, because
+keyed plans cap the range: QuickNode's Discover plan at 5 blocks. Unset, logs come from the public
+RPC), `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (your Reown project
 id), `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (keeper alerts, Sensitive). Never put a keyed URL in
 `NEXT_PUBLIC_RH_RPC_URL`: it ships to browsers. Check with `vercel env ls production`.
 

@@ -239,7 +239,9 @@ export default function ApiDoc() {
   "checks": [
     { "name": "rpc-head", "ok": true, "detail": "latest block is 1 s old" },
     { "name": "settlement", "ok": false, "detail": "market 12 is 41 min past its bell" },
-    { "name": "keeper-eth", "ok": true, "detail": "0.0081 ETH" }
+    { "name": "keeper-eth", "ok": true, "detail": "0.0081 ETH" },
+    { "name": "market-reads", "ok": true, "detail": "2 open markets read current (oldest 4s)" },
+    { "name": "market-logs", "ok": true, "detail": "/m/1 entry times and links read (2 entries)" }
   ]
 }`}</CodeBlock>
 

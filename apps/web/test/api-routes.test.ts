@@ -15,6 +15,14 @@ vi.mock('next/server', async (importOriginal) => ({
   after: (fn: () => Promise<void>) => void afterCallbacks.push(fn),
 }));
 
+// The web's market checks read the chain through the page cache; here they are a dial.
+const GREEN_MARKETS = [
+  { name: 'market-reads', ok: true, detail: '2 open markets read current (oldest 2s)' },
+  { name: 'market-logs', ok: true, detail: '/m/1 entry times and links read (2 entries)' },
+];
+const marketChecks = vi.hoisted(() => ({ fn: vi.fn() }));
+vi.mock('@/lib/server/health', () => ({ marketHealthChecks: () => marketChecks.fn() }));
+
 import { GET as cron } from '@/app/api/cron/[job]/route';
 import { GET as health } from '@/app/api/health/route';
 import { POST as relay } from '@/app/api/relay/enter/route';
@@ -230,11 +238,37 @@ describe('GET /api/cron/[job]', () => {
 });
 
 describe('GET /api/health', () => {
+  beforeEach(() => {
+    marketChecks.fn.mockReset();
+    marketChecks.fn.mockResolvedValue(GREEN_MARKETS);
+  });
+
   it('200 when every check holds', async () => {
     setKeeper(fakeKeeper());
     const response = await health();
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ ok: true, checks: [{ name: 'rpc-head', ok: true }] });
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      checks: [
+        { name: 'rpc-head', ok: true },
+        { name: 'market-reads', ok: true },
+        { name: 'market-logs', ok: true },
+      ],
+    });
+  });
+
+  it('503 when a market page reads stale, even with the RPC head and the keeper green (the /m/0 bug)', async () => {
+    setKeeper(fakeKeeper());
+    marketChecks.fn.mockResolvedValue([
+      { name: 'market-reads', ok: false, detail: '/m/0: read failing, last good read 9h ago (fetch failed)' },
+      GREEN_MARKETS[1],
+    ]);
+    const response = await health();
+    expect(response.status).toBe(503);
+    const body = (await response.json()) as { ok: boolean; checks: { name: string; ok: boolean; detail: string }[] };
+    expect(body.ok).toBe(false);
+    expect(body.checks.find((c) => c.name === 'rpc-head')?.ok).toBe(true);
+    expect(body.checks.filter((c) => !c.ok)).toEqual([{ name: 'market-reads', ok: false, detail: '/m/0: read failing, last good read 9h ago (fetch failed)' }]);
   });
 
   it('503 with the failing checks, and nothing secret', async () => {
@@ -266,6 +300,7 @@ describe('GET /api/health', () => {
     await health();
     await Promise.all([health(), health()]);
     expect(keeper.health).toHaveBeenCalledTimes(1);
+    expect(marketChecks.fn).toHaveBeenCalledTimes(1);
   });
 
   it('503 with a plain check when the keeper cannot start', async () => {

@@ -128,7 +128,9 @@ export default function KeeperDoc() {
         <LI>the Safe owns the factory (ownership accepted), HunchVPM&rsquo;s only creator is the factory, the keeper is a lister, and new bets are not paused;</LI>
         <LI>the RPC&rsquo;s latest block is less than 60 seconds old;</LI>
         <LI>every allowed feed has updated within 26 hours on a trading day;</LI>
-        <LI>the relayer has sent a bet successfully in the last trading day, or none was requested.</LI>
+        <LI>the relayer has sent a bet successfully in the last trading day, or none was requested;</LI>
+        <LI>every open market&rsquo;s page reads current numbers, through the same cache the page uses (<C>market-reads</C>);</LI>
+        <LI>the newest market&rsquo;s entry times and transaction links can be read from the chain&rsquo;s logs (<C>market-logs</C>).</LI>
       </UL>
       <P>An external monitor polls it every 5 minutes and alerts the operator.</P>
 

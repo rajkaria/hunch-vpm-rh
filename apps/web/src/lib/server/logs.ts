@@ -1,7 +1,8 @@
 /**
  * Log reads: enhancements only (entry times, transaction links, the rounds a settlement used,
- * fee sweeps). The venue never depends on them: the public RPC caps `eth_getLogs`, so every
- * caller treats a failure here as "no links" and falls back to view calls.
+ * fee sweeps). The venue never depends on them: RPCs cap `eth_getLogs` (the keyed one is never
+ * asked, see `client.ts`), so every caller treats a failure here as "no links" and falls back to
+ * view calls. `/api/health` reports it (`market-logs`) so a failure is never silent.
  */
 
 import {
@@ -38,8 +39,9 @@ export function flattenActivity(activity: MarketActivity): ActivityData {
   };
 }
 
-export async function readActivity(client: PublicClient, d: Deployment, marketId: bigint): Promise<ActivityData> {
-  return flattenActivity(await readMarketActivity(client, d, marketId));
+/** One market's activity, scanning from `fromBlock` (the block before it opened; default the start block). */
+export async function readActivity(client: PublicClient, d: Deployment, marketId: bigint, fromBlock?: bigint): Promise<ActivityData> {
+  return flattenActivity(await readMarketActivity(client, d, marketId, fromBlock === undefined ? {} : { fromBlock }));
 }
 
 export interface ResolutionLog {

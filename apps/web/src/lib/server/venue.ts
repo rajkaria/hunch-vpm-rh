@@ -13,7 +13,7 @@ import type { EarlyVsLateProof, MarketCardData, VenueState } from '@/lib/view/ty
 import { TAG, cachedRead, type Snapshot } from './cache';
 import { serverClient } from './client';
 import { readActivity } from './logs';
-import { getMarketBundle } from './market';
+import { getMarketBundle, getOpeningBlock } from './market';
 
 export const VENUE_REVALIDATE = 15;
 
@@ -80,7 +80,8 @@ async function latestProof(markets: readonly MarketView[], family: 'weekly' | 'd
       let activity = bundle.activity;
       if (activity === null) {
         try {
-          activity = await readActivity(serverClient(), deployment, candidate.id);
+          const fromBlock = await getOpeningBlock(candidate.id, candidate.openedAt);
+          activity = await readActivity(serverClient(), deployment, candidate.id, fromBlock ?? undefined);
         } catch {
           activity = null;
         }

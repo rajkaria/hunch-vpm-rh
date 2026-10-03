@@ -60,7 +60,13 @@ by the operator.
 - RPC head block age < 60 s;
 - every allow-listed feed's latest round is younger than 26 h on a trading day;
 - the relayer (keeper) has served a relayed entry successfully in the last trading day
-  or has had none requested.
+  or has had none requested;
+- `market-reads`: the market list and every open market's detail (the newest market when
+  none is open), read through the same cache the pages use, are current (read within their
+  freshness window, at least 60 s) and not served from a failing read. `rpc-head` alone stayed
+  green while `/m/0` said "Price unavailable" for hours;
+- `market-logs`: the newest market's entry times and transaction links (`eth_getLogs`, scanned
+  from the block before it opened, never on the keyed RPC) can be read.
 
 An external uptime monitor (the operator's choice: UptimeRobot / Better Stack free tier)
 polls `/api/health` every 5 min and alerts the operator's phone. Optional: the keeper

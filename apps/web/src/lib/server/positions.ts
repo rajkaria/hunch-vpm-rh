@@ -37,14 +37,14 @@ export async function getPortfolio(owner: Address): Promise<PortfolioJson> {
     read: () => readPositionsByOwner(serverClient(), deployment, owner),
   });
   const portfolio = snapshot.data;
-  const settledIds = [
-    ...new Set(
+  const settled = [
+    ...new Map(
       portfolio.positions
         .filter(({ market, position }) => market.statusCode !== MARKET_STATUS.Open && (position.claimed || position.refunded))
-        .map(({ market }) => market.id),
+        .map(({ market }) => [market.id, market.openedAt] as const),
     ),
   ].slice(0, MAX_ACTIVITY_MARKETS);
   const activity = new Map<string, ActivityData | null>();
-  await Promise.all(settledIds.map(async (id) => activity.set(id.toString(), await getActivity(id, true))));
+  await Promise.all(settled.map(async ([id, openedAt]) => activity.set(id.toString(), await getActivity(id, true, openedAt))));
   return portfolioJson(portfolio, { activity, readAt: snapshot.readAt, stale: snapshot.stale });
 }
