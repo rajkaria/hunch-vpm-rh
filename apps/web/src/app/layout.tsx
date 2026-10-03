@@ -2,9 +2,6 @@ import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
 import { Archivo, Inter, JetBrains_Mono } from 'next/font/google';
 
-import { SiteFooter } from '@/components/chrome/SiteFooter';
-import { SiteHeader } from '@/components/chrome/SiteHeader';
-import { ConnectModalHost } from '@/components/wallet/ConnectModalHost';
 import { HERO_TITLE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site';
 import './globals.css';
 
@@ -63,21 +60,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${inter.variable} ${jetbrains.variable}`}>
+    // The deck at /pitch sets its scale on <html> before React hydrates (components/pitch/boot.ts).
+    <html lang="en" className={`${archivo.variable} ${inter.variable} ${jetbrains.variable}`} suppressHydrationWarning>
       <body className="min-h-dvh overflow-x-clip bg-ink text-paper antialiased">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-control focus:bg-lime focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-ink"
-        >
-          Skip to content
-        </a>
-        <SiteHeader />
-        <main id="main" className="min-w-0">
-          {children}
-        </main>
-        <SiteFooter />
-        {/* Loads nothing until someone asks to connect a wallet. */}
-        <ConnectModalHost />
+        {/* The venue's header, footer and wallet host live in (venue)/layout.tsx. */}
+        {children}
         <Analytics />
       </body>
     </html>

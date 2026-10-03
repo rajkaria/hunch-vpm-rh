@@ -1,0 +1,580 @@
+/*
+ * The investor deck (/pitch). Slides are authored on a 1920 x 1080 canvas and scaled as one
+ * stage, so every rule below is in canvas pixels. The tokens are the venue's (globals.css); this
+ * file only adds the deck's mechanics: the stage, the transitions, the overview, the controls and
+ * a print layout that turns the deck into an 11-page PDF.
+ *
+ * `html[data-deck-mode]` and `--deck-scale` are set before first paint by the page's boot script
+ * and kept current by the Deck component.
+ */
+
+/* ---------------------------------------------------------------- stage */
+
+.pitch {
+  position: relative;
+  min-height: 100dvh;
+  background: #040405;
+}
+
+.pitch-slide {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-body);
+}
+
+html[data-deck-mode='deck'],
+html[data-deck-mode='deck'] body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html[data-deck-mode='deck'] .pitch-viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  cursor: default;
+}
+
+html[data-deck-mode='deck'] .pitch-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--deck-scale, 0.5));
+  transform-origin: center;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+html[data-deck-mode='deck'] .pitch-frame {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(36px);
+  transition:
+    opacity 520ms ease,
+    transform 760ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    visibility 0s linear 760ms;
+}
+
+html[data-deck-mode='deck'] .pitch-frame[data-state='past'] {
+  transform: translateX(-36px);
+}
+
+html[data-deck-mode='deck'] .pitch-frame[data-state='active'] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 620ms ease 80ms,
+    transform 760ms cubic-bezier(0.2, 0.7, 0.2, 1) 80ms,
+    visibility 0s;
+}
+
+/* A narrow portrait screen: the slides stack and the page scrolls. */
+html[data-deck-mode='stack'] .pitch-viewport {
+  padding: 12px 0 96px;
+}
+
+html[data-deck-mode='stack'] .pitch-frame {
+  position: relative;
+  width: 100vw;
+  height: calc(1080px * var(--deck-scale, 0.2));
+  overflow: hidden;
+}
+
+html[data-deck-mode='stack'] .pitch-frame + .pitch-frame {
+  margin-top: 10px;
+}
+
+html[data-deck-mode='stack'] .pitch-frame > .pitch-slide {
+  transform: scale(var(--deck-scale, 0.2));
+  transform-origin: 0 0;
+}
+
+/* ---------------------------------------------------------------- atmosphere */
+
+/* Depth without decoration: two very low-alpha washes, a hairline grid that fades out, grain. */
+.pitch-atmos {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pitch-atmos::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 96px 96px;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 10%, transparent 75%);
+}
+
+.pitch-atmos::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.pitch-atmos[data-tone='lime'] {
+  background:
+    radial-gradient(1100px 760px at 92% -12%, rgba(200, 240, 79, 0.075), transparent 62%),
+    radial-gradient(900px 700px at -8% 112%, rgba(139, 135, 255, 0.07), transparent 60%);
+}
+
+.pitch-atmos[data-tone='violet'] {
+  background:
+    radial-gradient(1100px 760px at 100% 0%, rgba(139, 135, 255, 0.085), transparent 62%),
+    radial-gradient(900px 640px at 0% 100%, rgba(125, 211, 252, 0.04), transparent 60%);
+}
+
+.pitch-atmos[data-tone='sky'] {
+  background:
+    radial-gradient(1000px 700px at 85% 110%, rgba(125, 211, 252, 0.07), transparent 62%),
+    radial-gradient(900px 620px at 0% -10%, rgba(200, 240, 79, 0.045), transparent 60%);
+}
+
+.pitch-atmos[data-tone='coral'] {
+  background:
+    radial-gradient(1000px 720px at 95% -5%, rgba(255, 107, 122, 0.07), transparent 62%),
+    radial-gradient(900px 640px at -5% 105%, rgba(139, 135, 255, 0.06), transparent 60%);
+}
+
+/* A panel on a slide: white over ink, a hairline, and a faint top light. */
+.pitch-card {
+  position: relative;
+  border: 1px solid var(--color-edge);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.pitch-card-strong {
+  border-color: rgba(200, 240, 79, 0.28);
+  background: linear-gradient(180deg, rgba(200, 240, 79, 0.07), rgba(200, 240, 79, 0.015));
+}
+
+.pitch-kicker {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pitch-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.pitch-lead {
+  text-wrap: pretty;
+}
+
+.pitch-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--color-lime);
+}
+
+.pitch-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  border: 2px solid rgba(200, 240, 79, 0.45);
+  animation: pitch-ping 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) infinite;
+}
+
+/* ---------------------------------------------------------------- motion */
+
+.rv {
+  opacity: 0;
+}
+
+.pitch-frame[data-state='active'] .rv {
+  animation: pitch-rise 820ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--d, 0) * 85ms + 180ms);
+}
+
+.grow-x {
+  transform-origin: left center;
+}
+
+.pitch-frame[data-state='active'] .grow-x {
+  animation: pitch-grow 1100ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--d, 0) * 85ms + 380ms);
+}
+
+.draw {
+  stroke-dasharray: var(--len, 2000);
+  stroke-dashoffset: var(--len, 2000);
+}
+
+.pitch-frame[data-state='active'] .draw {
+  animation: pitch-draw 1700ms cubic-bezier(0.45, 0, 0.2, 1) forwards;
+  animation-delay: calc(var(--d, 0) * 85ms + 420ms);
+}
+
+html[data-deck-mode='stack'] .rv,
+[data-static] .rv,
+html[data-deck-mode='stack'] .grow-x,
+[data-static] .grow-x {
+  opacity: 1;
+  animation: none;
+}
+
+html[data-deck-mode='stack'] .draw,
+[data-static] .draw {
+  stroke-dashoffset: 0;
+  animation: none;
+}
+
+@keyframes pitch-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pitch-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes pitch-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pitch-ping {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  80%,
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv,
+  .grow-x {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+  .draw {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+  .pitch-live-dot::after {
+    animation: none;
+  }
+  html[data-deck-mode='deck'] .pitch-frame {
+    transition: opacity 200ms ease, visibility 0s linear 200ms !important;
+    transform: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------- chrome around the stage */
+
+.pitch-progress {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  z-index: 20;
+}
+
+.pitch-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--color-lime);
+  transform-origin: left center;
+  transition: transform 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+html[data-deck-mode='stack'] .pitch-progress {
+  display: none;
+}
+
+.pitch-controls {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  transform: translateX(-50%);
+  border: 1px solid var(--color-edge-strong);
+  border-radius: 9999px;
+  background: rgba(16, 16, 20, 0.78);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  transition:
+    opacity 400ms ease,
+    transform 400ms ease;
+}
+
+.pitch-controls[data-idle='true'] {
+  opacity: 0;
+  transform: translate(-50%, 8px);
+}
+
+.pitch-controls:hover,
+.pitch-controls:focus-within {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
+.pitch-controls button,
+.pitch-controls a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  color: var(--color-muted);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.pitch-controls button:hover:not(:disabled),
+.pitch-controls a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-paper);
+}
+
+.pitch-controls button:disabled {
+  opacity: 0.3;
+}
+
+.pitch-controls :focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 1px;
+}
+
+.pitch-controls .pitch-pdf {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.pitch-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.pitch-hint {
+  padding: 0 10px 0 14px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.pitch-count-label {
+  margin-left: 10px;
+  color: var(--color-muted);
+}
+
+.pitch-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--color-edge-strong);
+}
+
+@media (max-width: 640px) {
+  .pitch-count-label,
+  .pitch-hide-narrow {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- overview */
+
+.pitch-overview {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  overflow-y: auto;
+  padding: 48px 32px 112px;
+  background: rgba(6, 6, 8, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.pitch-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 336px);
+  justify-content: center;
+  gap: 28px 24px;
+}
+
+.pitch-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  border-radius: 14px;
+}
+
+.pitch-thumb-canvas {
+  position: relative;
+  display: block;
+  width: 336px;
+  height: 189px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--color-edge-strong);
+  transition:
+    border-color 160ms ease,
+    transform 200ms ease;
+}
+
+.pitch-thumb-canvas > .pitch-slide {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: scale(0.175);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.pitch-thumb:hover .pitch-thumb-canvas {
+  border-color: rgba(244, 244, 242, 0.4);
+  transform: translateY(-2px);
+}
+
+.pitch-thumb[data-current='true'] .pitch-thumb-canvas {
+  border-color: var(--color-lime);
+  box-shadow: 0 0 0 1px var(--color-lime);
+}
+
+.pitch-thumb:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 4px;
+}
+
+.pitch-thumb-label {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+/* ---------------------------------------------------------------- print: one slide per page */
+
+@media print {
+  @page {
+    size: 1920px 1080px;
+    margin: 0;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: var(--color-ink) !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .pitch,
+  .pitch-viewport,
+  .pitch-stage {
+    position: static !important;
+    width: 1920px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .pitch-frame {
+    position: relative !important;
+    inset: auto !important;
+    width: 1920px !important;
+    height: 1080px !important;
+    margin: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    transition: none !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .pitch-frame:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .pitch-frame > .pitch-slide {
+    transform: none !important;
+  }
+
+  .rv,
+  .grow-x {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .draw {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+
+  .pitch-atmos::after,
+  .pitch-live-dot::after {
+    display: none;
+  }
+
+  .pitch-controls,
+  .pitch-progress,
+  .pitch-overview {
+    display: none !important;
+  }
+}

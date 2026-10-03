@@ -128,6 +128,16 @@ curious" glossary, link to the paper, the pre-event provenance note.
    `wallet_switchEthereumChain`, add-then-switch logic). Switching costs nothing.
 3. Place your first bet (link to the soonest-closing market).
 
+### `/pitch` — investor deck (unlisted)
+
+Eleven 1920 x 1080 slides scaled to the window (stacked on a narrow portrait screen), outside
+the `(venue)` route group so it has no header or footer. `noindex`, not in the sitemap or the
+nav. Every number comes from `apps/web/src/content/pitch.ts` (the worked example from the
+contract mirror, addresses from the deployment file, dated production reads with sources).
+Keys: arrows/space, Home/End, 1 to 9, F full screen, O overview; the slide is in the hash.
+Prints one slide per page; `pnpm --filter @hunch-rh/web pitch:pdf` regenerates
+`public/hunch-pitch-deck.pdf` from a running production server.
+
 ## Data layer (`apps/web/src/lib/server/*`, via `packages/client`)
 
 - `publicClient` for chain 4663 with a primary RPC (provider from `08-deployment.md`) and

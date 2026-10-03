@@ -14,7 +14,8 @@
     "typecheck": "next typegen && tsc --noEmit -p tsconfig.typecheck.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "pitch:pdf": "bash scripts/pitch-pdf.sh"
   },
   "dependencies": {
     "@hunch-rh/client": "workspace:*",

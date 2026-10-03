@@ -19,10 +19,22 @@ const LOCKUP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 396 84"
 
 const LOCKUP_URI = `data:image/svg+xml;base64,${Buffer.from(LOCKUP_SVG).toString('base64')}`;
 
-const SUB = 'Prediction markets on Robinhood Stock Tokens, in USDG on Robinhood Chain.';
-const FOOT = 'Open until the closing bell · Settled by Chainlink';
-const TAG = 'ON ROBINHOOD CHAIN';
-const DOMAIN = 'vpm.playhunch.xyz';
+/** What a card says. The title is two sentences, one per line; its last full stop is lime. */
+export interface ShareCard {
+  title: string;
+  sub: string;
+  foot: string;
+  tag: string;
+  domain: string;
+}
+
+export const VENUE_CARD: ShareCard = {
+  title: HERO_TITLE,
+  sub: 'Prediction markets on Robinhood Stock Tokens, in USDG on Robinhood Chain.',
+  foot: 'Open until the closing bell · Settled by Chainlink',
+  tag: 'ON ROBINHOOD CHAIN',
+  domain: 'vpm.playhunch.xyz',
+};
 
 async function googleFont(family: string, weight: number, text: string): Promise<ArrayBuffer | null> {
   try {
@@ -37,17 +49,17 @@ async function googleFont(family: string, weight: number, text: string): Promise
   }
 }
 
-export async function renderShareCard(): Promise<ImageResponse> {
+export async function renderShareCard(card: ShareCard = VENUE_CARD): Promise<ImageResponse> {
   const [display, body] = await Promise.all([
-    googleFont('Archivo', 800, HERO_TITLE),
-    googleFont('Inter', 600, `${SUB}${FOOT}${TAG}${DOMAIN}`),
+    googleFont('Archivo', 800, card.title),
+    googleFont('Inter', 600, `${card.sub}${card.foot}${card.tag}${card.domain}`),
   ]);
   const fonts = [
     ...(display === null ? [] : [{ name: 'Archivo', data: display, weight: 800 as const, style: 'normal' as const }]),
     ...(body === null ? [] : [{ name: 'Inter', data: body, weight: 600 as const, style: 'normal' as const }]),
   ];
 
-  const [first, second] = HERO_TITLE.split('. ');
+  const [first, second] = card.title.split('. ');
 
   return new ImageResponse(
     (
@@ -78,7 +90,7 @@ export async function renderShareCard(): Promise<ImageResponse> {
               color: 'rgba(244,244,242,0.55)',
             }}
           >
-            {TAG}
+            {card.tag}
           </div>
         </div>
 
@@ -99,7 +111,7 @@ export async function renderShareCard(): Promise<ImageResponse> {
               <span style={{ color: '#C8F04F' }}>.</span>
             </span>
           </div>
-          <div style={{ display: 'flex', marginTop: 34, fontSize: 27, color: 'rgba(244,244,242,0.7)' }}>{SUB}</div>
+          <div style={{ display: 'flex', marginTop: 34, fontSize: 27, color: 'rgba(244,244,242,0.7)' }}>{card.sub}</div>
         </div>
 
         <div
@@ -113,8 +125,8 @@ export async function renderShareCard(): Promise<ImageResponse> {
             color: 'rgba(244,244,242,0.55)',
           }}
         >
-          <span>{FOOT}</span>
-          <span style={{ color: '#F4F4F2' }}>{DOMAIN}</span>
+          <span>{card.foot}</span>
+          <span style={{ color: '#F4F4F2' }}>{card.domain}</span>
         </div>
       </div>
     ),
