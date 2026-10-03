@@ -8,6 +8,7 @@ import { SLIDE_COUNT } from '@/components/pitch/parts';
 import { SLIDES, SLIDE_LABELS } from '@/components/pitch/slides';
 import {
   CHAIN_FACTS,
+  CONTACT,
   EXAMPLE_FACTS,
   FEED_TICKERS,
   FEE_SCENARIOS,
@@ -24,6 +25,7 @@ import {
   entryCurve,
 } from '@/content/pitch';
 import { publicDeployment } from '@/lib/deployment';
+import { LINKS } from '@/lib/site';
 
 afterEach(() => {
   cleanup();
@@ -132,13 +134,23 @@ describe('pitch deck: facts', () => {
   it('names both founders, full time', () => {
     expect(TEAM.map((person) => `${person.name}, ${person.role}`)).toEqual(['Raj Karia, Co-founder & CEO', 'Prachi Sahani, Co-founder & CTO']);
   });
+
+  it("gives Raj's email, Telegram and X on the close, each with its link", () => {
+    expect(`${CONTACT.name}, ${CONTACT.role}`).toBe('Raj Karia, Co-founder & CEO');
+    expect(CONTACT.channels.map((channel) => [channel.kind, channel.handle, channel.href])).toEqual([
+      ['Email', 'raj@playhunch.xyz', 'mailto:raj@playhunch.xyz'],
+      ['Telegram', 't.me/rajkaria', 'https://t.me/rajkaria'],
+      ['X', 'x.com/rajkaria_', 'https://x.com/rajkaria_'],
+    ]);
+  });
 });
 
 describe('pitch deck: slides', () => {
-  it('has fourteen slides, each with a label', () => {
+  it('has fifteen slides, each with a label, ending on the thanks', () => {
     expect(SLIDES).toHaveLength(SLIDE_COUNT);
     expect(SLIDE_LABELS).toHaveLength(SLIDE_COUNT);
-    expect(SLIDE_COUNT).toBe(14);
+    expect(SLIDE_COUNT).toBe(15);
+    expect(SLIDE_LABELS.at(-1)).toBe('Thank you');
   });
 
   it('renders every slide with its page number, and no em dash', () => {
@@ -188,6 +200,24 @@ describe('pitch deck: slides', () => {
     expect(textOf(10)).toContain('We price everything else');
     expect(textOf(12)).toContain('Prachi Sahani');
     expect(textOf(13)).toContain('Use of funds');
+    expect(textOf(14)).toContain('Thank you');
+    expect(textOf(14)).toContain('raj@playhunch.xyz');
+    expect(textOf(14)).toContain('t.me/rajkaria');
+    expect(textOf(14)).toContain('x.com/rajkaria_');
+  });
+
+  it('makes every contact on the close a working link', () => {
+    const Slide = SLIDES[SLIDE_COUNT - 1]!;
+    const { container, unmount } = render(<Slide />);
+    const links = [...container.querySelectorAll('a')].map((a) => ({ href: a.getAttribute('href'), target: a.getAttribute('target'), text: a.textContent ?? '' }));
+    unmount();
+    for (const channel of CONTACT.channels) {
+      const link = links.find((candidate) => candidate.href === channel.href);
+      expect(link?.text).toContain(channel.handle);
+      // A mail link opens the mail app in place; the others open in a new tab.
+      expect(link?.target).toBe(channel.kind === 'Email' ? null : '_blank');
+    }
+    expect(links.map((link) => link.href)).toEqual(expect.arrayContaining(['https://vpm.playhunch.xyz', LINKS.paper]));
   });
 
   it('is unlisted: noindex, nofollow', () => {
