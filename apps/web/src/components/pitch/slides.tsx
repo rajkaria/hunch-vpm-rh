@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { HunchLockup, HunchMark } from '@/components/brand/HunchLockup';
 import {
@@ -9,6 +9,7 @@ import {
   LANDSCAPE,
   LIVE,
   MILESTONES,
+  MORE_FROM_HUNCH,
   PITCH,
   PROBLEM,
   STOCK_TOKENS_ON_CHAIN,
@@ -26,9 +27,9 @@ import { shortAddress } from '@/lib/units';
 import { Arrow, Atmosphere, Check, Cross, Dot, Lead, Shell, Source, Tag, Title, rv } from './parts';
 
 /**
- * The thirteen slides, in the order an investor asks the questions: what is it, why now, what is
- * broken, why it stays broken, the fix, the research behind it, the product, the proof, the
- * money, the field, where it goes, who, and the ask. Every number comes from `@/content/pitch` (and through it from the
+ * The fourteen slides, in the order an investor asks the questions: what is it, why now, what is
+ * broken, why it stays broken, the fix, the research behind it, the product, what else the team
+ * has shipped, the proof, the money, the field, where it goes, who, and the ask. Every number comes from `@/content/pitch` (and through it from the
  * deployment file, the contract mirror, a dated production read or a named source); nothing is
  * typed here.
  */
@@ -41,6 +42,7 @@ export const SLIDE_LABELS = [
   'Our insight',
   'The research',
   'The product',
+  'More from Hunch',
   'Traction',
   'Business model',
   'Competition',
@@ -72,13 +74,13 @@ export function Cover() {
           Live on Robinhood Chain mainnet
         </p>
         <h1 className="rv pitch-title mt-9 text-[96px] text-paper" style={rv(1)}>
-          The prediction market
+          A prediction market on
           <br />
-          for everything else<Dot />
+          every stock, every day<Dot />
         </h1>
         <p className="rv pitch-lead mt-9 max-w-[960px] text-[30px] leading-[1.45] text-muted" style={rv(2)}>
-          Kalshi and Polymarket price the headlines. Hunch prices the long tail, starting with a daily market on every
-          Robinhood Stock Token, on a payout rule that rewards whoever calls it first.
+          <span className="text-paper">Will NVDA close UP today?</span> We&rsquo;re opening that market on every Robinhood Stock
+          Token: UP or DOWN, in USDG, settled by Chainlink, paying more to whoever calls it first.
         </p>
         <p className="rv mt-10 flex items-center gap-5" style={rv(4)}>
           <span className="pitch-title text-[40px] text-lime">Call it early. Get paid more.</span>
@@ -105,7 +107,10 @@ export function Cover() {
         <span>
           <span className="text-paper">Raj Karia</span>, CEO · <span className="text-paper">Prachi Sahani</span>, CTO
         </span>
-        <span className="num">Robinhood Chain · USDG · Chainlink</span>
+        <span>
+          Also from Hunch: <span className="text-paper">{MORE_FROM_HUNCH.bazaar.name}</span> ·{' '}
+          <span className="text-paper">{MORE_FROM_HUNCH.cup.name}</span> · <span className="text-paper">{PITCH.hunchDomain}</span>
+        </span>
         <span className="text-paper">{PITCH.domain}</span>
       </div>
     </>
@@ -790,12 +795,89 @@ function MarketCardMock() {
 }
 
 // ================================================================================================
-// 08 · Traction
+// 08 · More from Hunch
+
+export function MoreFromHunch() {
+  const { cup, bazaar } = MORE_FROM_HUNCH;
+  return (
+    <Shell n={8} section="More from Hunch" tone="violet">
+      <Title>
+        Two more products, already shipped<Dot />
+      </Title>
+      <Lead className="mt-5 text-[24px]">
+        The stock markets are our newest venue. {cup.name} and {bazaar.name} already run on our production engine on Base.
+      </Lead>
+
+      <div className="mt-8 grid flex-1 grid-cols-2 gap-8">
+        <ProductCard product={cup} tone="sky" tag={<Tag tone="sky">{cup.status}</Tag>} d={2} />
+        <ProductCard
+          product={bazaar}
+          tone="violet"
+          tag={
+            <Tag tone="lime">
+              <span className="mr-3 h-[8px] w-[8px] rounded-full bg-lime" aria-hidden />
+              {bazaar.status}
+            </Tag>
+          }
+          d={3}
+        />
+      </div>
+    </Shell>
+  );
+}
+
+type Sibling = (typeof MORE_FROM_HUNCH)[keyof typeof MORE_FROM_HUNCH];
+
+function ProductCard({ product, tone, tag, d }: { product: Sibling; tone: 'sky' | 'violet'; tag: ReactNode; d: number }) {
+  const value = tone === 'sky' ? 'text-sky' : 'text-violet';
+  return (
+    <div className="rv pitch-card flex flex-col px-10 pb-6 pt-7" style={rv(d)}>
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <p className="pitch-title text-[60px] text-paper">{product.name}</p>
+          <a href={`https://${product.domain}`} target="_blank" rel="noreferrer" className="mt-2 block font-mono text-[17px] text-faint hover:text-paper">
+            {product.domain}
+          </a>
+        </div>
+        {tag}
+      </div>
+      <p className="mt-5 text-[28px] font-semibold leading-[1.25] tracking-[-0.01em] text-paper">{product.what}</p>
+      <p className="mt-2 text-[20px] leading-[1.5] text-muted">{product.body}</p>
+
+      <ol className="mt-auto grid grid-cols-3 gap-10 pb-6 pt-5" aria-label={`How ${product.name} works`}>
+        {product.flow.map((step, i) => (
+          <li key={step} className="relative flex items-center gap-3 rounded-[14px] border border-edge-strong bg-white/[0.03] px-4 py-[10px] text-[17px] leading-[1.3] text-paper">
+            <span className={`num flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[14px] ${value}`}>{i + 1}</span>
+            {step}
+            {i < product.flow.length - 1 ? <Arrow className="absolute -right-[30px] top-1/2 h-[20px] w-[20px] -translate-y-1/2 text-faint" /> : null}
+          </li>
+        ))}
+      </ol>
+
+      <dl className="grid grid-cols-3 gap-6 border-t border-edge pt-5">
+        {product.stats.map((stat) => (
+          <div key={stat.label}>
+            <dt className={`pitch-title text-[46px] ${value}`}>{stat.value}</dt>
+            <dd className="mt-2 text-[16px] leading-[1.4] text-faint">{stat.label}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <p className="mt-5 flex gap-4 rounded-[14px] border border-edge bg-white/[0.02] px-6 py-3 text-[19px] leading-[1.45] text-paper">
+        <span className="pitch-kicker shrink-0 pt-[3px] text-[13px] text-lime">Why it matters</span>
+        <span>{product.matters}</span>
+      </p>
+    </div>
+  );
+}
+
+// ================================================================================================
+// 09 · Traction
 
 export function Traction() {
   const [markets, cup] = TRACK_RECORD.engine;
   return (
-    <Shell n={8} section="Traction" tone="lime">
+    <Shell n={9} section="Traction" tone="lime">
       <Title>
         Live on mainnet, and battle-tested
         <br />
@@ -881,12 +963,12 @@ export function Traction() {
 }
 
 // ================================================================================================
-// 09 · Business model
+// 10 · Business model
 
 export function BusinessModel() {
   const feePct = `${LIVE.feeBps / 100}%`;
   return (
-    <Shell n={9} section="Business model" tone="lime">
+    <Shell n={10} section="Business model" tone="lime">
       <Title>
         We earn when winners are paid.
         <br />
@@ -947,11 +1029,11 @@ export function BusinessModel() {
 }
 
 // ================================================================================================
-// 10 · Competition
+// 11 · Competition
 
 export function Competition() {
   return (
-    <Shell n={10} section="Competition" tone="violet">
+    <Shell n={11} section="Competition" tone="violet">
       <Title>
         They price the headlines.
         <br />
@@ -1036,12 +1118,12 @@ function LandscapeMap() {
 }
 
 // ================================================================================================
-// 11 · Where this goes
+// 12 · Where this goes
 
 export function Vision() {
   const heights = [290, 360, 430, 500];
   return (
-    <Shell n={11} section="Where this goes" tone="violet">
+    <Shell n={12} section="Where this goes" tone="violet">
       <Title>
         From four stocks to a market
         <br />
@@ -1078,11 +1160,11 @@ export function Vision() {
 }
 
 // ================================================================================================
-// 12 · Team
+// 13 · Team
 
 export function Team() {
   return (
-    <Shell n={12} section="Team" tone="violet">
+    <Shell n={13} section="Team" tone="violet">
       <Title>
         The team that wrote the rule<Dot />
       </Title>
@@ -1140,13 +1222,13 @@ function Monogram({ initials }: { initials: string }) {
 }
 
 // ================================================================================================
-// 13 · The raise
+// 14 · The raise
 
 export function TheRaise() {
   const colors = ['bg-lime', 'bg-violet', 'bg-sky', 'bg-paper/45'];
   const text = ['text-lime', 'text-violet', 'text-sky', 'text-paper'];
   return (
-    <Shell n={13} section="The raise" tone="lime">
+    <Shell n={14} section="The raise" tone="lime">
       <Title>
         Raising a pre-seed round to put a market
         <br />
@@ -1225,6 +1307,7 @@ export const SLIDES = [
   Insight,
   Research,
   Product,
+  MoreFromHunch,
   Traction,
   BusinessModel,
   Competition,

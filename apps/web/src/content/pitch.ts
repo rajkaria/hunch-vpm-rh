@@ -21,8 +21,10 @@ import { formatAmount, formatMultiple } from '@/lib/units';
 export const PITCH = {
   title: 'Hunch · Investor deck',
   description:
-    'Hunch, the prediction market for everything else: a daily market on every Robinhood Stock Token that pays whoever calls it first.',
-  tagline: 'The prediction market for everything else.',
+    'Hunch: an UP-or-DOWN market on every Robinhood Stock Token, every session, in USDG and settled by Chainlink, that pays more to whoever calls it first.',
+  tagline: 'A prediction market on every stock, every day.',
+  /** The link preview's sub-line (OG and Twitter cards). */
+  share: 'Hunch: a prediction market on every stock, every day, starting with Robinhood Stock Tokens.',
   dateline: 'October 2026',
   round: 'Pre-seed',
   domain: 'vpm.playhunch.xyz',
@@ -318,6 +320,51 @@ export const TRACK_RECORD = {
     detail: 'They found our public API and wired it in themselves, before our teams had ever spoken.',
   },
   rails: ['SDKs on npm and PyPI', '34-tool MCP server', 'Bankr skills in the BankrBot catalog', 'x402 payments for agents'],
+} as const;
+
+// ------------------------------------------------------------------------------------------------
+// More from Hunch: two products on the production engine on Base (production, read 2026-10-03)
+
+/**
+ * Hunch's other two products. Both run on the playhunch.xyz engine on Base, not on the Robinhood
+ * Chain settler, and the slide says so.
+ *
+ * - Hunch Cup: season 1's published stats (`hunch_cup_stats_published`, computed 2026-09-25);
+ *   trades ran Jul 8 to Aug 5, 2026. 469,886 of the 470,983 trading wallets were agents, so the
+ *   label says "nearly all agents". Its trade count is on the Traction slide, not repeated here.
+ * - Bazaar: first market Sep 17, 2026; every market charges 200 bps at settlement with 100 bps to
+ *   its creator (`hunch_bazaar_markets`). It has no open markets on Oct 3, so the slide states
+ *   what it is and how it pays, never a count.
+ */
+export const MORE_FROM_HUNCH = {
+  cup: {
+    name: 'Hunch Cup',
+    domain: 'cup.playhunch.xyz',
+    status: 'Season 1 · Jul 8 to Aug 5',
+    what: 'A free, four-week trading tournament',
+    body: 'The same live markets as playhunch.xyz, traded with free paper USDC on a public leaderboard. Anyone could play, or deploy an agent to play for them.',
+    flow: ['Claim paper USDC', 'Trade live markets', 'Climb the board'],
+    stats: [
+      { value: '470,983', label: 'wallets traded, nearly all of them agents' },
+      { value: '58,341', label: 'markets traded in four weeks' },
+      { value: '$0', label: 'to enter: no deposit, no gas' },
+    ],
+    matters: 'It proved our engine at a million trades, and its tape is the one our paper replays.',
+  },
+  bazaar: {
+    name: 'Bazaar',
+    domain: 'bazaar.playhunch.xyz',
+    status: 'Live since Sep 17',
+    what: 'Prediction markets anyone can open',
+    body: 'Anyone, a person or an agent, opens a market on any question. The creator resolves it, and their record is public: what they resolved, what they missed and what they hold.',
+    flow: ['Open a market', 'Bet USDC on Base', 'Creator resolves'],
+    stats: [
+      { value: '~1 min', label: 'to open one, from the web, an X post or an agent' },
+      { value: '50%', label: 'of the 2% fee is paid to the market’s creator' },
+      { value: '48 h', label: 'to resolve after the deadline, or every bet is refunded' },
+    ],
+    matters: 'It reaches the questions no data feed can settle, and pays creators to bring the bettors.',
+  },
 } as const;
 
 // ------------------------------------------------------------------------------------------------

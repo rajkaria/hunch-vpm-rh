@@ -130,13 +130,14 @@ curious" glossary, link to the paper, the pre-event provenance note.
 
 ### `/pitch` — investor deck (unlisted)
 
-Thirteen 1920 x 1080 slides scaled to the window (stacked on a narrow portrait screen), outside
+Fourteen 1920 x 1080 slides scaled to the window (stacked on a narrow portrait screen), outside
 the `(venue)` route group so it has no header or footer. `noindex`, not in the sitemap or the
 nav. The story runs cover, opportunity, problem, why it stays broken, insight, the research
-(the paper), product, traction, business model, competition, vision, team, the raise. Every
-number comes from `apps/web/src/content/pitch.ts` (the worked example from the contract mirror,
-addresses from the deployment file, the paper's §13.4, dated production reads, and third-party
-market figures with their sources named on the slide).
+(the paper), product, more from Hunch (Hunch Cup and Bazaar), traction, business model,
+competition, vision, team, the raise. Every number comes from `apps/web/src/content/pitch.ts`
+(the worked example from the contract mirror, addresses from the deployment file, the paper's
+§13.4, dated production reads, and third-party market figures with their sources named on the
+slide).
 Keys: arrows/space, Home/End, 1 to 9, F full screen, O overview; the slide is in the hash.
 Prints one slide per page; `pnpm --filter @hunch-rh/web pitch:pdf` regenerates
 `public/hunch-pitch-deck.pdf` from a running production server.

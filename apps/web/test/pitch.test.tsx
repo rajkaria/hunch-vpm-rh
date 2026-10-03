@@ -12,6 +12,7 @@ import {
   FEED_TICKERS,
   FEE_SCENARIOS,
   LIVE,
+  MORE_FROM_HUNCH,
   PAPER,
   PROBLEM,
   TAILWINDS,
@@ -82,6 +83,17 @@ describe('pitch deck: facts', () => {
     for (const fact of CHAIN_FACTS) expect(fact.note).toMatch(/2026|gwei/);
   });
 
+  it('shows Hunch Cup and Bazaar as production reads, with no Bazaar count and no repeated Cup trade count', () => {
+    expect(MORE_FROM_HUNCH.cup.stats.map((stat) => stat.value)).toEqual(['470,983', '58,341', '$0']);
+    expect(MORE_FROM_HUNCH.cup.stats[0].label).toMatch(/agents/);
+    expect(MORE_FROM_HUNCH.cup.status).toBe('Season 1 · Jul 8 to Aug 5');
+    // The 2% fee is the same 200 bps every Bazaar market charges, half of it to the creator.
+    expect(MORE_FROM_HUNCH.bazaar.stats.map((stat) => stat.value)).toEqual(['~1 min', '50%', '48 h']);
+    expect(MORE_FROM_HUNCH.bazaar.stats[1].label).toContain(`${LIVE.feeBps / 100}% fee`);
+    const cupText = JSON.stringify(MORE_FROM_HUNCH.cup);
+    expect(cupText).not.toContain(TRACK_RECORD.engine[1].value);
+  });
+
   it('names a source for every market figure, and keeps the wave chart in order', () => {
     for (const answer of PROBLEM.answers) expect(answer.source).toMatch(/2026/);
     for (const wind of TAILWINDS) expect(wind.source).toMatch(/2026/);
@@ -123,10 +135,10 @@ describe('pitch deck: facts', () => {
 });
 
 describe('pitch deck: slides', () => {
-  it('has thirteen slides, each with a label', () => {
+  it('has fourteen slides, each with a label', () => {
     expect(SLIDES).toHaveLength(SLIDE_COUNT);
     expect(SLIDE_LABELS).toHaveLength(SLIDE_COUNT);
-    expect(SLIDE_COUNT).toBe(13);
+    expect(SLIDE_COUNT).toBe(14);
   });
 
   it('renders every slide with its page number, and no em dash', () => {
@@ -152,7 +164,10 @@ describe('pitch deck: slides', () => {
       unmount();
       return text;
     };
-    expect(textOf(0)).toContain('The prediction market');
+    expect(textOf(0)).toContain('every stock, every day');
+    expect(textOf(0)).toContain('Will NVDA close UP today?');
+    expect(textOf(0)).toContain('Bazaar');
+    expect(textOf(0)).toContain('Hunch Cup');
     expect(textOf(0)).toContain('The Vested Parimutuel');
     expect(textOf(1)).toContain('$53B');
     expect(textOf(1)).toContain('$156M');
@@ -163,13 +178,16 @@ describe('pitch deck: slides', () => {
     expect(textOf(4)).toContain(EXAMPLE_FACTS.ben.multiple);
     expect(textOf(5)).toContain('70.1% → 0.08%');
     expect(textOf(5)).toContain('779,549');
-    expect(textOf(7)).toContain('0x1c23…3576');
-    expect(textOf(7)).toContain('78,501');
-    expect(textOf(7)).toContain('$931');
-    expect(textOf(8)).toContain('$120M');
-    expect(textOf(9)).toContain('We price everything else');
-    expect(textOf(11)).toContain('Prachi Sahani');
-    expect(textOf(12)).toContain('Use of funds');
+    expect(textOf(7)).toContain('Hunch Cup');
+    expect(textOf(7)).toContain('bazaar.playhunch.xyz');
+    expect(textOf(7)).toContain('470,983');
+    expect(textOf(8)).toContain('0x1c23…3576');
+    expect(textOf(8)).toContain('78,501');
+    expect(textOf(8)).toContain('$931');
+    expect(textOf(9)).toContain('$120M');
+    expect(textOf(10)).toContain('We price everything else');
+    expect(textOf(12)).toContain('Prachi Sahani');
+    expect(textOf(13)).toContain('Use of funds');
   });
 
   it('is unlisted: noindex, nofollow', () => {

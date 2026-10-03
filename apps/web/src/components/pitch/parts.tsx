@@ -8,7 +8,7 @@ import { PITCH } from '@/content/pitch';
  * atmosphere, a header with its section, the content area, and a footer with the page number.
  */
 
-export const SLIDE_COUNT = 13;
+export const SLIDE_COUNT = 14;
 
 export type Tone = 'lime' | 'violet' | 'sky' | 'coral';
 

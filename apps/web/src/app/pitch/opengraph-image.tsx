@@ -9,7 +9,7 @@ export const contentType = 'image/png';
 export default function OpenGraphImage() {
   return renderShareCard({
     title: 'Call it early. Get paid more.',
-    sub: 'Hunch: the prediction market for everything else, starting with every Robinhood Stock Token.',
+    sub: PITCH.share,
     foot: `Investor deck · ${PITCH.round} · ${PITCH.dateline}`,
     tag: 'LIVE ON ROBINHOOD CHAIN',
     domain: `${PITCH.domain}/pitch`,
