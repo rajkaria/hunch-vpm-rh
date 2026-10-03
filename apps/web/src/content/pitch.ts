@@ -408,6 +408,18 @@ export const TEAM = [
   },
 ] as const;
 
+/** The close: how to reach Raj. Each channel is a link on the slide and in the printed PDF. */
+export const CONTACT = {
+  name: TEAM[0].name,
+  role: TEAM[0].role,
+  initials: TEAM[0].initials,
+  channels: [
+    { kind: 'Email', handle: 'raj@playhunch.xyz', href: 'mailto:raj@playhunch.xyz' },
+    { kind: 'Telegram', handle: 't.me/rajkaria', href: 'https://t.me/rajkaria' },
+    { kind: 'X', handle: 'x.com/rajkaria_', href: 'https://x.com/rajkaria_' },
+  ],
+} as const;
+
 // ------------------------------------------------------------------------------------------------
 // Business model: the fee, and what it is at scale (arithmetic, not a forecast)
 

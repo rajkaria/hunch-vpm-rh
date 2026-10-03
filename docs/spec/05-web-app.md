@@ -130,11 +130,11 @@ curious" glossary, link to the paper, the pre-event provenance note.
 
 ### `/pitch` — investor deck (unlisted)
 
-Fourteen 1920 x 1080 slides scaled to the window (stacked on a narrow portrait screen), outside
+Fifteen 1920 x 1080 slides scaled to the window (stacked on a narrow portrait screen), outside
 the `(venue)` route group so it has no header or footer. `noindex`, not in the sitemap or the
 nav. The story runs cover, opportunity, problem, why it stays broken, insight, the research
 (the paper), product, more from Hunch (Hunch Cup and Bazaar), traction, business model,
-competition, vision, team, the raise. Every number comes from `apps/web/src/content/pitch.ts`
+competition, vision, team, the raise, thank you (Raj's email, Telegram and X, each a link). Every number comes from `apps/web/src/content/pitch.ts`
 (the worked example from the contract mirror, addresses from the deployment file, the paper's
 §13.4, dated production reads, and third-party market figures with their sources named on the
 slide).

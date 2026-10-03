@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 
 import { HunchLockup, HunchMark } from '@/components/brand/HunchLockup';
 import {
+  CONTACT,
   EXAMPLE_FACTS,
   PAPER,
   FEED_TICKERS,
@@ -27,9 +28,9 @@ import { shortAddress } from '@/lib/units';
 import { Arrow, Atmosphere, Check, Cross, Dot, Lead, Shell, Source, Tag, Title, rv } from './parts';
 
 /**
- * The fourteen slides, in the order an investor asks the questions: what is it, why now, what is
+ * The fifteen slides, in the order an investor asks the questions: what is it, why now, what is
  * broken, why it stays broken, the fix, the research behind it, the product, what else the team
- * has shipped, the proof, the money, the field, where it goes, who, and the ask. Every number comes from `@/content/pitch` (and through it from the
+ * has shipped, the proof, the money, the field, where it goes, who, the ask, and how to reach us. Every number comes from `@/content/pitch` (and through it from the
  * deployment file, the contract mirror, a dated production read or a named source); nothing is
  * typed here.
  */
@@ -49,6 +50,7 @@ export const SLIDE_LABELS = [
   'Where this goes',
   'Team',
   'The raise',
+  'Thank you',
 ] as const;
 
 const LIVE_TICKERS = new Set<string>(LIVE.tickers);
@@ -1298,6 +1300,118 @@ export function TheRaise() {
   );
 }
 
+// ================================================================================================
+// 15 · Thank you
+
+export function ThankYou() {
+  return (
+    <Shell n={15} section="Thank you" tone="lime">
+      <div className="grid flex-1 grid-cols-[1fr_720px] items-center gap-20">
+        <div className="flex flex-col">
+          <p className="rv pitch-kicker flex items-center gap-4 text-lime" style={rv(0)}>
+            <span className="pitch-live-dot" aria-hidden />
+            Let&rsquo;s talk
+          </p>
+          <h2 className="rv pitch-title mt-9 text-[200px] text-paper" style={rv(1)}>
+            Thank
+            <br />
+            you<Dot />
+          </h2>
+          <Lead d={2} className="mt-9 max-w-[820px] text-[30px]">
+            The round, a walkthrough of the live venue, or the paper: <span className="text-paper">reach me directly.</span>
+          </Lead>
+          <div className="rv mt-10 flex flex-col items-start gap-4" style={rv(3)}>
+            <a
+              href={`https://${PITCH.domain}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-5 rounded-full border border-edge-strong bg-white/[0.03] py-3 pl-4 pr-7 hover:border-lime/40"
+            >
+              <span className="flex items-center gap-3 rounded-full bg-lime px-4 py-[6px] text-[15px] font-semibold text-ink">
+                <span className="h-[7px] w-[7px] rounded-full bg-ink" aria-hidden />
+                Live venue
+              </span>
+              <span className="font-mono text-[19px] text-paper">{PITCH.domain}</span>
+            </a>
+            <a
+              href={LINKS.paper}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-5 rounded-full border border-edge-strong bg-white/[0.03] py-3 pl-4 pr-7 hover:border-lime/40"
+            >
+              <span className="rounded-full bg-paper px-4 py-[6px] text-[15px] font-semibold text-ink">Published research</span>
+              <span className="text-[19px] text-paper">{PAPER.title}</span>
+            </a>
+          </div>
+        </div>
+
+        <ContactCard />
+      </div>
+    </Shell>
+  );
+}
+
+/** Raj's card: who to write to, and the three ways to do it, each a link. */
+function ContactCard() {
+  return (
+    <div className="rv pitch-card pitch-card-strong px-12 pb-6 pt-10 shadow-[0_40px_90px_rgba(0,0,0,0.45)]" style={rv(2)}>
+      <div className="flex items-center gap-8">
+        <Monogram initials={CONTACT.initials} />
+        <div>
+          <p className="pitch-title text-[56px] text-paper">{CONTACT.name}</p>
+          <p className="mt-3 text-[22px] text-muted">{CONTACT.role}, Hunch</p>
+        </div>
+      </div>
+      <ul className="mt-9">
+        {CONTACT.channels.map((channel, i) => (
+          <li key={channel.kind} className="rv border-t border-edge" style={rv(3 + i)}>
+            <a
+              href={channel.href}
+              {...(channel.href.startsWith('mailto:') ? {} : { target: '_blank', rel: 'noreferrer' })}
+              className="group grid grid-cols-[64px_1fr_auto] items-center gap-6 py-6"
+            >
+              <span className="flex h-[64px] w-[64px] items-center justify-center rounded-[16px] border border-edge-strong bg-white/[0.04] text-lime">
+                <ChannelIcon kind={channel.kind} />
+              </span>
+              <span>
+                <span className="pitch-kicker block text-[14px] text-faint">{channel.kind}</span>
+                <span className="mt-2 block text-[32px] font-semibold leading-none tracking-[-0.01em] text-paper group-hover:text-lime">
+                  {channel.handle}
+                </span>
+              </span>
+              <Arrow className="text-faint group-hover:text-lime" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ChannelIcon({ kind }: { kind: (typeof CONTACT.channels)[number]['kind'] }) {
+  if (kind === 'Email') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-[28px] w-[28px]" aria-hidden>
+        <rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.9" />
+        <path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (kind === 'Telegram') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-[28px] w-[28px]" aria-hidden>
+        <path d="M21.2 3.6L2.9 10.7c-1 .4-1 1.6.1 1.9l4.6 1.4 1.8 5.6c.3.8 1.2 1 1.8.4l2.6-2.5 4.7 3.5c.7.5 1.6.1 1.8-.7l3.1-14.8c.2-1.1-.9-2-2-1.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M7.6 14l9.6-6.6-6.5 7.4-.5 4.4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-[24px] w-[24px]" aria-hidden>
+      <path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.65l-5.21-6.82-5.97 6.82H1.68l7.73-8.84L1.25 2.25h6.83l4.71 6.23zm-1.16 17.52h1.83L7.08 4.13H5.12z" fill="currentColor" />
+    </svg>
+  );
+}
+
 /** The deck, in order, for the page and the tests. */
 export const SLIDES = [
   Cover,
@@ -1314,4 +1428,5 @@ export const SLIDES = [
   Vision,
   Team,
   TheRaise,
+  ThankYou,
 ] as const;
