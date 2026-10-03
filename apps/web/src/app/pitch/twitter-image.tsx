@@ -9,7 +9,7 @@ export const contentType = 'image/png';
 export default function TwitterImage() {
   return renderShareCard({
     title: 'Call it early. Get paid more.',
-    sub: 'Hunch VPM: prediction markets on Robinhood Stock Tokens that pay the early call more.',
+    sub: 'Hunch: the prediction market for everything else, starting with every Robinhood Stock Token.',
     foot: `Investor deck · ${PITCH.round} · ${PITCH.dateline}`,
     tag: 'LIVE ON ROBINHOOD CHAIN',
     domain: `${PITCH.domain}/pitch`,

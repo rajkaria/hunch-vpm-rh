@@ -8,7 +8,7 @@ import { PITCH } from '@/content/pitch';
  * atmosphere, a header with its section, the content area, and a footer with the page number.
  */
 
-export const SLIDE_COUNT = 11;
+export const SLIDE_COUNT = 13;
 
 export type Tone = 'lime' | 'violet' | 'sky' | 'coral';
 
@@ -51,7 +51,7 @@ export function Shell({ n, section, tone = 'lime', children }: { n: number; sect
 
 export function Title({ children, className = '', d = 0 }: { children: ReactNode; className?: string; d?: number }) {
   return (
-    <h2 className={`rv pitch-title text-[76px] text-paper ${className}`} style={rv(d)}>
+    <h2 className={`rv pitch-title text-[84px] text-paper ${className}`} style={rv(d)}>
       {children}
     </h2>
   );
@@ -63,6 +63,11 @@ export function Lead({ children, className = '', d = 1 }: { children: ReactNode;
       {children}
     </p>
   );
+}
+
+/** Where a third-party number comes from, set small under it. */
+export function Source({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <p className={`text-[15px] leading-[1.4] text-faint ${className}`}>Source: {children}</p>;
 }
 
 /** A lime full stop: the brand's one flourish, used on the cover and the close. */

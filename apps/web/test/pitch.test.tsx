@@ -6,7 +6,22 @@ import { CANVAS, bootScript, fit } from '@/components/pitch/boot';
 import { Deck } from '@/components/pitch/Deck';
 import { SLIDE_COUNT } from '@/components/pitch/parts';
 import { SLIDES, SLIDE_LABELS } from '@/components/pitch/slides';
-import { CHAIN_FACTS, EXAMPLE_FACTS, LIVE, TEAM, TRACK_RECORD, USE_OF_FUNDS, entryCurve } from '@/content/pitch';
+import {
+  CHAIN_FACTS,
+  EXAMPLE_FACTS,
+  FEED_TICKERS,
+  FEE_SCENARIOS,
+  LIVE,
+  PAPER,
+  PROBLEM,
+  TAILWINDS,
+  TEAM,
+  TRACK_RECORD,
+  USE_OF_FUNDS,
+  VISION,
+  WAVE,
+  entryCurve,
+} from '@/content/pitch';
 import { publicDeployment } from '@/lib/deployment';
 
 afterEach(() => {
@@ -67,6 +82,37 @@ describe('pitch deck: facts', () => {
     for (const fact of CHAIN_FACTS) expect(fact.note).toMatch(/2026|gwei/);
   });
 
+  it('names a source for every market figure, and keeps the wave chart in order', () => {
+    for (const answer of PROBLEM.answers) expect(answer.source).toMatch(/2026/);
+    for (const wind of TAILWINDS) expect(wind.source).toMatch(/2026/);
+    expect(WAVE.source).toMatch(/Pew Research Center/);
+    expect(WAVE.months.map((month) => month.value)).toEqual([5, 24, 25.7, 47.7, 53, 47]);
+    expect(TAILWINDS[2].value).toBe(CHAIN_FACTS[0].value);
+  });
+
+  it('lists every Chainlink-priced Stock Token once, the live four first', () => {
+    expect(FEED_TICKERS).toHaveLength(36);
+    expect(new Set(FEED_TICKERS).size).toBe(FEED_TICKERS.length);
+    expect(FEED_TICKERS.slice(0, LIVE.tickers.length)).toEqual(LIVE.tickers);
+    expect(VISION.map((step) => step.count).slice(0, 2)).toEqual(['4', '36']);
+  });
+
+  it('quotes the paper as published, with the tournament caveat next to its numbers', () => {
+    expect(PAPER.edition).toBe('2nd edition, Sep 2026');
+    expect(PAPER.properties).toHaveLength(7);
+    expect(PAPER.tape.trades).toBe('779,549');
+    expect(PAPER.results.map((result) => result.value)).toEqual(['70.1% → 0.08%', '0 of 5,173']);
+    expect(PAPER.caveat).toMatch(/paper-money tournament.*agents deployed by participants/);
+  });
+
+  it('works the fee scenarios out at 1% of volume, a year at a time', () => {
+    expect(FEE_SCENARIOS).toEqual([
+      { monthly: '$10M', yearly: '$1.2M' },
+      { monthly: '$100M', yearly: '$12M' },
+      { monthly: '$1B', yearly: '$120M' },
+    ]);
+  });
+
   it('splits the use of funds into exactly 100%', () => {
     expect(USE_OF_FUNDS.reduce((sum, use) => sum + use.share, 0)).toBe(100);
   });
@@ -77,10 +123,10 @@ describe('pitch deck: facts', () => {
 });
 
 describe('pitch deck: slides', () => {
-  it('has eleven slides, each with a label', () => {
+  it('has thirteen slides, each with a label', () => {
     expect(SLIDES).toHaveLength(SLIDE_COUNT);
     expect(SLIDE_LABELS).toHaveLength(SLIDE_COUNT);
-    expect(SLIDE_COUNT).toBe(11);
+    expect(SLIDE_COUNT).toBe(13);
   });
 
   it('renders every slide with its page number, and no em dash', () => {
@@ -93,7 +139,7 @@ describe('pitch deck: slides', () => {
       const text = container.textContent ?? '';
       expect(text.length).toBeGreaterThan(120);
       expect(text).not.toContain('—');
-      if (i > 0) expect(text).toContain(`${String(i + 1).padStart(2, '0')} / 11`);
+      if (i > 0) expect(text).toContain(`${String(i + 1).padStart(2, '0')} / ${SLIDE_COUNT}`);
       unmount();
     });
   });
@@ -106,14 +152,24 @@ describe('pitch deck: slides', () => {
       unmount();
       return text;
     };
-    expect(textOf(0)).toContain('Call it early.');
-    expect(textOf(3)).toContain('69.16');
-    expect(textOf(3)).toContain('106.25');
-    expect(textOf(6)).toContain('0x1c23…3576');
+    expect(textOf(0)).toContain('The prediction market');
+    expect(textOf(0)).toContain('The Vested Parimutuel');
+    expect(textOf(1)).toContain('$53B');
+    expect(textOf(1)).toContain('$156M');
+    expect(textOf(2)).toContain('9 in 10');
+    expect(textOf(2)).toContain('65%');
+    expect(textOf(3)).toContain('70.1%');
+    expect(textOf(4)).toContain(EXAMPLE_FACTS.mei.multiple);
+    expect(textOf(4)).toContain(EXAMPLE_FACTS.ben.multiple);
+    expect(textOf(5)).toContain('70.1% → 0.08%');
+    expect(textOf(5)).toContain('779,549');
+    expect(textOf(7)).toContain('0x1c23…3576');
     expect(textOf(7)).toContain('78,501');
     expect(textOf(7)).toContain('$931');
-    expect(textOf(9)).toContain('Prachi Sahani');
-    expect(textOf(10)).toContain('Use of funds');
+    expect(textOf(8)).toContain('$120M');
+    expect(textOf(9)).toContain('We price everything else');
+    expect(textOf(11)).toContain('Prachi Sahani');
+    expect(textOf(12)).toContain('Use of funds');
   });
 
   it('is unlisted: noindex, nofollow', () => {

@@ -2,40 +2,55 @@ import type { CSSProperties } from 'react';
 
 import { HunchLockup, HunchMark } from '@/components/brand/HunchLockup';
 import {
-  CHAIN_FACTS,
   EXAMPLE_FACTS,
+  PAPER,
+  FEED_TICKERS,
+  FEE_SCENARIOS,
+  LANDSCAPE,
   LIVE,
   MILESTONES,
   PITCH,
+  PROBLEM,
+  STOCK_TOKENS_ON_CHAIN,
   TAILWINDS,
   TEAM,
   TRACK_RECORD,
   USE_OF_FUNDS,
-  type Bettor,
+  VISION,
+  WAVE,
+  WHY_WE_WIN,
 } from '@/content/pitch';
 import { LINKS, addressUrl } from '@/lib/site';
 import { shortAddress } from '@/lib/units';
 
-import { Arrow, Atmosphere, Check, Cross, Dot, Lead, Shell, Tag, Title, rv } from './parts';
+import { Arrow, Atmosphere, Check, Cross, Dot, Lead, Shell, Source, Tag, Title, rv } from './parts';
 
 /**
- * The eleven slides, in order. Every number comes from `@/content/pitch` (and through it from
- * the deployment file, the contract mirror, or a dated production read); nothing is typed here.
+ * The thirteen slides, in the order an investor asks the questions: what is it, why now, what is
+ * broken, why it stays broken, the fix, the research behind it, the product, the proof, the
+ * money, the field, where it goes, who, and the ask. Every number comes from `@/content/pitch` (and through it from the
+ * deployment file, the contract mirror, a dated production read or a named source); nothing is
+ * typed here.
  */
 
 export const SLIDE_LABELS = [
   'Hunch',
+  'The opportunity',
   'The problem',
-  'The fix',
-  'Early vs late',
+  'Why it stays broken',
+  'Our insight',
+  'The research',
   'The product',
-  'Why Robinhood Chain',
-  'Live on mainnet',
   'Traction',
   'Business model',
+  'Competition',
+  'Where this goes',
   'Team',
   'The raise',
 ] as const;
+
+const LIVE_TICKERS = new Set<string>(LIVE.tickers);
+const tickerList = LIVE.tickers.join(', ').replace(/, (\w+)$/, ' and $1');
 
 // ================================================================================================
 // 01 · Cover
@@ -51,36 +66,39 @@ export function Cover() {
         </Tag>
       </div>
 
-      <div className="absolute left-[120px] top-[244px] w-[1000px]">
+      <div className="absolute left-[120px] top-[244px] w-[1060px]">
         <p className="rv pitch-kicker flex items-center gap-4 text-lime" style={rv(0)}>
           <span className="pitch-live-dot" aria-hidden />
-          Hunch VPM · Live on Robinhood Chain
+          Live on Robinhood Chain mainnet
         </p>
-        <h1 className="rv pitch-title mt-10 text-[124px] text-paper" style={rv(1)}>
-          Call it early.
+        <h1 className="rv pitch-title mt-9 text-[96px] text-paper" style={rv(1)}>
+          The prediction market
           <br />
-          Get paid more<Dot />
+          for everything else<Dot />
         </h1>
-        <p className="rv pitch-lead mt-10 max-w-[860px] text-[30px] leading-[1.45] text-muted" style={rv(2)}>
-          Prediction markets on Robinhood Stock Tokens that pay the first correct call more than the last one, and stay open
-          until the closing bell. In USDG, settled by Chainlink.
+        <p className="rv pitch-lead mt-9 max-w-[960px] text-[30px] leading-[1.45] text-muted" style={rv(2)}>
+          Kalshi and Polymarket price the headlines. Hunch prices the long tail, starting with a daily market on every
+          Robinhood Stock Token, on a payout rule that rewards whoever calls it first.
         </p>
-        <dl className="rv mt-14 grid grid-cols-3 border-t border-edge pt-8" style={rv(4)}>
-          {[
-            { value: 'Live', label: `on Robinhood Chain mainnet since ${LIVE.deployedOn.replace(', 2026', '')}` },
-            { value: TRACK_RECORD.engine[0].value, label: `markets settled by Hunch’s engine since ${TRACK_RECORD.since.replace(' 2026', '')}` },
-            { value: `${LIVE.feeBps / 100}%`, label: 'of winners’ gains: the only fee' },
-          ].map((fact, i) => (
-            <div key={fact.label} className={i > 0 ? 'border-l border-edge pl-8' : 'pr-8'}>
-              <dt className="pitch-title text-[44px] text-lime">{fact.value}</dt>
-              <dd className="mt-2 text-[18px] leading-[1.4] text-muted">{fact.label}</dd>
-            </div>
-          ))}
-        </dl>
+        <p className="rv mt-10 flex items-center gap-5" style={rv(4)}>
+          <span className="pitch-title text-[40px] text-lime">Call it early. Get paid more.</span>
+        </p>
+        <a
+          href={LINKS.paper}
+          target="_blank"
+          rel="noreferrer"
+          className="rv mt-7 inline-flex items-center gap-5 rounded-full border border-edge-strong bg-white/[0.03] py-3 pl-4 pr-7 hover:border-lime/40"
+          style={rv(5)}
+        >
+          <span className="rounded-full bg-paper px-4 py-[6px] text-[15px] font-semibold text-ink">Published research</span>
+          <span className="text-[19px] text-muted">
+            <span className="text-paper">{PAPER.title}</span> · {PAPER.publisher}, {PAPER.edition}
+          </span>
+        </a>
       </div>
 
-      <div className="rv absolute right-[120px] top-[226px] w-[640px]" style={rv(3)}>
-        <EntryCurve />
+      <div className="rv absolute right-[120px] top-[232px] w-[600px]" style={rv(3)}>
+        <TickerWall />
       </div>
 
       <div className="absolute bottom-[64px] left-[120px] right-[120px] flex items-center justify-between border-t border-edge pt-6 text-[19px] text-faint">
@@ -94,6 +112,383 @@ export function Cover() {
   );
 }
 
+/** Every Stock Token Hunch can list today, the live ones lit: the size of the first step. */
+function TickerWall() {
+  return (
+    <figure className="pitch-card px-8 pb-7 pt-7">
+      <figcaption className="flex items-center justify-between">
+        <span className="text-[20px] font-semibold text-paper">Robinhood Stock Tokens with a Chainlink price</span>
+        <span className="flex items-center gap-3 text-[16px] text-lime">
+          <span className="h-[9px] w-[9px] rounded-full bg-lime" aria-hidden /> Live
+        </span>
+      </figcaption>
+      <ul className="mt-6 grid grid-cols-6 gap-[9px]" aria-label="Tickers">
+        {FEED_TICKERS.map((ticker) => {
+          const live = LIVE_TICKERS.has(ticker);
+          return (
+            <li
+              key={ticker}
+              className={`num relative flex h-[54px] items-center justify-center rounded-[10px] border text-[17px] ${
+                live ? 'border-lime/60 bg-lime/[0.12] text-lime' : 'border-edge bg-white/[0.02] text-faint'
+              }`}
+            >
+              {ticker}
+              {live ? <span className="absolute right-[7px] top-[7px] h-[6px] w-[6px] rounded-full bg-lime" aria-hidden /> : null}
+            </li>
+          );
+        })}
+      </ul>
+      <dl className="mt-6 grid grid-cols-3 border-t border-edge pt-5">
+        {[
+          { value: String(LIVE.tickers.length), label: 'live today' },
+          { value: String(FEED_TICKERS.length), label: 'priced by Chainlink' },
+          { value: STOCK_TOKENS_ON_CHAIN, label: 'Stock Tokens on chain' },
+        ].map((fact, i) => (
+          <div key={fact.label} className={i > 0 ? 'border-l border-edge pl-6' : ''}>
+            <dt className={`pitch-title text-[38px] ${i === 0 ? 'text-lime' : 'text-paper'}`}>{fact.value}</dt>
+            <dd className="mt-1 text-[16px] text-faint">{fact.label}</dd>
+          </div>
+        ))}
+      </dl>
+    </figure>
+  );
+}
+
+// ================================================================================================
+// 02 · The opportunity
+
+export function Opportunity() {
+  return (
+    <Shell n={2} section="The opportunity" tone="violet">
+      <Title>
+        Prediction markets grew {WAVE.growth} in {WAVE.span}
+        <Dot />
+      </Title>
+
+      <div className="mt-10 grid flex-1 grid-cols-[1fr_560px] gap-8">
+        <figure className="rv pitch-card flex flex-col px-9 pb-6 pt-7" style={rv(2)}>
+          <figcaption className="text-[22px] font-semibold text-paper">
+            Kalshi and Polymarket, combined volume a month
+          </figcaption>
+          <WaveChart />
+          <Source>{WAVE.source}</Source>
+        </figure>
+
+        <div className="flex flex-col gap-5">
+          {TAILWINDS.map((wind, i) => (
+            <div key={wind.label} className="rv pitch-card flex flex-1 flex-col justify-center px-8 py-5" style={rv(3 + i)}>
+              <p className="flex items-baseline gap-5">
+                <span className={`pitch-title text-[52px] ${i === 0 ? 'text-lime' : 'text-violet'}`}>{wind.value}</span>
+                <span className="text-[20px] font-semibold leading-[1.3] text-paper">{wind.label}</span>
+              </p>
+              <p className="mt-2 text-[17px] leading-[1.45] text-muted">{wind.detail}</p>
+              <Source className="mt-1">{wind.source}</Source>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+/** Monthly volume bars, with a visible break where the months are not published one by one. */
+function WaveChart() {
+  const W = 1000;
+  const H = 470;
+  const X0 = 20;
+  const X1 = 990;
+  const Y0 = 64;
+  const Y1 = 410;
+  const MAX = 60;
+  const months = WAVE.months;
+  const slot = (X1 - X0) / (months.length + 1);
+  const barW = 90;
+  const cx = (i: number): number => X0 + slot * ((i === 0 ? 0 : i + 1) + 0.5);
+  const y = (v: number): number => Y1 - (v / MAX) * (Y1 - Y0);
+  const peak = months.reduce((best, month, i) => (month.value > months[best]!.value ? i : best), 0);
+  const first = months[0]!;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="my-3 block w-full flex-1" role="img" aria-label={`Combined monthly volume rose from ${first.display} in ${first.label} to ${months[peak]!.display} in ${months[peak]!.label}.`}>
+      {[20, 40, 60].map((v) => (
+        <line key={v} x1={X0} x2={X1} y1={y(v)} y2={y(v)} stroke="rgba(255,255,255,0.06)" />
+      ))}
+      <line x1={X0} x2={X1} y1={Y1} y2={Y1} stroke="rgba(255,255,255,0.16)" />
+
+      {/* The unpublished months. */}
+      <text x={X0 + slot * 1.5} y={Y1 - 18} textAnchor="middle" fill="rgba(244,244,242,0.35)" fontSize="26" letterSpacing="6">
+        ···
+      </text>
+      <text x={X0 + slot * 1.5} y={Y1 + 38} textAnchor="middle" fill="rgba(244,244,242,0.3)" fontSize="15" fontFamily="var(--font-mono)">
+        Oct–Mar
+      </text>
+
+      {months.map((month, i) => {
+        const isPeak = i === peak;
+        const fill = i === 0 ? 'rgba(244,244,242,0.28)' : isPeak ? '#C8F04F' : 'rgba(200,240,79,0.4)';
+        return (
+          <g key={month.label}>
+            <rect x={cx(i) - barW / 2} y={y(month.value)} width={barW} height={Y1 - y(month.value)} rx="10" fill={fill} className="grow-y" style={{ '--d': 3 + i } as CSSProperties} />
+            <text x={cx(i)} y={y(month.value) - 16} textAnchor="middle" fill={isPeak ? '#C8F04F' : '#F4F4F2'} fontSize={isPeak ? 30 : 22} fontFamily="var(--font-mono)" fontWeight="500">
+              {month.display}
+            </text>
+            <text x={cx(i)} y={Y1 + 38} textAnchor="middle" fill="rgba(244,244,242,0.55)" fontSize="17" fontFamily="var(--font-mono)">
+              {month.label}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* From the first bar to the peak. */}
+      <path
+        d={`M${cx(0)} ${y(first.value) - 54} C${cx(0) + 40} ${Y0 + 10}, ${cx(peak) - 260} ${Y0 - 30}, ${cx(peak) - 70} ${y(months[peak]!.value) - 24}`}
+        fill="none"
+        stroke="#C8F04F"
+        strokeWidth="2.5"
+        strokeDasharray="2 9"
+        strokeLinecap="round"
+        opacity="0.8"
+      />
+      <g transform={`translate(${cx(0) + 150} ${Y0 + 46})`}>
+        <rect x="-62" y="-30" width="124" height="60" rx="30" fill="#08080A" stroke="rgba(200,240,79,0.6)" />
+        <text x="0" y="12" textAnchor="middle" fill="#C8F04F" fontSize="34" fontFamily="var(--font-display)" fontWeight="800">
+          {WAVE.growth}
+        </text>
+      </g>
+    </svg>
+  );
+}
+
+// ================================================================================================
+// 03 · The problem
+
+export function Problem() {
+  return (
+    <Shell n={3} section="The problem" tone="coral">
+      <Title>
+        Prediction markets price the headlines.
+        <br />
+        Everything else sits empty.
+      </Title>
+
+      <div className="rv mt-9 flex items-center gap-6" style={rv(1)}>
+        <span className="text-[24px] text-muted">A trader asks</span>
+        <span className="flex items-center gap-5 rounded-full border border-edge-strong bg-white/[0.04] py-4 pl-7 pr-9">
+          <svg viewBox="0 0 24 24" className="h-[28px] w-[28px] text-faint" aria-hidden>
+            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <span className="text-[30px] font-semibold text-paper">{PROBLEM.question}</span>
+        </span>
+        <span className="text-[24px] text-muted">Today there are three answers, and none of them works.</span>
+      </div>
+
+      <div className="mt-8 grid flex-1 grid-cols-3 gap-7">
+        {PROBLEM.answers.map((answer, i) => (
+          <div key={answer.tool} className="rv pitch-card flex flex-col px-9 pb-6 pt-7" style={rv(2 + i)}>
+            <p className="flex items-center gap-3">
+              <Cross />
+              <span className="text-[24px] font-semibold text-paper">{answer.tool}</span>
+            </p>
+            <p className="pitch-title mt-6 text-[92px] text-coral">{answer.value}</p>
+            <p className="mt-3 text-[24px] font-semibold leading-[1.3] text-paper">{answer.stat}</p>
+            <p className="mt-3 text-[20px] leading-[1.5] text-muted">{answer.body}</p>
+            <Source className="mt-auto pt-4">{answer.source}</Source>
+          </div>
+        ))}
+      </div>
+
+      <p className="rv mt-7 text-[26px] leading-[1.4] text-paper" style={rv(6)}>
+        The appetite for a quick call on a stock is proven. <span className="text-lime">Nobody serves it simply.</span>
+      </p>
+    </Shell>
+  );
+}
+
+// ================================================================================================
+// 04 · Why it stays broken
+
+export function RootCause() {
+  const panels = [
+    {
+      kind: 'Order books',
+      who: 'Kalshi, Polymarket',
+      verdict: 'No maker, no market',
+      body: 'Someone has to quote both sides of every market. Market makers show up for the Super Bowl and the Fed, not for TSLA on a Thursday.',
+      stat: undefined,
+      visual: <EmptyBook />,
+    },
+    {
+      kind: 'Pools',
+      who: 'Tote, most on-chain pools',
+      verdict: 'No first bettor, no market',
+      body: 'Every winner is paid the same multiple, so the smart move is to wait, and nobody goes first. Operators close betting early to stop the snipers.',
+      stat: {
+        value: PAPER.results[0].value.split(' ')[0]!,
+        text: 'of the losing pool went to winners who arrived in the last 10% of a market (median, replayed tape)',
+      },
+      visual: <SameTickets />,
+    },
+  ];
+  return (
+    <Shell n={4} section="Why it stays broken" tone="coral">
+      <Title>
+        The long tail is empty because
+        <br />
+        nobody is paid to go first.
+      </Title>
+
+      <div className="mt-10 grid flex-1 grid-cols-2 gap-8">
+        {panels.map((panel, i) => (
+          <div key={panel.kind} className="rv pitch-card flex flex-col px-10 py-8" style={rv(1 + i * 2)}>
+            <p className="flex items-center gap-4">
+              <Tag tone="coral">{panel.kind}</Tag>
+              <span className="text-[19px] text-faint">{panel.who}</span>
+            </p>
+            <div className="mt-6">{panel.visual}</div>
+            <h3 className="mt-7 font-body text-[32px] font-semibold tracking-[-0.01em] text-paper">{panel.verdict}</h3>
+            <p className="mt-3 text-[21px] leading-[1.5] text-muted">{panel.body}</p>
+            {panel.stat === undefined ? null : (
+              <p className="mt-auto flex items-center gap-6 border-t border-edge pt-5">
+                <span className="pitch-title text-[56px] text-coral">{panel.stat.value}</span>
+                <span className="text-[18px] leading-[1.4] text-muted">{panel.stat.text}</span>
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <p className="rv mt-8 flex items-center gap-5 text-[27px] leading-[1.4] text-paper" style={rv(5)}>
+        <Arrow className="text-lime" />
+        <span>
+          Both are cold-start problems. <span className="text-lime">Pay whoever goes first, and any market can open itself.</span>
+        </span>
+      </p>
+    </Shell>
+  );
+}
+
+/** An order book for a long-tail question: the ladder is there, the quotes are not. */
+function EmptyBook() {
+  const row = (side: 'ask' | 'bid', key: number) => (
+    <div key={`${side}${key}`} className="grid grid-cols-[70px_1fr_90px] items-center gap-5">
+      <span className={`num text-[15px] ${side === 'ask' ? 'text-coral/60' : 'text-lime/60'}`}>{side.toUpperCase()}</span>
+      <span className="h-[22px] rounded-[6px] border border-dashed border-paper/15" />
+      <span className="num text-right text-[17px] text-faint">0</span>
+    </div>
+  );
+  return (
+    <div className="rounded-[16px] border border-edge bg-white/[0.02] px-7 py-5">
+      <p className="flex items-center justify-between text-[17px]">
+        <span className="text-paper">Will TSLA close UP today?</span>
+        <span className="num text-faint">0 quotes</span>
+      </p>
+      <div className="mt-4 space-y-[9px]">
+        {[0, 1].map((k) => row('ask', k))}
+        <p className="py-1 text-center text-[16px] text-faint">Waiting for a market maker</p>
+        {[0, 1].map((k) => row('bid', k))}
+      </div>
+    </div>
+  );
+}
+
+/** A pool pays the open and the last minute the same multiple. */
+function SameTickets() {
+  const ticket = (when: string, note: string) => (
+    <div className="flex-1 rounded-[16px] border border-edge bg-white/[0.02] px-6 py-5">
+      <p className="flex items-center justify-between">
+        <span className="num text-[18px] text-paper">{when}</span>
+        <Tag tone="lime">UP</Tag>
+      </p>
+      <p className="mt-1 text-[16px] text-faint">{note}</p>
+      <p className="mt-3 flex items-baseline gap-3">
+        <span className="pitch-title text-[52px] text-paper">{EXAMPLE_FACTS.classicMultiple}</span>
+        <span className="text-[16px] text-muted">per dollar</span>
+      </p>
+    </div>
+  );
+  return (
+    <div className="flex items-center gap-5">
+      {ticket(EXAMPLE_FACTS.mei.when, 'Called it at the open')}
+      <span className="pitch-title text-[64px] leading-none text-coral">=</span>
+      {ticket(EXAMPLE_FACTS.ben.when, 'Five minutes before the bell')}
+    </div>
+  );
+}
+
+// ================================================================================================
+// 05 · Our insight
+
+export function Insight() {
+  const { mei, ben } = EXAMPLE_FACTS;
+  const outcomes = [
+    {
+      value: mei.multiple,
+      title: 'The early call is paid the most',
+      body: `${mei.name} called it ${mei.when.replace('Tue', 'Tuesday')}. An ordinary pool would pay her ${EXAMPLE_FACTS.classicMultiple}.`,
+    },
+    {
+      value: ben.multiple,
+      title: 'A late bet still wins, never dilutes',
+      body: `${ben.name} bet five minutes before the bell: his stake back plus the ${ben.gain} that came after him.`,
+    },
+  ];
+  return (
+    <Shell n={5} section="Our insight" tone="lime">
+      <Title>
+        Pay whoever goes first.
+        <br />
+        The market fills itself<Dot />
+      </Title>
+
+      <div className="mt-9 grid flex-1 grid-cols-[820px_1fr] gap-14">
+        <div className="rv" style={rv(2)}>
+          <EntryCurve />
+        </div>
+
+        <div className="flex flex-col">
+          <Lead d={1} className="text-[26px]">
+            Our settlement rule, the <span className="text-paper">Vested Parimutuel</span>, pays every new stake straight to the
+            bettors already on the other side.
+          </Lead>
+
+          <div className="mt-8 space-y-6">
+            {outcomes.map((outcome, i) => (
+              <div key={outcome.title} className="rv grid grid-cols-[150px_1fr] items-center gap-6 border-t border-edge pt-5" style={rv(3 + i)}>
+                <span className="pitch-title text-[54px] text-lime">{outcome.value}</span>
+                <span>
+                  <span className="block text-[22px] font-semibold text-paper">{outcome.title}</span>
+                  <span className="mt-1 block text-[18px] leading-[1.45] text-muted">{outcome.body}</span>
+                </span>
+              </div>
+            ))}
+            <div className="rv grid grid-cols-[150px_1fr] items-center gap-6 border-t border-edge pt-5" style={rv(5)}>
+              <span className="flex h-[54px] items-center">
+                <Check className="h-[44px] w-[44px] text-lime" />
+              </span>
+              <span>
+                <span className="block text-[22px] font-semibold text-paper">No market maker, open until the bell</span>
+                <span className="mt-1 block text-[18px] leading-[1.45] text-muted">
+                  Our opening seed is floored in every outcome, so opening a market risks nothing.
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <a href={LINKS.paper} target="_blank" rel="noreferrer" className="rv mt-auto flex items-center gap-4 border-t border-edge pt-5 text-[19px] text-muted hover:text-paper" style={rv(6)}>
+            <span className="rounded-full bg-paper px-3 py-[5px] text-[14px] font-semibold text-ink">Published</span>
+            <span>
+              Each one is proved in our paper, <span className="text-paper">{PAPER.title}</span>
+            </span>
+            <Arrow className="ml-auto h-[22px] w-[22px]" />
+          </a>
+
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
 /** Hours after Tuesday's opening bell (wall clock) to hours of trading (6.5 a session). */
 function sessionHours(hoursIn: number): number {
   const day = Math.floor(hoursIn / 24);
@@ -102,14 +497,14 @@ function sessionHours(hoursIn: number): number {
 
 const ppmToNumber = (ppm: bigint): number => Number(ppm) / 1_000_000;
 
-/** The cover's chart: what a small UP bet is paid per dollar, by when it lands, against a pool's flat line. */
+/** What a small UP bet is paid per dollar, by when it lands, against a pool's flat line. */
 function EntryCurve() {
   const W = 600;
-  const H = 360;
+  const H = 300;
   const X0 = 46;
   const X1 = 588;
   const Y0 = 18;
-  const Y1 = 312;
+  const Y1 = 256;
   const SESSION = 26;
   const x = (t: number): number => X0 + (t / SESSION) * (X1 - X0);
   const y = (m: number): number => Y1 - ((m - 0.5) / 3.25) * (Y1 - Y0);
@@ -126,7 +521,7 @@ function EntryCurve() {
   const firstDrop = sessionHours(downs[0]?.hoursIn ?? 0);
 
   return (
-    <figure className="pitch-card px-9 pb-8 pt-8">
+    <figure className="pitch-card px-9 pb-6 pt-6">
       <figcaption className="flex items-start justify-between gap-6">
         <span>
           <span className="block text-[22px] font-semibold text-paper">What a dollar on UP is paid, by when it lands</span>
@@ -135,7 +530,7 @@ function EntryCurve() {
         <Tag>Illustration</Tag>
       </figcaption>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-7 block w-full" role="img" aria-label={`A bet at Tuesday's open is paid ${EXAMPLE_FACTS.mei.multiple} per dollar; one at Friday's close, ${EXAMPLE_FACTS.ben.multiple}; an ordinary pool pays every winner ${EXAMPLE_FACTS.classicMultiple}.`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-5 block w-full" role="img" aria-label={`A bet at Tuesday's open is paid ${EXAMPLE_FACTS.mei.multiple} per dollar; one at Friday's close, ${EXAMPLE_FACTS.ben.multiple}; an ordinary pool pays every winner ${EXAMPLE_FACTS.classicMultiple}.`}>
         <defs>
           <linearGradient id="pitch-curve-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor="#C8F04F" stopOpacity="0.22" />
@@ -148,7 +543,7 @@ function EntryCurve() {
           <line key={d} x1={x(d * 6.5)} x2={x(d * 6.5)} y1={Y0} y2={Y1} stroke="rgba(255,255,255,0.07)" strokeDasharray="3 5" />
         ))}
         {['TUE', 'WED', 'THU', 'FRI'].map((day, d) => (
-          <text key={day} x={x(d * 6.5 + 3.25)} y={H - 14} textAnchor="middle" fill="rgba(244,244,242,0.45)" fontSize="14" fontFamily="var(--font-mono)" letterSpacing="2">
+          <text key={day} x={x(d * 6.5 + 3.25)} y={H - 12} textAnchor="middle" fill="rgba(244,244,242,0.45)" fontSize="14" fontFamily="var(--font-mono)" letterSpacing="2">
             {day}
           </text>
         ))}
@@ -180,7 +575,7 @@ function EntryCurve() {
         {/* Labels sit to the right of the first DOWN bet, clear of the curve's first drop. */}
         <circle cx={x(mei.t)} cy={y(mei.m)} r="7" fill="#08080A" stroke="#C8F04F" strokeWidth="3" />
         <text x={x(firstDrop) + 18} y={y(mei.m) + 2} fill="#F4F4F2" fontSize="16" fontWeight="600">
-          Mei, Tue 9:35 am
+          {EXAMPLE_FACTS.mei.name}, {EXAMPLE_FACTS.mei.when}
         </text>
         <text x={x(firstDrop) + 18} y={y(mei.m) + 30} fill="#C8F04F" fontSize="22" fontFamily="var(--font-mono)" fontWeight="500">
           {EXAMPLE_FACTS.mei.multiple}
@@ -188,14 +583,14 @@ function EntryCurve() {
 
         <circle cx={x(ben.t)} cy={y(ben.m)} r="7" fill="#08080A" stroke="#C8F04F" strokeWidth="3" />
         <text x={x(ben.t) - 16} y={y(ben.m) - 40} textAnchor="end" fill="#F4F4F2" fontSize="16" fontWeight="600">
-          Ben, Fri 3:55 pm
+          {EXAMPLE_FACTS.ben.name}, {EXAMPLE_FACTS.ben.when}
         </text>
         <text x={x(ben.t) - 16} y={y(ben.m) - 14} textAnchor="end" fill="#C8F04F" fontSize="22" fontFamily="var(--font-mono)" fontWeight="500">
           {EXAMPLE_FACTS.ben.multiple}
         </text>
       </svg>
 
-      <div className="mt-5 flex items-center gap-7 text-[16px] text-faint">
+      <div className="mt-4 flex items-center gap-7 text-[16px] text-faint">
         <span className="flex items-center gap-3">
           <span className="h-[3px] w-7 rounded-full bg-lime" aria-hidden /> Hunch
         </span>
@@ -206,248 +601,128 @@ function EntryCurve() {
           <span className="h-[10px] w-[3px] rounded-full bg-coral" aria-hidden /> A DOWN bet lands
         </span>
       </div>
+      <p className="mt-3 text-[15px] text-faint">
+        Made-up bettors, the contract&rsquo;s exact arithmetic: seed {EXAMPLE_FACTS.seed} / {EXAMPLE_FACTS.seed} USDG, five bets, NVDA closes up.
+      </p>
     </figure>
   );
 }
 
 // ================================================================================================
-// 02 · The problem
+// 06 · The research
 
-export function Problem() {
-  const ticket = (when: string, note: string, d: number) => (
-    <div className="rv pitch-card w-[440px] px-9 py-6" style={rv(d)}>
-      <p className="flex items-center justify-between">
-        <span className="num text-[20px] text-paper">{when}</span>
-        <Tag tone="lime">UP</Tag>
-      </p>
-      <p className="mt-2 text-[19px] text-faint">{note}</p>
-      <p className="mt-4 flex items-baseline gap-3">
-        <span className="pitch-title text-[60px] text-paper">{EXAMPLE_FACTS.classicMultiple}</span>
-        <span className="text-[19px] text-muted">paid per dollar</span>
-      </p>
-    </div>
-  );
-
+export function Research() {
   return (
-    <Shell n={2} section="The problem" tone="coral">
+    <Shell n={6} section="The research" tone="violet">
       <Title>
-        Every pool market pays the last dollar
+        We published the rule, proved it,
         <br />
-        like the first.
+        and replayed it on {PAPER.tape.trades} trades<Dot />
       </Title>
-      <Lead className="mt-6">
-        In a pool (a tote, a sports pool, most on-chain prediction markets) the pot is split at the end, pro rata to stake.
-        The dollar that lands at 3:59 pm, answer nearly known, earns what the 9:30 am dollar did.
-      </Lead>
 
-      <div className="mt-9 flex items-center gap-8">
-        {ticket('Tue 9:35 am', 'Called it at the open. Days of risk.', 2)}
-        <div className="rv relative flex flex-1 items-center" style={rv(3)}>
-          <span className="h-px flex-1 bg-gradient-to-r from-edge-strong to-coral/50" />
-          <span className="pitch-title mx-6 text-[88px] leading-none text-coral">=</span>
-          <span className="h-px flex-1 bg-gradient-to-r from-coral/50 to-edge-strong" />
-          <span className="absolute -bottom-12 left-0 right-0 text-center text-[18px] text-faint">Same multiple, whatever the timing</span>
-        </div>
-        {ticket('Fri 3:55 pm', 'Five minutes before the bell.', 4)}
-      </div>
-
-      <div className="mt-auto grid grid-cols-3 gap-8">
-        {[
-          {
-            title: 'Nobody goes first',
-            body: 'Early money is diluted by everyone who piles in later, so the rational move is to wait. Books open thin and stay thin.',
-          },
-          {
-            title: 'Betting shuts early',
-            body: 'To stop late sniping, operators close the window before the best minutes. The product goes dark just as attention peaks.',
-          },
-          {
-            title: 'Order books skip the long tail',
-            body: 'Kalshi and Polymarket need market makers quoting both sides. They show up for elections and the Fed, not for TSLA on a Thursday.',
-          },
-        ].map((card, i) => (
-          <div key={card.title} className="rv pitch-card px-9 py-7" style={rv(5 + i)}>
-            <p className="num text-[16px] text-coral">0{i + 1}</p>
-            <h3 className="mt-2 font-body text-[27px] font-semibold tracking-[-0.01em] text-paper">{card.title}</h3>
-            <p className="mt-2 text-[20px] leading-[1.5] text-muted">{card.body}</p>
-          </div>
-        ))}
-      </div>
-    </Shell>
-  );
-}
-
-// ================================================================================================
-// 03 · The fix
-
-export function Solution() {
-  const { dan } = EXAMPLE_FACTS;
-  const properties = [
-    { title: 'Early earns more', body: 'If you win, you are paid your stake plus every opposing dollar that arrives after you.' },
-    { title: 'Nobody can dilute you', body: 'Your payout can only go up after you bet. Later money adds to it; it never shrinks it.' },
-    { title: 'Open until the bell', body: 'A last-second bet gets its stake back plus what comes after it. Nothing to snipe, so nothing to close.' },
-    { title: 'Our seed can’t lose', body: 'Hunch’s opening seed is floored in every outcome, so we can open every ticker, every session.' },
-  ];
-  return (
-    <Shell n={3} section="The fix" tone="lime">
-      <div className="flex items-start justify-between gap-12">
-        <div>
-          <Title>
-            Pay the people who were
-            <br />
-            already standing there<Dot />
-          </Title>
-          <Lead className="mt-6 max-w-[1060px]" d={2}>
-            The moment a stake lands, it is paid to the bettors already on the other side, and it is accepted only up to what
-            they can cover. We call the rule the <span className="text-paper">Vested Parimutuel</span>.
-          </Lead>
-        </div>
-        <a href={LINKS.paper} target="_blank" rel="noreferrer" className="rv pitch-card mt-2 block w-[560px] shrink-0 px-8 py-7" style={rv(1)}>
-          <span className="pitch-kicker block text-[14px] text-lime">Our research</span>
-          <span className="mt-3 block text-[22px] font-semibold text-paper">The Vested Parimutuel</span>
-          <span className="mt-1 block text-[17px] text-faint">Karia, Hunch Research, 2nd ed., Sep 2026</span>
-          <span className="mt-3 block text-[16px] leading-[1.5] text-muted">
-            Reference settler in Solidity · {LIVE.conformanceVectors} conformance vectors · replayed over 5,291 real markets
-          </span>
+      <div className="mt-9 grid flex-1 grid-cols-[560px_1fr] gap-10">
+        <a href={LINKS.paper} target="_blank" rel="noreferrer" className="rv block" style={rv(1)}>
+          <PaperCover />
         </a>
-      </div>
-      <div className="mt-10 grid flex-1 grid-cols-[720px_1fr] gap-8">
-        <div className="rv pitch-card flex flex-col px-10 py-9" style={rv(2)}>
-          <p className="pitch-kicker text-[15px] text-faint">{dan.when.replace('Tue', 'Tuesday')}, in the worked example</p>
-          <div className="mt-6 flex items-center gap-4">
-            <Tag tone="coral">DOWN</Tag>
-            <p className="text-[25px] text-paper">
-              Dan bets <span className="num">{dan.stake}</span> USDG
-            </p>
-          </div>
-          <div className="my-5 ml-[26px] flex items-center gap-4 border-l border-dashed border-paper/25 py-3 pl-8 text-[19px] text-faint">
-            paid at once to the UP side already standing there
-          </div>
-          <div className="space-y-3">
-            {[
-              { who: 'Mei, bet UP at 9:35 am', from: dan.meiBefore, to: dan.meiAfter, strong: true },
-              { who: 'Hunch’s opening seed, UP', from: EXAMPLE_FACTS.seed, to: dan.seedAfter, strong: false },
-            ].map((row) => (
-              <div key={row.who} className={`flex items-center justify-between rounded-[14px] border px-6 py-4 ${row.strong ? 'border-lime/30 bg-lime/[0.06]' : 'border-edge bg-white/[0.02]'}`}>
-                <span className="text-[20px] text-muted">{row.who}</span>
-                <span className="num flex items-center gap-3 text-[24px]">
-                  <span className="text-faint">{row.from}</span>
-                  <Arrow className="h-[20px] w-[20px] text-faint" />
-                  <span className={row.strong ? 'text-lime' : 'text-paper'}>{row.to}</span>
-                </span>
+
+        <div className="flex flex-col">
+          <div className="grid grid-cols-2 gap-6">
+            {PAPER.results.map((result, i) => (
+              <div key={result.value} className={`rv pitch-card px-8 py-7 ${i === 0 ? 'pitch-card-strong' : ''}`} style={rv(2 + i)}>
+                <p className="pitch-title text-[56px] text-lime">{result.value}</p>
+                <p className="mt-3 text-[21px] font-semibold leading-[1.35] text-paper">{result.label}</p>
+                <p className="mt-2 text-[17px] leading-[1.45] text-muted">{result.detail}</p>
               </div>
             ))}
           </div>
-          <p className="mt-auto pt-6 text-[19px] leading-[1.5] text-faint">
-            Mei&rsquo;s payout if UP wins doubled before the market was three hours old, and no later bet can take it back.
+
+          <div className="rv mt-6 flex flex-1 flex-col pitch-card px-8 py-6" style={rv(4)}>
+            <p className="flex items-baseline justify-between">
+              <span className="text-[22px] font-semibold text-paper">Seven properties, each proved</span>
+              <span className="text-[16px] text-faint">
+                Matched exactly by our mainnet settler on all {LIVE.conformanceVectors} conformance vectors
+              </span>
+            </p>
+            <ol className="mt-4 grid flex-1 grid-cols-2 content-around gap-x-10 gap-y-3">
+              {PAPER.properties.map((property, i) => (
+                <li key={property} className="flex items-baseline gap-4 text-[19px] text-muted">
+                  <span className="num w-[34px] shrink-0 text-[16px] text-lime">P{i + 1}</span>
+                  <span>{property}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <p className="rv mt-4 text-[15px] leading-[1.45] text-faint" style={rv(5)}>
+            {PAPER.caveat}
           </p>
         </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          {properties.map((property, i) => (
-            <div key={property.title} className="rv pitch-card px-9 py-6" style={rv(3 + i)}>
-              <Check />
-              <h3 className="mt-3 font-body text-[27px] font-semibold tracking-[-0.01em] text-paper">{property.title}</h3>
-              <p className="mt-3 text-[20px] leading-[1.5] text-muted">{property.body}</p>
-            </div>
-          ))}
-        </div>
       </div>
-
     </Shell>
   );
 }
 
-// ================================================================================================
-// 04 · Early vs late
-
-function BettorRow({ bettor, note, after, d }: { bettor: Bettor; note: string; after?: string; d: number }) {
-  const bar = (label: string, share: number, value: string, multiple: string, hunch: boolean, delay: number) => (
-    <div className="grid grid-cols-[180px_1fr_260px] items-center gap-6">
-      <span className={`text-[19px] ${hunch ? 'text-paper' : 'text-faint'}`}>{label}</span>
-      <span className="relative h-[34px] rounded-[10px] bg-white/[0.03]">
-        <span
-          className={`grow-x absolute inset-y-0 left-0 rounded-[10px] ${hunch ? 'bg-lime' : 'bg-paper/20'}`}
-          style={{ width: `${Math.max(3, share * 100)}%`, '--d': delay } as CSSProperties}
-        />
-      </span>
-      <span className="flex items-baseline justify-end gap-4">
-        <span className={`num text-[30px] ${hunch ? 'text-paper' : 'text-muted'}`}>{value}</span>
-        <span className={`num w-[96px] text-right text-[24px] ${hunch ? 'text-lime' : 'text-faint'}`}>{multiple}</span>
-      </span>
-    </div>
-  );
+/** The paper's title page, drawn in paper and ink so it reads as the document it is. */
+function PaperCover() {
   return (
-    <div className="rv pitch-card grid grid-cols-[400px_1fr] gap-12 px-10 py-9" style={rv(d)}>
-      <div>
-        <p className="pitch-title text-[60px] text-paper">{bettor.name}</p>
-        <p className="num mt-3 text-[20px] text-muted">
-          {bettor.when} · <span className="text-lime">UP</span> · {bettor.stake} USDG
-        </p>
-        <p className="mt-4 text-[19px] leading-[1.5] text-faint">{note}</p>
-      </div>
-      <div className="flex flex-col justify-center gap-5">
-        {bar('Hunch pays', bettor.payoutShare, bettor.payout, bettor.multiple, true, d + 1)}
-        {bar('Ordinary pool', bettor.classicShare, bettor.classic, bettor.classicMultiple, false, d + 2)}
-        {after === undefined ? null : <p className="pl-[204px] text-[18px] text-faint">{after}</p>}
-      </div>
-    </div>
-  );
-}
-
-export function EarlyVsLate() {
-  const { mei, ben } = EXAMPLE_FACTS;
-  return (
-    <Shell n={4} section="Early vs late, in dollars" tone="lime">
-      <Title>
-        Same market, same side.
-        <br />
-        Paid for the risk, not the timing<Dot />
-      </Title>
-
-      <div className="mt-12 flex flex-1 flex-col gap-7">
-        <BettorRow bettor={mei} d={2} note="Called it Tuesday morning and held through two days of bets against her." />
-        <BettorRow
-          bettor={ben}
-          d={5}
-          note="Bet the obvious side five minutes before the bell."
-          after={`Ben still wins: his stake back plus the ${ben.gain} that arrived after him. He just can’t take Mei’s reward.`}
-        />
-      </div>
-
-      <p className="rv mt-8 text-[18px] leading-[1.5] text-faint" style={rv(8)}>
-        <span className="text-muted">{EXAMPLE_FACTS.question}</span> Opening seed {EXAMPLE_FACTS.seed} / {EXAMPLE_FACTS.seed} USDG, five
-        bets, NVDA closes up. Made-up bettors, the contract&rsquo;s exact arithmetic: replayed by our client and pinned by a Foundry test.
+    <div className="relative flex h-full flex-col overflow-hidden rounded-[20px] bg-paper px-11 py-9 text-ink shadow-[0_40px_90px_rgba(0,0,0,0.55)]">
+      <p className="flex items-center justify-between">
+        <span className="flex items-center gap-3">
+          <HunchMark className="h-[30px] w-[30px]" />
+          <span className="pitch-kicker text-[14px] text-ink/70">{PAPER.publisher}</span>
+        </span>
+        <span className="pitch-kicker text-[13px] text-ink/50">{PAPER.edition}</span>
       </p>
-    </Shell>
+      <p className="pitch-title mt-10 text-[54px] leading-[1.02] text-ink">{PAPER.title}</p>
+      <p className="mt-4 text-[21px] leading-[1.4] text-ink/70">{PAPER.subtitle}</p>
+      <p className="mt-5 text-[19px] font-semibold text-ink">{PAPER.author}</p>
+      <div className="mt-6 space-y-[9px]" aria-hidden>
+        {[100, 94, 98, 58].map((w, i) => (
+          <span key={i} className="block h-[9px] rounded-full bg-ink/[0.09]" style={{ width: `${w}%` }} />
+        ))}
+      </div>
+      <dl className="mt-auto grid grid-cols-3 gap-4 border-t border-ink/15 pt-5">
+        {[
+          { value: String(PAPER.sections), label: 'sections' },
+          { value: String(PAPER.properties.length), label: 'proved properties' },
+          { value: String(LIVE.conformanceVectors), label: 'test vectors' },
+        ].map((fact) => (
+          <div key={fact.label}>
+            <dt className="pitch-title text-[40px] text-ink">{fact.value}</dt>
+            <dd className="mt-1 text-[15px] text-ink/60">{fact.label}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-4 font-mono text-[15px] text-ink/60">playhunch.xyz/vpm-whitepaper</p>
+    </div>
   );
 }
 
 // ================================================================================================
-// 05 · The product
+// 07 · The product
 
 export function Product() {
   const steps = [
-    { title: 'Fund in seconds', body: 'Send USDC from Arbitrum One or Base through Across. It lands as USDG on Robinhood Chain. No ETH needed.' },
-    { title: 'Pick a side', body: `UP or DOWN on ${LIVE.tickers.join(', ').replace(/, (\w+)$/, ' or $1')}. Daily: will TSLA close UP today? Weekly: will NVDA finish the week UP?` },
-    { title: 'Sign once', body: 'A gasless USDG authorization binds market, side and amount. Our relayer pays the gas and can’t change any of it.' },
-    { title: 'Settled at the bell', body: 'Two Chainlink rounds, at the opening and the closing bell, decide it. Anyone can resolve; winners are paid automatically.' },
+    { title: 'Pick a stock and a side', body: `Will TSLA close UP today? Will NVDA finish the week UP? Daily and weekly markets on ${tickerList}.` },
+    { title: 'One tap. No gas, no ETH', body: 'Fund with USDC from Arbitrum or Base and it lands as USDG. One signature; Hunch pays the gas.' },
+    { title: 'Paid at the bell', body: 'Chainlink’s prices at the opening and closing bell decide it. Winners are paid automatically; a stale price refunds everyone.' },
   ];
   return (
-    <Shell n={5} section="The product" tone="sky">
+    <Shell n={7} section="The product" tone="sky">
       <div className="grid flex-1 grid-cols-[1fr_620px] gap-20">
         <div className="flex flex-col">
           <Title>
-            One signature. No ETH.
+            As simple as
             <br />
-            Settled at the bell<Dot />
+            UP or DOWN<Dot />
           </Title>
-          <div className="mt-12 flex flex-1 flex-col justify-between">
+          <Lead className="mt-6">A same-day option, minus the options chain.</Lead>
+          <div className="mt-10 flex flex-1 flex-col justify-between">
             {steps.map((step, i) => (
-              <div key={step.title} className="rv grid grid-cols-[72px_1fr] gap-6 border-t border-edge pt-6" style={rv(1 + i)}>
-                <span className="num text-[26px] text-lime">0{i + 1}</span>
+              <div key={step.title} className="rv grid grid-cols-[84px_1fr] gap-6 border-t border-edge pt-6" style={rv(2 + i)}>
+                <span className="pitch-title text-[44px] text-lime">0{i + 1}</span>
                 <div>
-                  <h3 className="font-body text-[27px] font-semibold tracking-[-0.01em] text-paper">{step.title}</h3>
+                  <h3 className="font-body text-[30px] font-semibold tracking-[-0.01em] text-paper">{step.title}</h3>
                   <p className="mt-2 text-[21px] leading-[1.5] text-muted">{step.body}</p>
                 </div>
               </div>
@@ -515,205 +790,92 @@ function MarketCardMock() {
 }
 
 // ================================================================================================
-// 06 · Why Robinhood Chain, why now
-
-export function WhyRobinhood() {
-  return (
-    <Shell n={6} section="Why Robinhood Chain, why now" tone="violet">
-      <Title>
-        Stock Tokens have prices, dollars and holders.
-        <br />
-        Not yet a market on this week<Dot />
-      </Title>
-      <Lead className="mt-7 max-w-[1500px]">
-        Robinhood Chain puts every input on one chain: the Stock Token, a Chainlink price nobody types in, and a dollar that
-        moves with one signature. Hunch turns them into a market that pays for being early.
-      </Lead>
-
-      <div className="mt-10 grid grid-cols-4 gap-6">
-        {CHAIN_FACTS.map((fact, i) => (
-          <div key={fact.label} className="rv pitch-card px-8 py-8" style={rv(2 + i)}>
-            <p className="pitch-title text-[64px] text-paper">{fact.value}</p>
-            <p className="mt-4 text-[21px] font-semibold text-paper">{fact.label}</p>
-            <p className="mt-2 text-[16px] leading-[1.45] text-faint">{fact.note}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-6 grid flex-1 grid-cols-2 gap-6">
-        {TAILWINDS.map((wind, i) => (
-          <div key={wind.label} className="rv pitch-card flex items-center gap-9 px-10 py-7" style={rv(6 + i)}>
-            <p className="pitch-title w-[180px] shrink-0 text-[76px] text-violet">{wind.value}</p>
-            <div>
-              <p className="text-[24px] font-semibold text-paper">{wind.label}</p>
-              <p className="mt-2 text-[19px] leading-[1.45] text-muted">{wind.detail}</p>
-              <p className="mt-2 text-[15px] text-faint">Source: {wind.source}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Shell>
-  );
-}
-
-// ================================================================================================
-// 07 · Live on Robinhood Chain
-
-export function LiveOnMainnet() {
-  const cannot = [
-    'Move a bettor’s stake, or send it anywhere but to its owner',
-    'Type in a price or choose the outcome',
-    'Stop claims, refunds or resolution',
-    'Change a listed market’s feed, times, fee or caps',
-    'Spend a bettor’s signature on another market, side or amount',
-  ];
-  return (
-    <Shell n={7} section="Live on Robinhood Chain" tone="lime">
-      <div className="flex items-end justify-between">
-        <Title>
-          Live on mainnet,
-          <br />
-          with the receipts<Dot />
-        </Title>
-        <p className="rv mb-3 flex items-center gap-4 text-[22px] text-muted" style={rv(1)}>
-          <span className="pitch-live-dot" aria-hidden /> Deployed {LIVE.deployedOn} · chain {LIVE.chainId}
-        </p>
-      </div>
-
-      <div className="mt-12 grid flex-1 grid-cols-[1fr_640px] gap-10">
-        <div className="flex flex-col gap-5">
-          {LIVE.contracts.map((contract, i) => (
-            <a
-              key={contract.name}
-              href={addressUrl(contract.address)}
-              target="_blank"
-              rel="noreferrer"
-              className="rv pitch-card flex items-center justify-between px-9 py-6 transition-colors hover:border-edge-strong"
-              style={rv(2 + i)}
-            >
-              <span className="flex items-center gap-6">
-                <Check />
-                <span>
-                  <span className="block font-mono text-[25px] text-paper">{contract.name}</span>
-                  <span className="mt-1 block text-[18px] text-faint">{contract.role}</span>
-                </span>
-              </span>
-              <span className="text-right">
-                <span className="num block text-[20px] text-muted">{shortAddress(contract.address)}</span>
-                <span className="mt-1 block text-[15px] text-faint">Source verified · Sourcify exact match</span>
-              </span>
-            </a>
-          ))}
-          <div className="rv pitch-card flex items-center justify-between px-9 py-6" style={rv(5)}>
-            <span className="flex items-center gap-6">
-              <Check />
-              <span className="text-[22px] text-paper">Allow-listed against their Chainlink feeds</span>
-            </span>
-            <span className="flex gap-3">
-              {LIVE.tickers.map((ticker) => (
-                <span key={ticker} className="num rounded-[10px] border border-edge-strong px-4 py-2 text-[19px] text-paper">
-                  {ticker}
-                </span>
-              ))}
-            </span>
-          </div>
-        </div>
-
-        <div className="rv pitch-card flex flex-col px-10 py-9" style={rv(3)}>
-          <p className="pitch-kicker text-[15px] text-coral">What nobody can do, including us</p>
-          <ul className="mt-6 space-y-5">
-            {cannot.map((line) => (
-              <li key={line} className="flex gap-4 text-[21px] leading-[1.4] text-paper">
-                <Cross />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-auto border-t border-edge pt-6 text-[18px] leading-[1.5] text-muted">
-            Every market refunds in full if the price didn&rsquo;t move, a price is stale or out of range, or the token&rsquo;s price
-            is paused for more than a day. Owned by a 2-of-3 Safe.
-          </p>
-        </div>
-      </div>
-
-      <div className="rv mt-8 grid grid-cols-4 gap-5 text-[17px] leading-[1.45] text-muted" style={rv(7)}>
-        {[
-          `Settler equals the paper’s reference on all ${LIVE.conformanceVectors} published vectors, plus fuzzing`,
-          'Full launch rehearsed on a fork of chain 4663 with real USDG and real Chainlink feeds',
-          'Two adversarial security reviews, hardening merged before mainnet; Slither in CI',
-          'Gasless entry: one signature, the relayer pays, a used authorization can’t book twice',
-        ].map((line) => (
-          <p key={line} className="border-l-2 border-lime/50 pl-5">
-            {line}
-          </p>
-        ))}
-      </div>
-    </Shell>
-  );
-}
-
-// ================================================================================================
 // 08 · Traction
 
 export function Traction() {
+  const [markets, cup] = TRACK_RECORD.engine;
   return (
-    <Shell n={8} section="Traction" tone="sky">
-      <div className="flex items-end justify-between gap-10">
-        <Title>
-          Hunch has run the engine
-          <br />
-          since {TRACK_RECORD.since.replace(' 2026', '')}<Dot />
-        </Title>
-        <p className="rv mb-2 max-w-[640px] text-[22px] leading-[1.5] text-muted" style={rv(1)}>
-          Before Robinhood Chain we built and ran Hunch at {PITCH.hunchDomain}. The Vested Parimutuel is the settlement rule we
-          wrote from what we saw there.
-        </p>
-      </div>
+    <Shell n={8} section="Traction" tone="lime">
+      <Title>
+        Live on mainnet, and battle-tested
+        <br />
+        on over a million trades<Dot />
+      </Title>
 
-      <div className="mt-11 grid grid-cols-2 gap-6">
-        {TRACK_RECORD.engine.map((stat, i) => (
-          <div key={stat.label} className="rv pitch-card px-10 py-8" style={rv(2 + i)}>
-            <p className="pitch-title text-[96px] text-paper">{stat.value}</p>
-            <p className="mt-4 text-[25px] font-semibold text-paper">{stat.label}</p>
-            <p className="mt-2 text-[19px] leading-[1.5] text-faint">{stat.detail}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-6 grid flex-1 grid-cols-[1fr_560px] gap-6">
-        <div className="rv pitch-card flex flex-col justify-center gap-7 px-10 py-7" style={rv(4)}>
-          <p className="flex items-center gap-4">
-            <Tag tone="sky">Proof of concept</Tag>
-            <span className="text-[18px] text-faint">Real USDC on Base, every bet and payout an on-chain transaction</span>
+      <div className="mt-8 grid flex-1 grid-cols-[600px_1fr] gap-6">
+        <div className="rv pitch-card pitch-card-strong flex flex-col px-9 py-7" style={rv(1)}>
+          <p className="pitch-kicker flex items-center gap-4 text-[15px] text-lime">
+            <span className="pitch-live-dot" aria-hidden /> Robinhood Chain mainnet
           </p>
-          <div className="grid grid-cols-4 gap-6">
-            {TRACK_RECORD.money.map((stat) => (
-              <div key={stat.label}>
-                <p className="pitch-title text-[72px] text-sky">{stat.value}</p>
-                <p className="mt-2 text-[19px] text-muted">{stat.label}</p>
-              </div>
+          <p className="pitch-title mt-5 text-[64px] text-paper">Live since {LIVE.deployedOn.replace(', 2026', '')}</p>
+          <p className="mt-3 text-[20px] leading-[1.45] text-muted">Daily and weekly markets in USDG, settled by Chainlink.</p>
+          <p className="mt-5 flex gap-3">
+            {LIVE.tickers.map((ticker) => (
+              <span key={ticker} className="num rounded-[10px] border border-lime/40 px-4 py-2 text-[19px] text-lime">
+                {ticker}
+              </span>
             ))}
-          </div>
+          </p>
+          <ul className="mt-auto space-y-3 border-t border-edge pt-5">
+            {LIVE.contracts.map((contract) => (
+              <li key={contract.name}>
+                <a href={addressUrl(contract.address)} target="_blank" rel="noreferrer" className="flex items-center justify-between text-[17px] hover:text-paper">
+                  <span className="flex items-center gap-3 text-paper">
+                    <Check className="h-[20px] w-[20px] text-lime" />
+                    <span className="font-mono">{contract.name}</span>
+                  </span>
+                  <span className="num text-faint">{shortAddress(contract.address)}</span>
+                </a>
+              </li>
+            ))}
+            <li className="pt-1 text-[15px] leading-[1.45] text-faint">
+              Source verified · owned by a 2-of-3 Safe · two adversarial security reviews before mainnet
+            </li>
+          </ul>
         </div>
-        <div className="rv pitch-card pitch-card-strong flex flex-col justify-center px-10 py-7" style={rv(5)}>
-          <p className="pitch-title text-[72px] text-lime">{TRACK_RECORD.agents.value}</p>
-          <p className="mt-3 text-[23px] font-semibold text-paper">{TRACK_RECORD.agents.label}</p>
-          <p className="mt-2 text-[19px] leading-[1.5] text-muted">{TRACK_RECORD.agents.detail}</p>
+
+        <div className="grid grid-cols-2 grid-rows-2 gap-6">
+          {[markets, cup].map((stat, i) => (
+            <div key={stat.label} className="rv pitch-card flex flex-col justify-center px-9 py-6" style={rv(2 + i)}>
+              <p className="pitch-title text-[76px] text-paper">{stat.value}</p>
+              <p className="mt-3 text-[22px] font-semibold leading-[1.3] text-paper">{stat.label}</p>
+              <p className="mt-2 text-[17px] leading-[1.45] text-faint">{stat.detail}</p>
+            </div>
+          ))}
+          <div className="rv pitch-card flex flex-col justify-center px-9 py-6" style={rv(4)}>
+            <p className="flex items-center gap-3">
+              <Tag tone="sky">Proof of concept</Tag>
+              <span className="text-[16px] text-faint">Real USDC on Base</span>
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4">
+              {TRACK_RECORD.money.map((stat) => (
+                <p key={stat.label} className="flex items-baseline gap-3">
+                  <span className="pitch-title text-[44px] text-sky">{stat.value}</span>
+                  <span className="text-[17px] leading-[1.3] text-muted">{stat.label}</span>
+                </p>
+              ))}
+            </div>
+          </div>
+          <div className="rv pitch-card flex flex-col justify-center px-9 py-6" style={rv(5)}>
+            <p className="flex items-baseline gap-4">
+              <span className="pitch-title text-[76px] text-lime">{TRACK_RECORD.agents.value}</span>
+              <span className="text-[22px] font-semibold leading-[1.3] text-paper">{TRACK_RECORD.agents.label}</span>
+            </p>
+            <p className="mt-3 text-[18px] leading-[1.45] text-muted">{TRACK_RECORD.agents.detail}</p>
+          </div>
         </div>
       </div>
 
-      <div className="rv mt-6 flex items-center justify-between gap-6" style={rv(6)}>
+      <p className="rv mt-5 flex items-center justify-between gap-6 text-[15px] text-faint" style={rv(6)}>
         <span className="flex flex-wrap gap-3">
           {TRACK_RECORD.rails.map((rail) => (
-            <span key={rail} className="rounded-full border border-edge-strong px-5 py-2 text-[17px] text-muted">
+            <span key={rail} className="rounded-full border border-edge-strong px-4 py-[6px] text-[15px] text-muted">
               {rail}
             </span>
           ))}
         </span>
-        <span className="text-[15px] text-faint">
-          Production, {TRACK_RECORD.asOf}. Resolver-run markets prove the engine, not demand.
-        </span>
-      </div>
+        <span>Hunch production on Base, {TRACK_RECORD.asOf}. Resolver-run markets prove the engine, not demand.</span>
+      </p>
     </Shell>
   );
 }
@@ -723,99 +885,215 @@ export function Traction() {
 
 export function BusinessModel() {
   const feePct = `${LIVE.feeBps / 100}%`;
-  const rows: { label: string; book: string; pool: string; hunch: string }[] = [
-    { label: 'Needs a market maker', book: 'On every market', pool: 'None', hunch: 'None' },
-    { label: 'Pays the early call more', book: 'Through the price', pool: 'Diluted by late money', hunch: 'Yes, by rule' },
-    { label: 'Open until the answer is near', book: 'While makers quote', pool: 'Closes early', hunch: 'Until the bell' },
-    { label: 'Operator capital at risk', book: 'Maker inventory', pool: 'The seed', hunch: 'Seed floored' },
-  ];
   return (
     <Shell n={9} section="Business model" tone="lime">
       <Title>
         We earn when winners are paid.
         <br />
-        Listing costs nothing we can lose<Dot />
+        Opening a market risks nothing<Dot />
       </Title>
 
-      <div className="mt-12 grid flex-1 grid-cols-[560px_1fr] gap-10">
+      <div className="mt-10 grid flex-1 grid-cols-[600px_1fr] gap-8">
         <div className="rv pitch-card pitch-card-strong flex flex-col px-10 py-9" style={rv(1)}>
-          <p className="pitch-title text-[140px] leading-[0.85] text-lime">{feePct}</p>
-          <p className="mt-4 text-[25px] font-semibold text-paper">of winners&rsquo; gains, at settlement</p>
-          <ul className="mt-6 space-y-4 text-[19px] leading-[1.45] text-muted">
+          <p className="pitch-title text-[150px] leading-[0.85] text-lime">{feePct}</p>
+          <p className="mt-5 text-[26px] font-semibold text-paper">of winners&rsquo; gains, at settlement</p>
+          <ul className="mt-7 space-y-4 text-[20px] leading-[1.45] text-muted">
+            <li className="flex gap-4">
+              <Check />
+              <span>About 1% of volume on a balanced book, since winners&rsquo; gains are roughly the losing side.</span>
+            </li>
             <li className="flex gap-4">
               <Check />
               <span>No fee to enter. Losing bets pay nothing extra.</span>
             </li>
             <li className="flex gap-4">
               <Check />
-              <span>About 1% of volume on balanced books, since winners&rsquo; gains are roughly the losing side.</span>
-            </li>
-            <li className="flex gap-4">
-              <Check />
-              <span>The seed can&rsquo;t lose: listing every ticker, every session, is a revolving float, not a subsidy.</span>
+              <span>
+                Our opening seed is floored in every outcome, and lost money in {PAPER.results[1].value} replayed markets: a revolving
+                float, not a subsidy to a market maker.
+              </span>
             </li>
           </ul>
-          <p className="mt-auto border-t border-edge pt-5 text-[16px] leading-[1.5] text-faint">
-            Unit economics will be reported from chain data after the first month of markets, not projected.
+        </div>
+
+        <div className="rv pitch-card flex flex-col px-10 py-9" style={rv(2)}>
+          <p className="flex items-center justify-between">
+            <span className="text-[24px] font-semibold text-paper">What 1% of volume is worth</span>
+            <Tag>Illustration, not a forecast</Tag>
+          </p>
+          <div className="mt-7 grid grid-cols-[1fr_auto_1fr] items-center gap-y-2 text-[18px] text-faint">
+            <span className="pitch-kicker text-[14px]">Monthly volume</span>
+            <span />
+            <span className="pitch-kicker text-right text-[14px]">Yearly revenue</span>
+          </div>
+          <div className="mt-2 flex flex-1 flex-col justify-around">
+            {FEE_SCENARIOS.map((row, i) => (
+              <div key={row.monthly} className="grid grid-cols-[1fr_auto_1fr] items-center border-t border-edge py-3">
+                <span className={`pitch-title text-[64px] ${i === FEE_SCENARIOS.length - 1 ? 'text-paper' : 'text-muted'}`}>{row.monthly}</span>
+                <Arrow className="h-[34px] w-[34px] text-faint" />
+                <span className={`pitch-title text-right text-[64px] ${i === FEE_SCENARIOS.length - 1 ? 'text-lime' : 'text-paper'}`}>{row.yearly}</span>
+              </div>
+            ))}
+          </div>
+          <p className="border-t border-edge pt-5 text-[18px] leading-[1.5] text-muted">
+            For scale: Kalshi and Polymarket traded {WAVE.months.find((m) => m.label === 'Jul')?.display} in July 2026, and Robinhood made{' '}
+            {TAILWINDS[0].value} from event contracts in one quarter. Our unit economics will be reported from chain data after the
+            first month of markets.
           </p>
         </div>
-
-        <div className="rv pitch-card overflow-hidden" style={rv(2)}>
-          <table className="h-full w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-edge">
-                <th className="w-[300px] px-8 py-6" />
-                <th className="px-6 py-6 text-[18px] font-semibold text-muted">
-                  Order books
-                  <span className="block text-[15px] font-normal text-faint">Kalshi, Polymarket</span>
-                </th>
-                <th className="px-6 py-6 text-[18px] font-semibold text-muted">
-                  Classic pools
-                  <span className="block text-[15px] font-normal text-faint">Tote, most on-chain pools</span>
-                </th>
-                <th className="bg-lime/[0.07] px-6 py-6 text-[18px] font-semibold text-lime">
-                  Hunch
-                  <span className="block text-[15px] font-normal text-lime/70">Vested Parimutuel</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={row.label} className={i < rows.length - 1 ? 'border-b border-edge' : undefined}>
-                  <td className="px-8 py-4 text-[20px] font-semibold text-paper">{row.label}</td>
-                  <td className="px-6 py-4 text-[19px] text-muted">{row.book}</td>
-                  <td className="px-6 py-4 text-[19px] text-muted">{row.pool}</td>
-                  <td className="bg-lime/[0.07] px-6 py-4 text-[19px] font-semibold text-paper">{row.hunch}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
-
     </Shell>
   );
 }
 
 // ================================================================================================
-// 10 · Team
+// 10 · Competition
+
+export function Competition() {
+  return (
+    <Shell n={10} section="Competition" tone="violet">
+      <Title>
+        They price the headlines.
+        <br />
+        We price everything else<Dot />
+      </Title>
+
+      <div className="mt-9 grid flex-1 grid-cols-[1000px_1fr] gap-10">
+        <figure className="rv pitch-card flex flex-col px-8 pb-5 pt-6" style={rv(1)}>
+          <LandscapeMap />
+          <figcaption className="mt-2 text-[15px] text-faint">Our read of the field, not a measurement.</figcaption>
+        </figure>
+
+        <div className="flex flex-col justify-center gap-7">
+          <p className="rv pitch-kicker text-[15px] text-lime" style={rv(2)}>
+            Why we win the long tail
+          </p>
+          {WHY_WE_WIN.map((point, i) => (
+            <div key={point.title} className="rv border-t border-edge pt-5" style={rv(3 + i)}>
+              <p className="flex items-baseline gap-4">
+                <span className="num text-[20px] text-lime">0{i + 1}</span>
+                <span className="text-[28px] font-semibold tracking-[-0.01em] text-paper">{point.title}</span>
+              </p>
+              <p className="mt-2 pl-[44px] text-[20px] leading-[1.5] text-muted">{point.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+/** Two questions place every way of pricing a question: who supplies the liquidity, and how far it reaches. */
+function LandscapeMap() {
+  const W = 1000;
+  const H = 590;
+  const X0 = 40;
+  const X1 = 960;
+  const Y0 = 50;
+  const Y1 = 540;
+  const px = (v: number): number => X0 + v * (X1 - X0);
+  const py = (v: number): number => Y1 - v * (Y1 - Y0);
+  const MX = px(0.5);
+  const MY = py(0.5);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="block w-full flex-1" role="img" aria-label="Order books and pools serve a few headline events; same-day options reach every stock but need market makers; Hunch reaches every stock and fills itself.">
+      <rect x={MX} y={Y0} width={X1 - MX} height={MY - Y0} rx="18" fill="rgba(200,240,79,0.06)" stroke="rgba(200,240,79,0.18)" />
+      <line x1={X0} x2={X1} y1={MY} y2={MY} stroke="rgba(255,255,255,0.14)" />
+      <line x1={MX} x2={MX} y1={Y0} y2={Y1} stroke="rgba(255,255,255,0.14)" />
+
+      <text x={X0} y={Y1 + 36} fill="rgba(244,244,242,0.55)" fontSize="17" fontFamily="var(--font-mono)" letterSpacing="1.5">
+        NEEDS A MARKET MAKER
+      </text>
+      <text x={X1} y={Y1 + 36} textAnchor="end" fill="#C8F04F" fontSize="17" fontFamily="var(--font-mono)" letterSpacing="1.5">
+        FILLS ITSELF →
+      </text>
+      <text x={X0 + 4} y={Y0 - 20} fill="#C8F04F" fontSize="17" fontFamily="var(--font-mono)" letterSpacing="1.5">
+        ↑ EVERY STOCK, EVERY SESSION
+      </text>
+      <text x={X0 + 4} y={Y1 - 14} fill="rgba(244,244,242,0.55)" fontSize="17" fontFamily="var(--font-mono)" letterSpacing="1.5">
+        A FEW HEADLINE EVENTS
+      </text>
+
+      {LANDSCAPE.map((player) => {
+        const hunch = player.name === 'Hunch';
+        const cx = px(player.x);
+        const cy = py(player.y);
+        return (
+          <g key={player.name}>
+            {hunch ? <circle cx={cx} cy={cy} r="34" fill="rgba(200,240,79,0.12)" /> : null}
+            <circle cx={cx} cy={cy} r={hunch ? 15 : 10} fill={hunch ? '#C8F04F' : 'rgba(244,244,242,0.5)'} />
+            <text x={cx + (hunch ? 30 : 22)} y={cy - 2} fill={hunch ? '#C8F04F' : '#F4F4F2'} fontSize={hunch ? 32 : 23} fontWeight={hunch ? 800 : 600} fontFamily={hunch ? 'var(--font-display)' : undefined}>
+              {player.name}
+            </text>
+            <text x={cx + (hunch ? 30 : 22)} y={cy + 24} fill="rgba(244,244,242,0.5)" fontSize="16">
+              {player.note}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ================================================================================================
+// 11 · Where this goes
+
+export function Vision() {
+  const heights = [290, 360, 430, 500];
+  return (
+    <Shell n={11} section="Where this goes" tone="violet">
+      <Title>
+        From four stocks to a market
+        <br />
+        on everything with a price<Dot />
+      </Title>
+      <Lead className="mt-6 max-w-[780px] text-[24px]">
+        A rule that lets any market open itself can list what no market maker would. Robinhood Chain gives us the prices, the
+        dollars and the holders to start.
+      </Lead>
+
+      <div className="mt-auto grid grid-cols-4 items-end gap-6">
+        {VISION.map((step, i) => {
+          const last = i === VISION.length - 1;
+          return (
+            <div
+              key={step.when}
+              className={`rv pitch-card flex flex-col px-8 py-7 ${last ? 'pitch-card-strong' : ''}`}
+              style={{
+                ...rv(2 + i),
+                height: `${heights[i]}px`,
+                backgroundImage: `linear-gradient(0deg, rgba(200,240,79,${(0.03 + i * 0.035).toFixed(3)}), rgba(255,255,255,0.015) 70%)`,
+              }}
+            >
+              <p className={`pitch-kicker text-[14px] ${last ? 'text-lime' : 'text-faint'}`}>{step.when}</p>
+              <p className={`pitch-title mt-3 text-[80px] ${last || i === 0 ? 'text-lime' : 'text-paper'}`}>{step.count}</p>
+              <p className="mt-auto text-[24px] font-semibold leading-[1.25] text-paper">{step.title}</p>
+              <p className="mt-2 text-[17px] leading-[1.45] text-muted">{step.body}</p>
+            </div>
+          );
+        })}
+      </div>
+    </Shell>
+  );
+}
+
+// ================================================================================================
+// 12 · Team
 
 export function Team() {
   return (
-    <Shell n={10} section="Team" tone="violet">
-      <div className="flex items-end justify-between">
-        <Title>
-          Two founders, full time<Dot />
-        </Title>
-        <p className="rv mb-1 max-w-[760px] text-right text-[21px] leading-[1.5] text-muted" style={rv(1)}>
-          Three products shipped together. Met in college, worked together at Infosys. Based in Bengaluru. Bootstrapped:
-          nothing raised.
-        </p>
-      </div>
+    <Shell n={12} section="Team" tone="violet">
+      <Title>
+        The team that wrote the rule<Dot />
+      </Title>
+      <Lead className="mt-5 text-[24px]">
+        Two founders, full time. Three products shipped together, a prediction market run since May, and the paper Hunch settles
+        on. Based in Bengaluru. Bootstrapped: nothing raised.
+      </Lead>
 
-      <div className="mt-10 grid flex-1 grid-cols-2 gap-8">
+      <div className="mt-8 grid flex-1 grid-cols-2 gap-8">
         {TEAM.map((person, i) => (
-          <div key={person.name} className="rv pitch-card flex flex-col px-11 py-9" style={rv(2 + i)}>
+          <div key={person.name} className="rv pitch-card flex flex-col px-10 py-7" style={rv(2 + i)}>
             <div className="flex items-center gap-8">
               <Monogram initials={person.initials} />
               <div>
@@ -827,16 +1105,16 @@ export function Team() {
                 <p className="mt-2 font-mono text-[15px] text-faint">{person.linkedin}</p>
               </div>
             </div>
-            <p className="mt-7 text-[23px] font-semibold leading-[1.4] text-paper">{person.lead}</p>
-            <ul className="mt-4 space-y-3">
+            <p className="mt-6 text-[22px] font-semibold leading-[1.4] text-paper">{person.lead}</p>
+            <ul className="mt-3 space-y-2">
               {person.points.map((point) => (
-                <li key={point} className="flex gap-4 text-[20px] leading-[1.5] text-muted">
+                <li key={point} className="flex gap-4 text-[19px] leading-[1.5] text-muted">
                   <span className="mt-[11px] h-[6px] w-[6px] shrink-0 rounded-full bg-lime" aria-hidden />
                   <span>{point}</span>
                 </li>
               ))}
             </ul>
-            <dl className="mt-auto grid grid-cols-3 gap-6 border-t border-edge pt-6">
+            <dl className="mt-auto grid grid-cols-3 gap-6 border-t border-edge pt-5">
               {person.stats.map((stat) => (
                 <div key={stat.label}>
                   <dt className="pitch-title text-[44px] text-lime">{stat.value}</dt>
@@ -854,32 +1132,34 @@ export function Team() {
 /** Initials set in the mark's own geometry: a hairline square with the arch cut from its base. */
 function Monogram({ initials }: { initials: string }) {
   return (
-    <span className="relative flex h-[132px] w-[132px] shrink-0 items-center justify-center rounded-[22px] border border-lime/45 bg-gradient-to-b from-lime/[0.14] to-lime/[0.02]">
-      <span className="pitch-title text-[54px] text-lime">{initials}</span>
+    <span className="relative flex h-[112px] w-[112px] shrink-0 items-center justify-center rounded-[20px] border border-lime/45 bg-gradient-to-b from-lime/[0.14] to-lime/[0.02]">
+      <span className="pitch-title text-[46px] text-lime">{initials}</span>
       <span className="absolute bottom-[-1px] left-1/2 h-[26px] w-[34px] -translate-x-1/2 rounded-t-full border border-b-0 border-lime/45 bg-ink" aria-hidden />
     </span>
   );
 }
 
 // ================================================================================================
-// 11 · The raise
+// 13 · The raise
 
 export function TheRaise() {
   const colors = ['bg-lime', 'bg-violet', 'bg-sky', 'bg-paper/45'];
   const text = ['text-lime', 'text-violet', 'text-sky', 'text-paper'];
   return (
-    <Shell n={11} section="The raise" tone="lime">
-      <Title className="max-w-[1500px]">
-        Raising a pre-seed round to put a market on every Stock Token, every session<Dot />
+    <Shell n={13} section="The raise" tone="lime">
+      <Title>
+        Raising a pre-seed round to put a market
+        <br />
+        on every Stock Token, every session<Dot />
       </Title>
 
-      <div className="mt-12 grid flex-1 grid-cols-[1fr_600px] gap-10">
+      <div className="mt-9 grid flex-1 grid-cols-[1fr_580px] gap-8">
         <div className="grid grid-cols-3 gap-5">
           {MILESTONES.map((milestone, i) => (
-            <div key={milestone.when} className="rv pitch-card flex flex-col px-8 py-8" style={rv(1 + i)}>
+            <div key={milestone.when} className="rv pitch-card flex flex-col px-8 py-7" style={rv(1 + i)}>
               <p className="pitch-kicker text-[15px] text-lime">{milestone.when}</p>
               <p className="mt-3 text-[24px] font-semibold leading-[1.25] text-paper">{milestone.title}</p>
-              <ul className="mt-5 space-y-3">
+              <ul className="mt-4 space-y-3">
                 {milestone.items.map((item) => (
                   <li key={item} className="flex gap-3 text-[18px] leading-[1.45] text-muted">
                     <span className="mt-[10px] h-[5px] w-[5px] shrink-0 rounded-full bg-paper/40" aria-hidden />
@@ -891,14 +1171,14 @@ export function TheRaise() {
           ))}
         </div>
 
-        <div className="rv pitch-card flex flex-col px-10 py-8" style={rv(4)}>
+        <div className="rv pitch-card flex flex-col px-10 py-7" style={rv(4)}>
           <p className="pitch-kicker text-[15px] text-faint">Use of funds</p>
-          <div className="mt-6 flex h-[18px] overflow-hidden rounded-full">
+          <div className="mt-5 flex h-[18px] overflow-hidden rounded-full">
             {USE_OF_FUNDS.map((use, i) => (
               <span key={use.label} className={`grow-x h-full ${colors[i]}`} style={{ width: `${use.share}%`, '--d': 5 + i } as CSSProperties} />
             ))}
           </div>
-          <ul className="mt-7 flex flex-1 flex-col justify-between">
+          <ul className="mt-6 flex flex-1 flex-col justify-between">
             {USE_OF_FUNDS.map((use, i) => (
               <li key={use.label} className="grid grid-cols-[86px_1fr] items-baseline gap-4">
                 <span className={`pitch-title text-[40px] ${text[i]}`}>{use.share}%</span>
@@ -912,12 +1192,15 @@ export function TheRaise() {
         </div>
       </div>
 
-      <div className="rv mt-8 flex items-center justify-between rounded-[20px] border border-edge bg-white/[0.02] px-9 py-5" style={rv(6)}>
-        <span className="flex items-center gap-5">
-          <HunchMark className="h-[34px] w-[34px]" />
-          <span className="text-[21px] text-paper">Raj Karia, CEO</span>
+      <div className="rv mt-7 flex items-center justify-between rounded-[20px] border border-lime/30 bg-lime/[0.05] px-9 py-5" style={rv(6)}>
+        <span className="flex items-center gap-6">
+          <HunchMark className="h-[44px] w-[44px]" />
+          <span className="pitch-title text-[48px] text-paper">
+            Call it early<Dot />
+          </span>
         </span>
         <span className="flex items-center gap-10 text-[20px] text-muted">
+          <span className="text-paper">Raj Karia, CEO</span>
           <a href={PITCH.xUrl} target="_blank" rel="noreferrer" className="hover:text-paper">
             {PITCH.x}
           </a>
@@ -927,9 +1210,6 @@ export function TheRaise() {
           <a href={LINKS.paper} target="_blank" rel="noreferrer" className="hover:text-paper">
             The paper
           </a>
-          <a href={LINKS.hunch} target="_blank" rel="noreferrer" className="text-paper hover:text-lime">
-            {PITCH.hunchDomain}
-          </a>
         </span>
       </div>
     </Shell>
@@ -937,5 +1217,18 @@ export function TheRaise() {
 }
 
 /** The deck, in order, for the page and the tests. */
-export const SLIDES = [Cover, Problem, Solution, EarlyVsLate, Product, WhyRobinhood, LiveOnMainnet, Traction, BusinessModel, Team, TheRaise] as const;
-
+export const SLIDES = [
+  Cover,
+  Opportunity,
+  Problem,
+  RootCause,
+  Insight,
+  Research,
+  Product,
+  Traction,
+  BusinessModel,
+  Competition,
+  Vision,
+  Team,
+  TheRaise,
+] as const;
