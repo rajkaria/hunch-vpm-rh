@@ -18,7 +18,7 @@ solid-accent control per view is the primary action (Place bet / Connect).
 - Plain words first. The terms "vested", "parimutuel", "vintage", "κ", "accumulator"
   never appear above the fold or in a button. They live on `/how-it-works` under
   "For the curious", each defined on first use.
-- No em dashes, no hype words (`hackathon/arsenal/copy/voice-lint.sh` clean).
+- No em dashes, no hype words.
 - Money to the cent, in USDG, `font-mono`. Never round up a payout.
 - Every claim on the page is backed by a chain read or links to one. No static numbers
   on the landing page except the test-pinned worked example, labelled "illustration".
@@ -166,13 +166,13 @@ Prints one slide per page; `pnpm --filter @hunch-rh/web pitch:pdf` regenerates
   it injects), `walletConnect({ projectId })` (Reown project; `vpm.playhunch.xyz` must be
   on the project's domain allow-list), `coinbaseWallet()`.
 - Chain object for 4663 with explorer `robinhoodchain.blockscout.com`, multicall3
-  address (verified in `research-facts.md`).
+  address (verified on chain 4663).
 - Wrong network: the primary button becomes "Switch to Robinhood Chain" and uses
   add-then-switch (wallets that do not return 4902 still get the add call).
 - After every write: wait for the receipt, then refetch the market and portfolio
   queries; a hard refresh must show the same stake (golden-path step).
 - Robinhood Wallet: verify dapp connection (WalletConnect or in-app browser) during the
-  G4 golden path. If it cannot connect, `/start` says so plainly and lists the wallets
+  golden path (`07-testing.md`). If it cannot connect, `/start` says so plainly and lists the wallets
   that can.
 
 ## Geo and eligibility

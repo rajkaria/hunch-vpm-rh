@@ -2,7 +2,7 @@
 # Verifies the three deployed contracts on Blockscout (robinhoodchain.blockscout.com), falling
 # back to Sourcify for any contract Blockscout refuses (its API sits behind a Cloudflare
 # challenge that can block the CLI). The operator runs it after scripts/post-deploy.sh
-# (docs/OPERATOR.md step 8); nothing in the test suites calls it.
+# (scripts/go-live.sh runs it); nothing in the test suites calls it.
 #
 #   bash scripts/verify-contracts.sh                        Blockscout, then Sourcify on failure
 #   bash scripts/verify-contracts.sh --verifier sourcify    Sourcify only

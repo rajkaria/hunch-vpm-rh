@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Completes the deployment JSON after DeployRH, from the broadcast receipts and the chain itself.
 #
-#   bash scripts/post-deploy.sh                          mainnet (docs/OPERATOR.md, right after step 6)
+#   bash scripts/post-deploy.sh                          mainnet (scripts/go-live.sh runs it right after the deploy)
 #   bash scripts/post-deploy.sh --deployment deployments/local/robinhood-fork.json \
 #        --broadcast deployments/local/broadcast/DeployRH.s.sol/4663/run-latest.json \
 #        --rpc-url http://127.0.0.1:8545 --no-wire      what scripts/rehearse-fork.sh runs
@@ -120,7 +120,7 @@ pending=$(call "$FACTORY" 'pendingOwner()(address)')
 if [ "$(lc "$owner")" = "$(lc "$SAFE")" ]; then
   say "factory owner is the Safe (ownership accepted)"
 elif [ "$(lc "$pending")" = "$(lc "$SAFE")" ]; then
-  say "factory owner is still the deployer $owner; the Safe must call acceptOwnership() now (docs/OPERATOR.md step 7)"
+  say "factory owner is still the deployer $owner; the Safe must call acceptOwnership() now (scripts/go-live.sh does it)"
 else
   die "factory owner $owner and pending owner $pending: neither is the Safe $SAFE"
 fi

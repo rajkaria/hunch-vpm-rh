@@ -4,8 +4,8 @@
  *
  * Three kinds of number, kept apart on purpose:
  *
- * - Robinhood Chain facts: read on chain 4663 (docs/FACTS.md, the deployment file, the research
- *   notes of 2026-09-27), or computed by the client's exact mirror of the contract.
+ * - Robinhood Chain facts: read on chain 4663 (docs/FACTS.md, the deployment file, `cast` reads
+ *   of 2026-09-27), or computed by the client's exact mirror of the contract.
  * - Hunch's track record before this venue: production figures for playhunch.xyz on Base, pulled
  *   on 2026-09-29. Shown as proof of concept, never as demand for this venue.
  * - Market context: third-party figures, each with its source named on the slide.
@@ -201,7 +201,7 @@ export const LIVE = {
 };
 
 // ------------------------------------------------------------------------------------------------
-// Robinhood Chain, read on chain 4663 on 2026-09-27 (internal research notes; `cast` + Blockscout)
+// Robinhood Chain, read on chain 4663 on 2026-09-27 (`cast` + Blockscout)
 
 export const CHAIN_FACTS = [
   { value: '$686M', label: 'USDG on Robinhood Chain', note: 'totalSupply on chain 4663, Sep 27, 2026' },

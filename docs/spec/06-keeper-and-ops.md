@@ -72,7 +72,7 @@ An external uptime monitor (the operator's choice: UptimeRobot / Better Stack fr
 polls `/api/health` every 5 min and alerts the operator's phone. Optional: the keeper
 posts failures to a Telegram chat if `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set.
 
-## Runbook (kept in the internal folder; summary here)
+## Runbook (summary)
 
 - **Pause new entries and new markets** (bug suspected): pauser (fast, one key) or Safe →
   `HunchVPM.setEntriesPaused(true)`. Claims and settlement keep working; only the Safe resumes.
@@ -81,6 +81,5 @@ posts failures to a Telegram chat if `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
 - **Keeper key leaked:** Safe → `factory.setOpener(old, false)`, rotate key in Vercel,
   `setOpener(new, true)`. The leaked key can only list markets with its own money and
   holds the seed float; move the float first.
-- **Judging window:** `main` frozen after submission; fixes on a branch; a state backup
-  (deployments JSON + keeper balances) before any deploy; the golden path re-run daily;
-  keeper float funded for 2× the judging window (Oct 4 → Oct 12 results + buffer).
+- **Before any deploy:** a state backup (deployments JSON + keeper balances); the golden
+  path re-run after every deploy that touches a flow; the keeper float funded well ahead.

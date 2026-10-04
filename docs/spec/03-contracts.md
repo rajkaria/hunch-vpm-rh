@@ -85,7 +85,7 @@ Guardian, treasury and factory non-zero, checked.
   `_withdrawRefund(positionId)` that pay `p.owner`; `claim` / `withdrawRefund` keep the
   owner check (reference behaviour) and call the same internals.
 - Why: the keeper pushes every payout after resolution, so a bettor never has to come
-  back to collect. Judges see money arrive.
+  back to collect: the money arrives on its own.
 - Claims stay per position. Paxos can freeze any USDG address; a frozen winner's
   `claimFor` reverts alone and never blocks anyone else's (the keeper sends one call per
   position, or Multicall3 `aggregate3` with `allowFailure = true`).
@@ -112,8 +112,8 @@ Guardian, treasury and factory non-zero, checked.
 ### D5 · Gasless entry with a signed USDG transfer (EIP-3009)
 
 USDG on chain 4663 implements EIP-3009 `receiveWithAuthorization`, including the
-`bytes`-signature overload that accepts ERC-1271 smart wallets (verified in
-`research-facts.md` §2). So a bettor never needs ETH:
+`bytes`-signature overload that accepts ERC-1271 smart wallets (verified on chain with
+`cast`). So a bettor never needs ETH:
 
 ```solidity
 bytes32 public constant ENTER_TYPEHASH =
@@ -251,7 +251,7 @@ The Robinhood Chain equity feeds (8 decimals) are deviation-triggered: they upda
 the price moves 0.5% from the last report, or on a 24 h heartbeat, across the 24/5
 window (Sun 20:00 ET to Fri ~20:00 ET; overnight, pre-market, regular and post-market
 sessions). A round printed exactly at 09:30 or 16:00 ET almost never exists; SPY's
-Friday value "at 16:00" was 3 h 57 m old on 2026-09-25 (`research-facts.md` §10). So
+Friday value "at 16:00" was 3 h 57 m old on 2026-09-25 (read with `cast`). So
 both readings are defined as **the answer of the last round with `updatedAt ≤ T`**,
 which is Chainlink's attestation of the price in effect at T, within its 0.5%
 deviation band. The rules box says so, including that it can differ from the exchange's
@@ -466,7 +466,7 @@ The factory holds no funds between transactions (asserted by test).
 | `claimFor` winning | claim 62,473 | ≤ 90k |
 
 At the base fee observed on chain 4663 on 2026-09-27 (0.02047 gwei), a 240k-gas entry
-costs about 4.9e-6 ETH; the L1 data fee was 0 (research-facts §1), so a relayed bet
+costs about 4.9e-6 ETH; the L1 data fee was 0 (read on chain), so a relayed bet
 costs the venue well under one cent.
 
 These are cost targets, set before the build, and nothing enforces them: the contracts are

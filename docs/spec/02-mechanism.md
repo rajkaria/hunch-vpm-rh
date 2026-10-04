@@ -118,6 +118,6 @@ partial fills should be rare in the beta; the UI still quotes "accepted now: X" 
 ## Pre-event provenance
 
 The mechanism, the paper, the reference contract `VestedParimutuel.sol`, the conformance
-vectors and the tape replay all predate this buildathon (paper 2nd edition 2026-09-02;
-Arc testnet venue 2026-09-13). The README labels them as such. What is new in this
-build is listed in `09-acceptance.md` §Built during the buildathon.
+vectors and the tape replay all predate this repository (paper 2nd edition 2026-09-02;
+Arc testnet venue 2026-09-13). The README labels them as such; its Provenance table lists
+what is new here.

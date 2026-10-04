@@ -11,7 +11,7 @@ import {IStockToken} from "../src/interfaces/IStockToken.sol";
 import {RH, IChainlinkProxy, IUSDG, ISafeLike} from "./RH.sol";
 
 /// @title  DeployRH: the Hunch venue on Robinhood Chain (4663), in one run
-/// @notice The operator runs (docs/OPERATOR.md step 6):
+/// @notice The operator runs (scripts/go-live.sh does this step):
 ///
 ///           forge script contracts/script/DeployRH.s.sol:DeployRH --root contracts \
 ///             --rpc-url $RH_RPC_URL --account hunch-deployer --sender <DEPLOYER> --broadcast --slow
@@ -41,7 +41,7 @@ import {RH, IChainlinkProxy, IUSDG, ISafeLike} from "./RH.sol";
 ///         null until scripts/post-deploy.sh reads them from the broadcast receipts (on 4663,
 ///         `block.number` inside the EVM is the L1 estimate, not the L2 block).
 ///
-///         Without --broadcast (the dry run docs/OPERATOR.md step 6 starts with) it runs every
+///         Without --broadcast (the dry run scripts/go-live.sh starts with) it runs every
 ///         check and prints the addresses, and writes NOTHING: the deployment JSON is written only
 ///         when the transactions are actually broadcast.
 contract DeployRH is Script {
@@ -135,7 +135,7 @@ contract DeployRH is Script {
                     vm.toString(c.deployer),
                     " holds ",
                     vm.toString(c.deployer.balance),
-                    " wei; it needs at least 0.0005 ETH (docs/OPERATOR.md step 4)"
+                    " wei; it needs at least 0.0005 ETH (bash scripts/go-live.sh --check)"
                 )
             );
         }

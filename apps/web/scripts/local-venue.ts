@@ -121,7 +121,7 @@ async function setup(): Promise<void> {
   const fAbi = artifact('HunchMarketFactory').abi;
   await send('deployer', { address: factory, abi: fAbi, functionName: 'setFeed', args: [agg, stock, 'NVDA', 93_600, 93_600, true] });
   await send('deployer', { address: factory, abi: fAbi, functionName: 'setOpener', args: [acct.keeper.address, true] });
-  // The two-step hand-over DeployRH starts and the Safe completes (OPERATOR step 7), so health's ownership check is green.
+  // The two-step hand-over DeployRH starts and the Safe completes, so health's ownership check is green.
   await send('deployer', { address: factory, abi: fAbi, functionName: 'transferOwnership', args: [acct.safe.address] });
   await send('safe', { address: factory, abi: fAbi, functionName: 'acceptOwnership', args: [] });
   const mint = artifact('MockUSDG').abi;

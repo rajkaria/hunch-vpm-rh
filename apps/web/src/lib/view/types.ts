@@ -162,7 +162,7 @@ export interface RefundRow {
   owner: string;
   amount: bigint;
   txUrl: string;
-  /** Labelled operator or starter-grant wallets (docs/spec/10-risk.md R1). */
+  /** Labelled operator or starter-grant wallets. */
   label?: string;
 }
 

@@ -49,13 +49,21 @@ scratch/
 .ocean/
 .burn-rate/
 
-# Internal docs. Submission, demo script, runbook, research, sponsor notes and agent context stay
-# local; the public docs are README.md, docs/ARCHITECTURE.md and the package READMEs.
+# Internal docs. Submission, demo script, operator guide, runbook, research, sponsor notes, the
+# build plan's acceptance, risk and vision-source chapters, and agent context stay local (the
+# sibling hunch-vpm-rh-internal/ folder keeps the copies). The public docs are README.md,
+# VISION.md, docs/ARCHITECTURE.md, docs/FACTS.md, the design chapters in docs/spec/, the
+# contracts/*.md files and the package READMEs.
 **/CLAUDE.md
 **/AGENTS.md
 .claude/
 docs/internal/
 docs/context/
+docs/OPERATOR.md
+docs/RUNBOOK.md
+docs/spec/09-acceptance.md
+docs/spec/10-risk.md
+docs/spec/11-vision.md
 
 # >>> hackathon-skill: public-repo guard (arsenal/repo/gitignore-public.txt) >>>
 # This repo is public from minute one. Judges, sponsors and competitors can read

@@ -85,7 +85,7 @@ A=20000000
 if [ $((MAXE - S)) -lt "$A" ]; then A=$((MAXE - S)); fi             # C = S + A stays within the max entry
 if [ $(((KAPPA - 1) * S)) -lt "$A" ]; then A=$(((KAPPA - 1) * S)); fi # and A within the DOWN book's headroom
 C=$((S + A))
-KEEPER_FUND=25000000 # the operator's keeper float at a 1 USDG seed (docs/OPERATOR.md step 4)
+KEEPER_FUND=25000000 # the operator's keeper float at a 1 USDG seed
 if [ $((2 * S + 5000000)) -gt "$KEEPER_FUND" ]; then KEEPER_FUND=$((2 * S + 5000000)); fi
 ALICE_FUND=$((A + 30000000))
 CAROL_FUND=$((C + 20000000))

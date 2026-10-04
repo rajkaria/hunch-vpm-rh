@@ -133,7 +133,7 @@ packages/client     @hunch-rh/client: chain 4663, ABIs, view-call reads, exact m
 packages/keeper     @hunch-rh/keeper: open, resolve, deliver, relay, health (pure decisions + runner + CLI)
 apps/web            the venue (Next.js on Vercel): pages, /api reads, /api/relay/enter, /api/cron/[job]
 deployments/        robinhood-mainnet.json (addresses), feeds-4663.json (feed measurements)
-docs/               spec/, ARCHITECTURE, OPERATOR (deploy guide), RUNBOOK, FACTS
+docs/               spec/ (design), ARCHITECTURE, FACTS (every public claim with its receipt)
 ```
 
 ```bash
@@ -148,8 +148,11 @@ The contracts are built and measured with **forge 1.8.4**, pinned: `bash scripts
 with the install command (`foundryup --install v1.8.4`) when it is missing. Gas figures and
 the D9 ceilings depend on the release: [docs/spec/03-contracts.md](docs/spec/03-contracts.md#how-gas-is-measured-and-the-pinned-toolchain).
 
-Deploying and operating the venue: [`docs/OPERATOR.md`](docs/OPERATOR.md) and
-[`docs/RUNBOOK.md`](docs/RUNBOOK.md). Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Deploying the venue: [`scripts/go-live.sh`](scripts/go-live.sh) (Safe, deploy, verify, ownership;
+`--check` is read-only), rehearsed on a fork by [`scripts/rehearse-fork.sh`](scripts/rehearse-fork.sh) and
+[`scripts/test-go-live.sh`](scripts/test-go-live.sh). What to do when something goes wrong:
+[`docs/spec/06-keeper-and-ops.md`](docs/spec/06-keeper-and-ops.md#runbook-summary). Architecture:
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 Where this goes next: [`VISION.md`](VISION.md).
 
 ## Provenance

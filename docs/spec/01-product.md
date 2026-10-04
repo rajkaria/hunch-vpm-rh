@@ -74,7 +74,7 @@ subsidy.
 
 Geography: stock-price markets are **not offered to persons in the United States,
 Canada, the United Kingdom or Switzerland** (the same list Robinhood applies to Stock
-Tokens). See `05-web-app.md` §Geo and `10-risk.md`.
+Tokens). See `05-web-app.md` §Geo and eligibility.
 
 ## The markets (v1 catalogue)
 
@@ -120,7 +120,7 @@ Stated as a dependency list, not as praise:
 ## What we deliberately do not build (v1)
 
 - No order book, no AMM, no cash-out before settlement. (A position is transferable
-  on-chain; a venue buy-back desk is roadmap, `11-vision.md`.)
+  on-chain; a venue buy-back desk is roadmap, `VISION.md`.)
 - No markets on other chains in this build. One chain, one stablecoin.
 - No AI agent in the money path. No LLM anywhere in v1.
 - No leverage, no margin, no liquidation.
@@ -128,9 +128,9 @@ Stated as a dependency list, not as praise:
 - No N-way range markets in v1 (paper §4.3: n-way needs unbounded κ and a published
   minimum seed; roadmap).
 
-## Success criteria for the build (what "done" means to a judge)
+## What "done" means for v1
 
-1. A judge opens `vpm.playhunch.xyz`, sees live markets with a live Chainlink price and
+1. A visitor opens `vpm.playhunch.xyz`, sees live markets with a live Chainlink price and
    a countdown to the bell, and can place a bet from a wallet on Robinhood Chain.
 2. The home page shows one **settled** weekly market with at least one early and one
    late winning bettor, their USDG payouts side by side, what an ordinary pool would

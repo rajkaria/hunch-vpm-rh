@@ -144,7 +144,7 @@ Deploy kit (same review): `DeployRH` wrote the deployment JSON during a dry run 
 `--broadcast`), flipping it to "deployed" with predicted addresses so the real run refused; it now
 writes only when broadcasting. It also refuses a keeper (or pauser) that is a Safe owner, and wires
 and checks `HunchVPM.factory()` and `pauser()`. The Safe accepts factory ownership right after
-`post-deploy.sh` (docs/OPERATOR.md), and `/api/health` reports ownership and wiring.
+`post-deploy.sh` (run by `scripts/go-live.sh`), and `/api/health` reports ownership and wiring.
 
 ## 7. The D9 gas margin, re-measured (2026-10-04)
 

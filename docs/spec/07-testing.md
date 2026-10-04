@@ -28,11 +28,11 @@ README does not advertise test counts.
 | T8 | `packages/client/test/mechanics.test.ts` | TS `accrued`, quote (incl. open-vintage demand) and classic counterfactual equal the contract's numbers on the worked example and on 20 vectors (fixtures exported by Foundry). |
 | T8r | `packages/client/test/rounds.test.ts` | Round finder against **captured** round series from chain 4663 (`scripts/capture-rounds.ts` writes fixtures from the live feed; never hand-written), incl. a phase boundary fixture if one exists. |
 | T9 | `packages/keeper/test/*.test.ts` | Relay endpoint validation (wrong domain, expired, wrong amount, rate limit). Pure decisions: which markets to open for a given ET date (holiday, early close, DST boundary Nov 1, corporate action skip); resolve vs void vs page; deliver batching; idempotency (second run does nothing). |
-| T10 | `apps/web/test/*.test.tsx` | `<EarlyVsLate>` renders the fixture and never drops the "Illustration" label on fallback; `<StakePanel>` state machine (connect → switch → sign → relayed → confirmed; and the pay-gas path connect → switch → approve → enter → confirmed); geo gate; copy snapshot of the landing hero for `first-screen.sh`. |
+| T10 | `apps/web/test/*.test.tsx` | `<EarlyVsLate>` renders the fixture and never drops the "Illustration" label on fallback; `<StakePanel>` state machine (connect → switch → sign → relayed → confirmed; and the pay-gas path connect → switch → approve → enter → confirmed); geo gate; copy snapshot of the landing hero. |
 
 ## On the real network (humans)
 
-**G4 golden path (operator, mainnet, before the first public market):**
+**Golden path (operator, mainnet, before the first public market):**
 
 | # | Step | Pass when |
 |---|---|---|
@@ -45,13 +45,12 @@ README does not advertise test counts.
 | 7 | Repeat step 2 from a phone via WalletConnect | Works |
 | 8 | Robinhood Wallet | Connects and bets, or `/start` states it can't |
 
-Wallet matrix recorded in the internal judge log with date, wallet, device, result.
+The wallet matrix (date, wallet, device, result) is recorded with each run.
 
-**Liveness:** `/api/health` green for a full trading day before the draft submission.
+**Liveness:** `/api/health` green for a full trading day before markets are announced.
 
-## Claims audit (before freeze)
+## Claims audit
 
-Every sentence on the landing page, README, `/proof`, the video and the submission form
-maps to a row in `docs/FACTS.md` with its receipt (tx hash, contract call, Blockscout
-URL). Anything without a receipt is removed or moved to "Roadmap". Run
-`hackathon/arsenal/submission-check/` with `--strict`.
+Every sentence on the landing page, the README and `/proof` maps to a row in
+`docs/FACTS.md` with its receipt (tx hash, contract call, Blockscout URL). Anything without
+a receipt is removed or moved to "Roadmap".

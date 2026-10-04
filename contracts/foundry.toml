@@ -64,7 +64,7 @@ robinhood = "${RH_RPC_URL}"
 
 # Blockscout needs no API key: verification flags go on the command line
 # (--verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/),
-# with Sourcify as the fallback. See docs/OPERATOR.md.
+# with Sourcify as the fallback. See scripts/verify-contracts.sh.
 
 # The vendored reference implementation and its suite must stay byte-for-byte
 # identical to what was published with the paper — the formatter never touches them.

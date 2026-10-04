@@ -1,4 +1,4 @@
-# Hunch on Robinhood Chain · build spec
+# Hunch on Robinhood Chain · design spec
 
 **Status:** design, 2026-09-28. Nothing here is live until it appears in
 `docs/FACTS.md` "Live now" with a receipt.
@@ -14,16 +14,16 @@ closing bell. Served at `vpm.playhunch.xyz`.
 | File | For | Contents |
 |---|---|---|
 | [01-product.md](01-product.md) | everyone | one-liner, problem, personas, market catalogue, what we don't build |
-| [02-mechanism.md](02-mechanism.md) | contracts, web, pitch | VPM rules in plain words, properties used, venue parameters, worked example |
+| [02-mechanism.md](02-mechanism.md) | contracts, web | VPM rules in plain words, properties used, venue parameters, worked example |
 | [03-contracts.md](03-contracts.md) | contracts | HunchVPM diff D1–D10, StockRoundResolver, HunchMarketFactory, powers, invariants, gas |
 | [04-markets-and-resolution.md](04-markets-and-resolution.md) | contracts, keeper, web | feeds, tickers, session times, round proofs, staleness bounds, calendar |
 | [05-web-app.md](05-web-app.md) | web | routes, components, copy rules, data layer, wallets, geo |
 | [06-keeper-and-ops.md](06-keeper-and-ops.md) | keeper, ops | cron jobs, void policy, wallets, health, runbook |
 | [07-testing.md](07-testing.md) | all | T1–T10, human golden path, claims audit |
 | [08-deployment.md](08-deployment.md) | ops | chain facts, addresses, deploy order, verification, env vars, funding routes |
-| [09-acceptance.md](09-acceptance.md) | all | definition of done, timing constraint, pre-event vs new |
-| [10-risk.md](10-risk.md) | all | risk register |
-| [11-vision.md](11-vision.md) | pitch | roadmap, revenue, hypotheses |
+
+The roadmap and revenue model are in [`VISION.md`](../../VISION.md); what is pre-event and what
+was built here is in the README's Provenance table.
 
 ## Repository layout (target)
 

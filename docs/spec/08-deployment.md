@@ -1,9 +1,8 @@
 # 08 · Deployment
 
-Every address below was checked with `cast` against chain 4663 on 2026-09-27 (internal
-`research-facts.md` holds the commands and outputs). The deploy script re-checks each one
-(`cast code` non-empty, expected `symbol()` / `description()` / `decimals()`) and refuses
-to run on any mismatch.
+Every address below was checked with `cast` against chain 4663 on 2026-09-27. The deploy
+script re-checks each one (`cast code` non-empty, expected `symbol()` / `description()` /
+`decimals()`) and refuses to run on any mismatch.
 
 ## Chain facts
 
@@ -72,7 +71,7 @@ mainnet run: `forge script ... --fork-url $RH_RPC_URL` with no `--broadcast`, th
 
 - New Vercel project for this repo, root `apps/web`, framework Next.js.
 - Domain `vpm.playhunch.xyz` (the `playhunch.xyz` zone is already on Vercel).
-- Env vars (production; the operator sets secrets, Claude only names them):
+- Env vars (production; the operator sets the secrets, and no file in the repo holds one):
   `NEXT_PUBLIC_CHAIN_ID=4663`, `NEXT_PUBLIC_RH_RPC_URL` (public RPC, read fallback),
   `RH_RPC_URL` (keyed, server only), `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`,
   `KEEPER_PRIVATE_KEY` (sensitive; the keeper is also the relayer), `CRON_SECRET`,
@@ -90,7 +89,7 @@ mainnet run: `forge script ... --fork-url $RH_RPC_URL` with no `--broadcast`, th
 | ETH on Ethereum → Arbitrum portal (canonical) | ~10 min in | ETH | 7-day withdrawal; slowest |
 | Robinhood Wallet | native chain support | — | Moving USDG/ETH from the Robinhood app to the chain, and regional availability, are OPEN |
 
-Operator needs (see internal blockers): ~0.01 ETH across deployer and keeper (the
+Operator needs: ~0.01 ETH across deployer and keeper (the
 keeper also pays relayed bets and claim deliveries; at ~$0.004 per call, 0.01 ETH covers
 thousands), and ~300 USDG (seeds float ≈ 4 tickers × 2 open markets × 20 = 160 USDG, plus
 the golden path, the refund drill and labelled starter grants).

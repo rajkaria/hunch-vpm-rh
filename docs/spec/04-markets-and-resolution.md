@@ -1,7 +1,7 @@
 # 04 · Markets and resolution
 
-Chain facts in this file come from `research-facts.md` (internal, verified with `cast`
-on 2026-09-27); the public copy of every address is `deployments/robinhood-mainnet.json`.
+Chain facts in this file were read on chain 4663 with `cast` on 2026-09-27; the copy of
+every address the code uses is `deployments/robinhood-mainnet.json`.
 
 ## How the price feeds behave (and why the rules read the way they do)
 
@@ -70,7 +70,7 @@ docs.robinhood.com/chain/contracts and cast-checked, never looked up by symbol.
    round in effect at 16:00 ET. Allow-list for daily markets only if FLAT ≤ 25%;
    weekly markets only if the weekly FLAT rate is ≤ 10%.
 3. `oraclePaused()` history: count `OraclePaused` events on the Stock Token in the last
-   90 days (OPEN item in research-facts).
+   90 days (still open).
 
 **Age bounds (v1, weekday windows):** `maxStrikeAge = maxFinalAge = 26 h` (heartbeat
 plus 2 h). A reading older than that means the feed missed its heartbeat, and the market
