@@ -76,8 +76,10 @@ posts failures to a Telegram chat if `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
 
 - **Pause new entries and new markets** (bug suspected): pauser (fast, one key) or Safe →
   `HunchVPM.setEntriesPaused(true)`. Claims and settlement keep working; only the Safe resumes.
-- **Feed misbehaving:** Safe → `factory.setFeed(feed, ticker, …, allowed=false)`; the
-  keeper stops listing it; existing markets settle or void on their own proofs.
+- **Feed misbehaving:** Safe → `factory.setFeed(feed, stockToken, ticker, maxStrikeAge,
+  maxFinalAge, false)` with the feed's **same** Stock Token, ticker and bounds (read them with
+  `feeds(feed)`), so only `allowed` changes and the site keeps labelling the markets already
+  open on it; the keeper stops listing it; existing markets settle or void on their own proofs.
 - **Keeper key leaked:** Safe → `factory.setOpener(old, false)`, rotate key in Vercel,
   `setOpener(new, true)`. The leaked key can only list markets with its own money and
   holds the seed float; move the float first.
