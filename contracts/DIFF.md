@@ -54,8 +54,9 @@ it:
   outcome for every entry, and `create` is permissionless up to 255 outcomes: 200 entries on
   a 110-outcome market no longer fit in a block. `MAX_VINTAGE_WORK` = 12,800 caps
   entries × outcomes, which leaves binary markets at 200 entries and bounds the worst full
-  vintage of any market that can be created inside 32M gas (up to about 140 outcomes) at
-  about 23.1M gas (64 outcomes, every book rationed).
+  vintage of any market that can be created inside 32M gas (up to 139 outcomes) at a
+  transaction of about 25.3M gas (64 outcomes, every book rationed; measured as real
+  transactions, docs/spec/03-contracts.md section Gas).
 - **A huge finite κ** (independent review, I-1). Finalizing computes κ·a with checked
   arithmetic, so κ = 1e70 overflowed on a 20 USDG entry and reverted every exit.
   `MAX_KAPPA` = 1e9 (the largest finite κ among the paper's published vectors, P9 and P12):

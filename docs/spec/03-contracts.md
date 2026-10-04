@@ -1,6 +1,7 @@
 # 03 · Contracts
 
-Foundry project under `contracts/`. solc 0.8.28, optimizer 200 runs, `via_ir = false`,
+Foundry project under `contracts/`, built and tested with forge 1.8.4 (pinned:
+`scripts/forge.sh`, see Gas below). solc 0.8.28, optimizer 200 runs, `via_ir = false`,
 `evm_version = "cancun"` (Robinhood Chain Stock Tokens use post-Shanghai opcodes; the
 chain's supported version is recorded in `08-deployment.md`). No upgradeable proxies.
 `block.number` on this chain is the **L1 (Ethereum) block estimate**, which advances
@@ -202,10 +203,11 @@ in one L1 block push finalization past the chain's 32M per-transaction gas limit
 market (with every stake in it) can never settle (`test/VintageStuffing.t.sol`). Fix:
 `MAX_VINTAGE_ENTRIES = 200`; a 201st entry in the same vintage reverts `VintageFull()` and
 the relayer retries it in the next block (the signed authorization stays unused, because
-every check runs before the pull). A full vintage finalizes in about 6.9M gas. Because
-finalization costs O(entries × outcomes) and `create` allows up to 255 outcomes, a second
-cap `MAX_VINTAGE_WORK = 12,800` bounds `(pending + 1) × n` (200 entries up to 64 outcomes,
-50 at 255); the fullest vintage of any creatable market finalizes in at most ~23.1M gas.
+every check runs before the pull). A full binary vintage finalizes in a transaction of
+about 8.0M gas. Because finalization costs O(entries × outcomes) and `create` allows up to
+255 outcomes, a second cap `MAX_VINTAGE_WORK = 12,800` bounds `(pending + 1) × n` (200
+entries up to 64 outcomes, 50 at 255); the fullest vintage of any creatable market
+finalizes in a transaction of at most about 25.3M gas, pinned under 26M (Gas, below).
 A finite κ above `MAX_KAPPA = 1e9` is refused at creation (`InvalidKappa`): a huge κ
 overflows `κ · a` at finalization and would lock the market. (The published vectors use κ up
 to 1e9.)
@@ -466,6 +468,85 @@ The factory holds no funds between transactions (asserted by test).
 At the base fee observed on chain 4663 on 2026-09-27 (0.02047 gwei), a 240k-gas entry
 costs about 4.9e-6 ETH; the L1 data fee was 0 (research-facts §1), so a relayed bet
 costs the venue well under one cent.
+
+These are cost targets, set before the build, and nothing enforces them: the contracts are
+deployed and immutable, and the measured figures are reported against them as they are.
+Measured as their own transactions on a fork with real USDG (the fork section of
+`contracts/GAS.md`, execution gas before the refund), `openUpDown` (the on-chain listing),
+both `enter` rows, `resolve` (202k with the mock feed, 213k on the real NVDA feed) and the
+first fee `claimFor` ever accrues in a token are over. Beyond `openUpDown`, the largest
+overage is 44k gas (a joining `enter`), about 9e-7 ETH at that base fee, so the targets stay
+as written. The D9 ceilings below are different: they are safety bounds, and tests enforce
+them.
+
+### How gas is measured, and the pinned toolchain
+
+The figures depend on the forge release as well as on the code, so the repo pins forge
+**1.8.4**: `scripts/forge.sh` runs it whichever forge is the default (`pnpm verify`, the
+`contracts:*` scripts, the fork rehearsal and `go-live.sh` all go through it, and CI
+installs the same release); with any other release the gate fails and says how to install
+it. Two settings that forge 1.8 flipped are pinned in `contracts/foundry.toml`:
+`isolate = false` and `dynamic_test_linking = false`. Three kinds of figure:
+
+- **Local table** (`GAS.md`, top; `GAS-REFERENCE.md`, the paper's method): a `gasleft()`
+  delta around one call inside the suite's single test transaction, storage cooled first,
+  excluding 21,000 and calldata. A slot an earlier call of the suite already wrote is
+  priced as dirty (100 gas a write instead of 2,900 or 20,000), so a row can read lower
+  than its own transaction.
+- **Fork table** (`GAS.md`, bottom; `test/fork/GAS-FORK.md`): every call is its own
+  transaction (isolate mode, set per test), on a fork of chain 4663 with real USDG and
+  the real NVDA feed. Receipt gas, and execution before the refund.
+- **D9 block fit** (`test/VintageStuffing.t.sol`, isolate mode): the gas the finalizing
+  transaction needs, 21,000 + calldata + execution before the refund, which is what
+  `eth_estimateGas` returns and what has to fit in a block.
+
+**What changed on 2026-10-03.** `foundryup` moved the machine from forge 1.5.1 to 1.8.4.
+The compiled contracts are byte-identical under both, and so are the in-suite tables once
+the two settings above are pinned (`GAS.md` and `GAS-REFERENCE.md` regenerate byte for
+byte); three D9 assertions failed only because 1.8.4 changed how forge measures:
+
+1. `isolate` now defaults to true, so every test call became its own transaction.
+2. In isolate mode, forge 1.5.1 reported a call's gas net of its refund; 1.8.4 reports
+   it before the refund. The fork table computed "receipt" and "before the refund" from
+   1.5.1's figure, so every row it published before 2026-10-04 was low by that call's
+   refund (2,800 on a losing `claimFor`, 24,000 on `finalizeVintage`, 42,600 on
+   `openUpDown`). Regenerated with 1.8.4, `enter` first in a new block (248,671 against
+   240k) and `resolve` (above) now read over their targets, as they always were.
+3. forge 1.8.4 forks Robinhood Chain as an Arbitrum chain: `block.number` is the L1 block
+   (as the contracts see it on chain) and ArbSys answers with the L2 block.
+
+**Ground truth.** The worst D9 case, replayed as real transactions on anvil (Cancun; 200
+entries mined in one block, finalized in the next): `eth_estimateGas` 25,323,974, receipt
+24,051,974. For the same transactions forge 1.8.4 in isolate mode reports 25,323,974
+(25,323,986 in the suite below, whose market id adds a non-zero calldata byte), forge 1.5.1
+in isolate mode 24,051,974 (the receipt), and the old in-suite method 23,099,182 of
+execution (23,120,374 with the 21,192 of intrinsic gas). The in-suite figure was 2.2M low because
+the 200 entries had dirtied, in the same test transaction, the slots finalizing rewrites.
+
+### D9 block-fit ceilings (re-baselined 2026-10-04)
+
+Every way out of a market finalizes its pending vintage first, so the fullest vintage the
+caps allow must finalize inside one transaction under Robinhood Chain's 32M gas limit, or
+the market locks with every stake in it (D9). The ceilings are regression tripwires set
+just above the measured figure; the bound that matters is 32M.
+
+| Transaction (real, isolate mode) | Measured | Ceiling, was | Ceiling, now |
+|---|---:|---:|---:|
+| `finalizeVintage`, worst full vintage of any creatable market (64 outcomes x 200 entries, every book rationed) | 25,323,986 | 25,000,000 | 26,000,000 |
+| `resolve` settling through a full binary vintage (200 entries, D8) | 7,994,309 | 8,000,000 | 9,000,000 |
+| `enter` finalizing a full binary vintage, then opening a fresh one | 8,091,727 | 8,000,000 | 9,000,000 |
+
+Why this is the right fix rather than pinning the old method: the old ceilings were set on
+the in-suite figures, which understated what the chain charges; the new ones are set on the
+figure the chain checks against the block limit. The margin is 6.7M gas (21%) of the block
+at the measured worst case, and 6M (19%) at the ceiling. Nothing the margin has to absorb
+grows: the contracts are immutable, the caps are constants, and the test measures three
+layouts at twelve outcome counts across everything `create` accepts inside 32M gas (2 to
+139 outcomes; the work cap makes 64 the worst, and a 110-outcome full vintage needs 21.3M).
+The L1 data component of a 36-byte `finalizeVintage` call is negligible (the L1 data fee on
+chain 4663 was 0, above). Only an EVM repricing in a future ArbOS upgrade, or a toolchain
+change, could move these figures, and the ceilings sit close enough above them that either
+fails the gate.
 
 ## Static analysis
 

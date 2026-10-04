@@ -10,8 +10,14 @@ FAIL=0
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 run()  { echo "    \$ $*"; if ! "$@"; then echo "    FAILED: $*"; FAIL=1; fi; }
 
-if [ -f contracts/foundry.toml ]; then
-  step "contracts: forge build"
+if [ -f contracts/foundry.toml ] && ! FORGE=$(bash scripts/forge.sh --which); then
+  echo "    FAILED: the pinned forge is not installed (scripts/forge.sh, message above)"
+  FAIL=1
+elif [ -f contracts/foundry.toml ]; then
+  # The pinned forge release goes first on PATH, for forge here and for Slither's own build:
+  # the gas figures and budgets are measured with it (scripts/forge.sh says why).
+  export PATH="$(dirname "$FORGE"):$PATH"
+  step "contracts: forge build ($(forge --version | head -1))"
   run forge build --root contracts --sizes
   step "contracts: forge test"
   run forge test --root contracts

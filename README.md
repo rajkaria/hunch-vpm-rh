@@ -143,6 +143,11 @@ pnpm --filter @hunch-rh/web dev  # the venue against mainnet (read-only until de
 pnpm rehearse                    # deploy and run a full market on a local fork of chain 4663
 ```
 
+The contracts are built and measured with **forge 1.8.4**, pinned: `bash scripts/forge.sh`
+(or `pnpm forge`) runs that release even when another one is your default, and the gate fails
+with the install command (`foundryup --install v1.8.4`) when it is missing. Gas figures and
+the D9 ceilings depend on the release: [docs/spec/03-contracts.md](docs/spec/03-contracts.md#how-gas-is-measured-and-the-pinned-toolchain).
+
 Deploying and operating the venue: [`docs/OPERATOR.md`](docs/OPERATOR.md) and
 [`docs/RUNBOOK.md`](docs/RUNBOOK.md). Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 Where this goes next: [`VISION.md`](VISION.md).

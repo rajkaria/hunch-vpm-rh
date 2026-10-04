@@ -15,7 +15,7 @@ Budget: about 30 minutes plus waiting for funds to bridge.
 
 | Item | Why | Cost |
 |---|---|---|
-| Foundry (`forge`, `cast`), pnpm 10, `jq`, the Vercel CLI logged in to the project | the scripts | free |
+| Foundry **1.8.4** (`foundryup --install v1.8.4`; `scripts/forge.sh` finds it even when another release is your default), pnpm 10, `jq`, the Vercel CLI logged in to the project | the scripts (the gate, the rehearsal and `go-live.sh` deploy with the pinned forge) | free |
 | A QuickNode (or Alchemy) endpoint for Robinhood Chain mainnet | the public RPC keeps only ~10 minutes of history; the keeper, round finding and fork rehearsals need a keyed RPC | free tier / credits |
 | ~0.004 ETH on Robinhood Chain | deployer 0.001 (Safe + deploy + ownership: ~0.0003 at 0.03 gwei), keeper 0.003 (listing, relayed bets, payouts: ~0.0002 to 0.0004 a day) | ~$10 |
 | 6 USDG or more on Robinhood Chain | the keeper's seed float: 4 USDG for the launch configuration (NVDA and TSLA dailies at a 1 USDG seed), 2 for the refund drill; it recycles at every settlement (step 4) | ~$6, recycled |
@@ -115,7 +115,7 @@ delivers every payout, sweeps fees and claims the residue, and checks every bala
 `--template <json>` rehearses candidate params before you write them into the mainnet JSON.
 `test-go-live.sh` runs `go-live.sh` with anvil's test keys and a deployer holding only 0.001 ETH,
 then runs it again and checks nothing changes. Optionally, the fork test suites:
-`RH_RPC_URL=$RH_RPC_URL forge test --root contracts --match-path 'test/fork/*'`.
+`RH_RPC_URL=$RH_RPC_URL bash scripts/forge.sh test --root contracts --match-path 'test/fork/*'`.
 
 ## 6. Go live
 

@@ -6,7 +6,7 @@ The vendored reference settler's own measurements are in `GAS-REFERENCE.md` (tes
 - solc 0.8.28, optimizer on, 200 runs, `via_ir = false`, EVM `cancun` (see foundry.toml).
 - Each figure is a `gasleft()` delta around ONE external call with every touched contract's storage cooled first (`vm.cool`): the call's execution cost as its own transaction, excluding the 21,000 base fee and calldata, including the token transfers inside it.
 - Venue market: kappa 30, seed 10 / 10 USDG, fee 200 bps, caps 1 to 100 USDG, stakes of 10 to 50 USDG.
-- **Local mocks** stand in for USDG (on chain a proxy with facets: a plain `transfer` is 66,208 gas there), the Chainlink proxy and the Stock Token, so the token and feed legs cost more on chain 4663. Fork numbers (real USDG, real feed) come with the fork suite in S4.
+- **Local mocks** stand in for USDG (on chain a proxy with facets: a plain `transfer` is 66,208 gas there), the Chainlink proxy and the Stock Token, so the token and feed legs cost more on chain 4663. Fork numbers (real USDG, real feed) are in the fork section, below.
 - Budgets are `docs/spec/03-contracts.md` section Gas; the reference column quotes GAS-REFERENCE.md (kappa 9, n = 2).
 
 | call | gas | budget | | reference |
@@ -26,22 +26,23 @@ The vendored reference settler's own measurements are in `GAS-REFERENCE.md` (tes
 | `sweepFees` to the treasury | 44782 | - |  | - |
 | `StockRoundResolver.resolve`, FLAT (equal answers: voids the market) | 84034 | - |  | - |
 | `finalizeVintage`, a full binary vintage (200 one-unit entries, D9 cap) | 6802465 | - |  | - |
-| `finalizeVintage`, D9 worst case (64 outcomes x 200 entries, every book rationed) | 23099664 | 25000000 | within | - |
+| `finalizeVintage`, D9 worst case (64 outcomes x 200 entries, every book rationed) | 23099664 | - |  | - |
 
 ### Reading the table
 
+- **Method.** Every row is measured inside the suite's one test transaction (foundry.toml pins `isolate = false`). Cooling gives each call cold access as in its own transaction, but a slot an earlier call of the suite already wrote is priced as dirty (100 gas a write instead of 2,900 or 20,000), so a row can read lower than the same call as its own transaction. The fork section below runs every call as its own transaction.
 - **Token legs.** MockUSDG checks the freeze list for the sender, the recipient and (on `transferFrom`) the spender, and the global pause, as USDG does: about four more cold reads per transfer than the reference's MockERC20, so every row that moves tokens carries roughly 6,000 to 8,500 gas the reference column does not.
 - **`openUpDown` is over its 900,000 budget** because it does more than the budget assumed: after `create` (about 695,000 here, including two D6 position ids) it registers the spec (about 130,000: five slots plus `specIdOf`) and, per the on-chain enumeration decision, appends a 12-field listing (six slots) plus `listingIndexOf` and the array length (about 180,000 with the `MarketOpened` event). At the 0.02 gwei observed on chain 4663 that is about 0.00002 ETH per market. Keeping the listing on chain is what lets the web enumerate markets with view calls only.
 - **`enter` joining a vintage** exceeds 150,000 only in the worst case, when its id starts a new slot of the market's id list (one entry in four); the typical join and the first-in-block entry are within budget.
 - **`claimFor` winning** exceeds 90,000 only for the first fee the settler ever accrues in a token (a zero to non-zero slot); afterwards it is within budget.
-- **Full vintages (D9).** Every way out of a market finalizes its pending vintage first, so the fullest vintage the caps allow must finalize well inside Robinhood Chain's 32M gas per transaction. A vintage holds at most 200 entries and at most 12,800 entry-outcome pairs; the costliest layout is 64 outcomes with every book rationed (a cap computed for every pair, every book written). `test/VintageStuffing.t.sol` measures every creatable outcome count (up to about 140 inside 32M gas) and pins the worst under 25M.
+- **Full vintages (D9).** Every way out of a market finalizes its pending vintage first, so the fullest vintage the caps allow must finalize well inside Robinhood Chain's 32M gas per transaction. A vintage holds at most 200 entries and at most 12,800 entry-outcome pairs; the costliest layout is 64 outcomes with every book rationed (a cap computed for every pair, every book written). The two D9 rows above understate the chain for this call: in this table's one test transaction the 200 entries have just written the slots finalizing rewrites, so those writes are priced as dirty. The block fit is measured as real transactions in `test/VintageStuffing.t.sol` (isolate mode, the figure `eth_estimateGas` returns, before the refund), across the outcome counts a market can be created with (2 to 139 inside 32M gas): the worst full vintage, at 64 outcomes, needs about 25.3M gas, pinned under 26M; a full binary vintage about 8.0M settled by `resolve` and 8.1M finalized by the next entry, pinned under 9M.
 
 `enter` carries four things the reference's does not: the entries-pause check (D4, one cold slot), the entry bounds (D3, packed into slots `enter` already reads), the per-market position index (D6, `uint64` ids packed four to a slot, so three entries in four write a slot that is already non-zero) and the payment check (D5: the settler's USDG balance read before and after the pull, about 2,200 gas here). `enterWithAuthorization` also reads USDG's `authorizationState` first (D5: USDG returns without paying for a used or cancelled nonce), about 3,300 gas with the balance check.
 <!-- fork-gas: generated by test/fork/ForkGas.t.sol; everything below is rewritten -->
 
 ## On a fork of Robinhood Chain (4663): real USDG, real feed
 
-Generated by `RH_RPC_URL=<rpc> forge test --root contracts --match-contract ForkGasTest -vv` (test/fork/ForkGas.t.sol) on a fork at block 78429597 (unix 1790964078). The scenario of the table above, but every call runs as its own transaction (forge isolate mode), so each figure is what its receipt shows: 21,000 base + calldata + execution, net of the EIP-3529 refund.
+Generated by `RH_RPC_URL=<rpc> bash scripts/forge.sh test --root contracts --match-contract ForkGasTest -vv` (test/fork/ForkGas.t.sol) on a fork at block 79636765 (unix 1791086476). The scenario of the table above, but every call runs as its own transaction (forge isolate mode), so each figure is what its receipt shows: 21,000 base + calldata + execution, net of the EIP-3529 refund.
 
 - **mocks**: the local setup (MockUSDG, MockAggregator, MockStockToken) on the fork.
 - **real USDG**: the Paxos USDG proxy instead of MockUSDG (proxy + facets, freeze list, pause, rewards accounting); the feed and the Stock Token stay mocks so the market resolves deterministically.
@@ -50,21 +51,21 @@ Generated by `RH_RPC_URL=<rpc> forge test --root contracts --match-contract Fork
 
 | call | mocks (receipt) | real USDG (receipt) | real minus mocks | execution | budget | |
 |---|---:|---:|---:|---:|---:|---|
-| `openUpDown` (pull seed, create, register spec, hand over both legs, list) | 1030189 | 1047633 | +17444 | 1067701 | 900000 | OVER |
-| `enter`, first entry after creation (opens a vintage, nothing to finalize) | 201628 | 213114 | +11486 | 194430 | - |  |
-| `enter`, first in a new block (finalizes the previous 1-entry vintage, opens one) | 237893 | 249379 | +11486 | 238271 | 240000 | within |
-| `enter`, joining the open vintage, worst case (opens a slot of the id list) | 198656 | 210142 | +11486 | 191458 | 150000 | OVER |
-| `enter`, joining the open vintage, typical | 164518 | 176004 | +11486 | 157308 | 150000 | OVER |
-| `enterWithAuthorization`, first in a new block (finalizes a 1-entry vintage) | 271345 | 285579 | +14234 | 272227 | 300000 | within |
-| `enterWithAuthorization`, joining the open vintage | 232120 | 246354 | +14234 | 225414 | 300000 | within |
-| `finalizeVintage` of a 2-entry vintage | 143103 | 143103 | +0 | 145911 | - |  |
-| `StockRoundResolver.resolve` (mock feed: both round proofs, oraclePaused, settler.resolve finalizing a 1-entry vintage) | 195233 | 195233 | +0 | 187753 | 200000 | within |
-| `claimFor`, winning position, first fee ever accrued in this token | 122396 | 129499 | +7103 | 111095 | 90000 | OVER |
-| `claimFor`, winning position, typical (fee balance already non-zero) | 88196 | 95299 | +7103 | 76895 | 90000 | within |
-| `claimFor`, losing position | 40670 | 40670 | +0 | 22266 | - |  |
-| `sweepFees` to the treasury | 58463 | 65554 | +7091 | 51734 | - |  |
-| `StockRoundResolver.resolve`, FLAT (mock feed; equal answers void the market) | 115638 | 115638 | +0 | 93758 | - |  |
-| `StockRoundResolver.resolve` on the real NVDA feed + Stock Token (latest two rounds: DOWN) | - | 206600 | - | 199096 | 200000 | within |
+| `openUpDown` (pull seed, create, register spec, hand over both legs, list) | 1072801 | 1090233 | +17432 | 1110301 | 900000 | OVER |
+| `enter`, first entry after creation (opens a vintage, nothing to finalize) | 204428 | 215914 | +11486 | 197230 | - |  |
+| `enter`, first in a new block (finalizes the previous 1-entry vintage, opens one) | 248293 | 259779 | +11486 | 248671 | 240000 | OVER |
+| `enter`, joining the open vintage, worst case (opens a slot of the id list) | 201456 | 212942 | +11486 | 194258 | 150000 | OVER |
+| `enter`, joining the open vintage, typical | 167318 | 178804 | +11486 | 160108 | 150000 | OVER |
+| `enterWithAuthorization`, first in a new block (finalizes a 1-entry vintage) | 281745 | 295967 | +14222 | 282627 | 300000 | within |
+| `enterWithAuthorization`, joining the open vintage | 234920 | 249166 | +14246 | 228214 | 300000 | within |
+| `finalizeVintage` of a 2-entry vintage | 167103 | 167103 | +0 | 169911 | - |  |
+| `StockRoundResolver.resolve` (mock feed: both round proofs, oraclePaused, settler.resolve finalizing a 1-entry vintage) | 209633 | 209633 | +0 | 202153 | 200000 | OVER |
+| `claimFor`, winning position, first fee ever accrued in this token | 125196 | 132299 | +7103 | 113895 | 90000 | OVER |
+| `claimFor`, winning position, typical (fee balance already non-zero) | 90996 | 98099 | +7103 | 79695 | 90000 | within |
+| `claimFor`, losing position | 43470 | 43470 | +0 | 25066 | - |  |
+| `sweepFees` to the treasury | 66063 | 73154 | +7091 | 59334 | - |  |
+| `StockRoundResolver.resolve`, FLAT (mock feed; equal answers void the market) | 115626 | 115638 | +12 | 93758 | - |  |
+| `StockRoundResolver.resolve` on the real NVDA feed + Stock Token (latest two rounds: DOWN) | - | 221000 | - | 213496 | 200000 | OVER |
 | `StockRoundResolver.resolve` on the real NVDA feed, FLAT (same round at both bells: voids) | - | 129001 | - | 107097 | - |  |
 
 Real USDG costs more than MockUSDG on every row that moves tokens (the proxy delegatecall, the facet router, the freeze and pause checks, the rewards accounting). At the 0.02 gwei base fee observed on chain 4663 on 2026-09-27, 1,000,000 gas costs 0.00002 ETH; the L1 data fee was 0.

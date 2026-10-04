@@ -134,16 +134,19 @@ record() { # label receipt-json
   LAST_TX=$hash
   GAS_LOG="$GAS_LOG$(printf '     %-62s %9s gas  %s' "$1" "$gas" "$hash")"$'\n'
 }
+cast_error() { # why a `cast send --json` failed: cast 1.8 prints its errors as JSON on stdout
+  { tail -3 "$ERR"; jq -r '.errors[]?.message' <<<"$1" 2>/dev/null; } | paste -sd ' ' -
+}
 send() { # label key to signature args...  (a transaction signed with an anvil test key)
   local label=$1 key=$2 out
   shift 2
-  out=$(cast send --rpc-url "$RPC" --private-key "$key" --json "$@" 2>"$ERR") || die "$label: $(tail -3 "$ERR")"
+  out=$(cast send --rpc-url "$RPC" --private-key "$key" --json "$@" 2>"$ERR") || die "$label: $(cast_error "$out")"
   record "$label" "$out"
 }
 send_as() { # label from to signature args...  (an impersonated account)
   local label=$1 from=$2 out
   shift 2
-  out=$(cast send --rpc-url "$RPC" --unlocked --from "$from" --json "$@" 2>"$ERR") || die "$label: $(tail -3 "$ERR")"
+  out=$(cast send --rpc-url "$RPC" --unlocked --from "$from" --json "$@" 2>"$ERR") || die "$label: $(cast_error "$out")"
   record "$label" "$out"
 }
 reverts() { # label signature-call...  (an eth_call that must revert)
@@ -154,12 +157,14 @@ reverts() { # label signature-call...  (an eth_call that must revert)
 }
 
 # ------------------------------------------------------------------ preconditions
-for tool in anvil forge cast jq git; do command -v "$tool" >/dev/null 2>&1 || die "$tool is not installed"; done
+for tool in anvil cast jq git; do command -v "$tool" >/dev/null 2>&1 || die "$tool is not installed"; done
+# the repo's pinned forge release (scripts/forge.sh); scripts/go-live.sh deploys with the same one
+FORGE=$(bash scripts/forge.sh --which) || die "the pinned forge is not installed (scripts/forge.sh)"
 printf 'Hunch on Robinhood Chain: fork rehearsal (%s)\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 say "fork source $(mask "$FORK_URL")"
 step "Build the contracts"
-forge build --root contracts >"$LOCAL/build.log" 2>&1 || die "forge build failed: $(grep -m3 -A3 Error "$LOCAL/build.log")"
-say "ok  forge build"
+"$FORGE" build --root contracts >"$LOCAL/build.log" 2>&1 || die "forge build failed: $(grep -m3 -A3 Error "$LOCAL/build.log")"
+say "ok  forge build ($("$FORGE" --version | head -1))"
 
 # ------------------------------------------------------------------ 1. anvil
 step "Start anvil: a fork of chain 4663 at the latest block"
@@ -188,6 +193,13 @@ FORK_BLOCK=$(cast block-number --rpc-url "$RPC")
 FORK_TIME=$(cast block latest --field timestamp --rpc-url "$RPC")
 say "anvil pid $ANVIL_PID at $RPC, fork block $FORK_BLOCK ($(jq -rn --argjson t "$FORK_TIME" '$t | todate'))"
 say "the public RPC keeps ~10 min of state: every remote read below happens in the first minutes"
+# cast and forge 1.8 price EIP-1559 transactions from eth_feeHistory over the last 10 blocks, and
+# anvil 1.8 fetches the pre-fork blocks of that window from the remote RPC, which a non-archive
+# node refuses within a minute of the fork ("historical state ... is not available"). Mine 12
+# empty local blocks, each at the forked base fee (an empty block would lower it), so the window
+# is local and the fees stay the chain's.
+FORK_BASE_FEE=$(cast to-hex "$(cast block latest --field baseFeePerGas --rpc-url "$RPC")")
+for _ in $(seq 1 12); do rpc anvil_setNextBlockBaseFeePerGas "$FORK_BASE_FEE" && rpc evm_mine; done
 eq "USDG DOMAIN_SEPARATOR() (real, on the fork)" "$(view "$USDG" 'DOMAIN_SEPARATOR()(bytes32)')" "$USDG_DOMAIN_SEPARATOR"
 
 DEPLOYER=$(addr_of "$K_DEPLOYER")
@@ -262,7 +274,7 @@ eq "Carol ETH" "$(eth_of "$CAROL")" 0
 deploy() { # extra forge flags...
   SAFE_ADDRESS="$DEPLOY_SAFE" KEEPER_ADDRESS="$KEEPER" DEPLOYMENTS_OUT="$FORK_JSON" DEPLOYMENTS_TEMPLATE="$PARAMS_JSON" \
     FOUNDRY_BROADCAST="$BROADCAST_DIR" \
-    forge script contracts/script/DeployRH.s.sol:DeployRH --root contracts --rpc-url "$RPC" \
+    "$FORGE" script contracts/script/DeployRH.s.sol:DeployRH --root contracts --rpc-url "$RPC" \
     --private-key "$K_DEPLOYER" --sender "$DEPLOYER" "$@"
 }
 step "DeployRH preflight refuses a 1-of-1 Safe without ALLOW_1OF1 (simulation only)"
@@ -341,7 +353,7 @@ reverts "setFeed from the old owner (the deployer)" --from "$DEPLOYER" "$FACTORY
 step "Deploy a TEST MockAggregator + MockStockToken; the Safe allow-lists them"
 create() { # contract-path (relative to contracts/) constructor-args...
   local out a
-  out=$(forge create --root contracts "$1" --rpc-url "$RPC" --private-key "$K_STRANGER" --broadcast --json \
+  out=$("$FORGE" create --root contracts "$1" --rpc-url "$RPC" --private-key "$K_STRANGER" --broadcast --json \
     --constructor-args "${@:2}" 2>"$ERR") || die "forge create $1: $(tail -3 "$ERR")"
   a=$(printf '%s\n' "$out" | sed -n '/^{/,$p' | jq -r .deployedTo 2>/dev/null) || true
   [ -n "$a" ] && [ "$a" != null ] || die "forge create $1: no address in its output"
@@ -369,7 +381,7 @@ send "TEST feed: strike-time round (100.00)" "$K_STRANGER" "$TEST_FEED" 'addRoun
 R1=$(view "$TEST_FEED" 'latestRound()(uint256)' | first)
 FEED="$TEST_FEED" STRIKE_TIME="$STRIKE" FINAL_TIME="$FINAL" DEPLOYMENT_JSON="$FORK_JSON" \
   FOUNDRY_BROADCAST="$BROADCAST_DIR" \
-  forge script contracts/script/OpenUpDown.s.sol:OpenUpDown --root contracts --rpc-url "$RPC" \
+  "$FORGE" script contracts/script/OpenUpDown.s.sol:OpenUpDown --root contracts --rpc-url "$RPC" \
   --private-key "$K_KEEPER" --sender "$KEEPER" --broadcast --slow >"$LOCAL/open.log" 2>&1 ||
   die "OpenUpDown failed: $(tail -20 "$LOCAL/open.log")"
 grep -E 'Listed|spec id' "$LOCAL/open.log" | sed 's/^ */     /'

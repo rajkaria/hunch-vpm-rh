@@ -10,8 +10,9 @@
   },
   "scripts": {
     "verify": "bash scripts/verify.sh",
-    "contracts:build": "forge build --root contracts",
-    "contracts:test": "forge test --root contracts",
+    "forge": "bash scripts/forge.sh",
+    "contracts:build": "bash scripts/forge.sh build --root contracts",
+    "contracts:test": "bash scripts/forge.sh test --root contracts",
     "wire": "node scripts/wire-deployment.mjs --write",
     "rehearse": "bash scripts/rehearse-fork.sh"
   },

@@ -167,10 +167,12 @@ if [ "$deployed" = "1" ]; then
 elif [ "$CHECK_ONLY" = "1" ]; then
   say "would run  DeployRH --broadcast --slow (preflight, 3 contracts, 4 feeds, the keeper as opener, ownership to the Safe), then post-deploy"
 else
+  # the repo's pinned forge release (scripts/forge.sh), the one scripts/rehearse-fork.sh rehearses with
+  FORGE=$(bash scripts/forge.sh --which) || die "the pinned forge is not installed (scripts/forge.sh)"
   extra=()
   [ "$RESUME" = "1" ] && extra+=(--resume)
   SAFE_ADDRESS=$SAFE KEEPER_ADDRESS=$KEEPER_ADDRESS DEPLOYMENTS_OUT="$PWD/$JSON" DEPLOYMENTS_TEMPLATE="$PWD/$MAINNET_JSON" \
-    forge script contracts/script/DeployRH.s.sol:DeployRH --root contracts --rpc-url "$RPC" \
+    "$FORGE" script contracts/script/DeployRH.s.sol:DeployRH --root contracts --rpc-url "$RPC" \
     --private-key "$DEPLOYER_PRIVATE_KEY" --sender "$DEPLOYER_ADDRESS" --broadcast --slow ${extra[@]+"${extra[@]}"} \
     >"$LOG" 2>&1 || die "DeployRH failed (log: $LOG): $(grep -E 'DeployRH:|Error' "$LOG" | tail -3). If it stopped mid-broadcast: bash scripts/go-live.sh --resume"
   grep -E '^\s+(ok |Preflight|StockRoundResolver|HunchVPM|HunchMarketFactory)' "$LOG" | sed 's/^ */  /' | head -14

@@ -4,16 +4,22 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {RH, IUSDG} from "../../script/RH.sol";
 
+/// @notice Arbitrum's ArbSys precompile, which forge 1.8 models on a fork of an Arbitrum chain.
+interface IArbSys {
+    function arbBlockNumber() external view returns (uint256);
+}
+
 /// @notice Shared fixture of the chain-4663 fork suites (T5f, T7, T7g, DeployRH).
 ///         Each suite forks Robinhood Chain at the LATEST block of `RH_RPC_URL` (the public
 ///         RPC keeps only ~10 minutes of state, so an older pinned block fails there; with a
 ///         keyed archive RPC, `RH_FORK_BLOCK` pins one). Without `RH_RPC_URL` (or with it
 ///         empty, as CI passes a missing secret) every test of the suite is skipped:
 ///
-///           RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com forge test --root contracts --match-path 'test/fork/*'
+///           RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com bash scripts/forge.sh test --root contracts --match-path 'test/fork/*'
 ///
-///         On a fork, `block.number` is the fork's own counter (L2 style), not the L1 estimate
-///         the EVM reads on chain 4663; vintages are driven explicitly with `vm.roll`.
+///         forge 1.8 forks an Arbitrum chain as one: `block.number` is the L1 block number, as
+///         the EVM reads it on chain 4663, and ArbSys answers with the L2 block (forge 1.5.1 gave
+///         the L2 number as `block.number`). Vintages are driven explicitly with `vm.roll`.
 abstract contract ForkBase is Test {
     IUSDG internal constant USDG = IUSDG(RH.USDG);
     /// @notice keccak256("CancelAuthorization(address authorizer,bytes32 nonce)"), EIP-3009.
@@ -32,6 +38,11 @@ abstract contract ForkBase is Test {
         else vm.createSelectFork(url, pinned);
         assertEq(block.chainid, RH.CHAIN_ID, "RH_RPC_URL is not Robinhood Chain (4663)");
         return true;
+    }
+
+    /// @dev The forked L2 block, the number the explorer shows (`block.number` is the L1 one).
+    function _l2Block() internal view returns (uint256) {
+        return IArbSys(address(0x64)).arbBlockNumber();
     }
 
     /// @dev Real USDG from the USDG/WETH pool (impersonated): exact, and no storage guessing.

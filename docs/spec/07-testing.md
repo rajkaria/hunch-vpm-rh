@@ -1,7 +1,8 @@
 # 07 · Testing and verification
 
 One gate: `pnpm verify` = `forge build` → `forge test` → `slither` (triaged) →
-`tsc --noEmit` → `vitest run` → `next build`. CI runs the same script. Tests exist to
+`tsc --noEmit` → `vitest run` → `next build`. CI runs the same script, and both run forge
+1.8.4, the release `scripts/forge.sh` pins (gas figures depend on it: `03-contracts.md` §Gas). Tests exist to
 keep the golden path from breaking and to prove the contract claims on the README; the
 README does not advertise test counts.
 
@@ -18,7 +19,7 @@ README does not advertise test counts.
 | T5f | `ResolverFork.t.sol` (fork of chain 4663 at a pinned block after a completed session; keyed archive RPC required) | With a `MockSettler`, register a spec over that real session for each allow-listed feed, resolve with round ids from the TS finder, and assert the outcome equals the independently computed one (prices recorded in the test with their round ids and explorer links). |
 | T6 | `HunchMarketFactory.t.sol` | Allow-list and opener gates; bounds on times and seed; seed legs handed to the opener; allowance zeroed; factory ends every call with zero balance; two-step ownership. |
 | T7 | `ForkE2E.t.sol` (fork of chain 4663) | Deploy all three contracts against **real USDG** (balances via `deal`) and a mock feed registered as allowed; open a market; 4 bettors enter across L1 block numbers (`vm.roll`) incl. a same-vintage pair and a partial fill, one of them through `enterWithAuthorization` signed against USDG's real domain separator; warp to the bell; resolve; `claimFor` everyone; assert INV-1/2 and exact balances. |
-| T7g | `Gas.t.sol` | Measures the calls in `03-contracts.md` §Gas on the fork, writes `contracts/GAS.md`. |
+| T7g | `HunchGas.t.sol` (local), `fork/ForkGas.t.sol` (fork, every call its own transaction) | Measure the calls in `03-contracts.md` §Gas and write `contracts/GAS.md`; the D9 block fit is pinned as real transactions in `VintageStuffing.t.sol` (T2). |
 
 ## TypeScript
 

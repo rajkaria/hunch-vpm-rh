@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {VestedParimutuel, IERC20 as RefIERC20} from "../src/reference/VestedParimutuel.sol";
 import {HunchVPM, IERC20} from "../src/HunchVPM.sol";
 import {MockUSDG} from "../src/mocks/MockUSDG.sol";
+import {VmFrameGas, intrinsicGas} from "./utils/TxGas.sol";
 
 /// @title D9 · Lock prevention: a vintage cannot be stuffed past the block gas limit, and
 ///        finalizing never reverts
@@ -19,10 +20,27 @@ import {MockUSDG} from "../src/mocks/MockUSDG.sol";
 ///         alone did not bound it (independent review, M-2): a vintage also holds at most
 ///         MAX_VINTAGE_WORK entry-outcome pairs. And κ·a is computed at finalization, so a huge
 ///         finite κ could overflow there (I-1): a finite κ is at most MAX_KAPPA.
+///
+///         Every gas figure here is a REAL TRANSACTION: the tests that measure run in forge's
+///         isolate mode, so the call that finalizes is its own transaction after the entries'
+///         transactions, with fresh warm/cold access and fresh original storage values, as on
+///         chain. The figure is the gas that transaction needs (21,000 + calldata + execution,
+///         before the refund), what `eth_estimateGas` returns; it must fit in one block. Measured
+///         inside one test transaction instead, the slots finalizing rewrites would already be
+///         dirty from the entries (100 gas a write instead of 2,900 or 20,000), which understated
+///         the worst case by about 2.2M gas until 2026-10-04 (docs/spec/03-contracts.md, Gas).
 contract VintageStuffingTest is Test {
     uint256 internal constant BLOCK_GAS_LIMIT = 32_000_000; // Arbitrum Orbit default
-    /// @notice the pinned ceiling for finalizing the worst full vintage any creatable market allows
-    uint256 internal constant WORST_FINALIZE_GAS = 25_000_000;
+    /// @notice The pinned ceiling for the transaction that finalizes the worst full vintage any
+    ///         creatable market allows: measured 25,323,986 gas (64 outcomes, every book
+    ///         rationed; anvil's eth_estimateGas for the same transactions agrees to the gas),
+    ///         so 6.7M gas (21%) of the block stays free. Re-baselined from 25M on 2026-10-04,
+    ///         when the measurement moved to real transactions.
+    uint256 internal constant WORST_FINALIZE_GAS = 26_000_000;
+    /// @notice The pinned ceiling for a transaction that settles or enters through a full binary
+    ///         vintage (200 entries): measured about 8.1M gas, about a quarter of the block.
+    ///         Re-baselined from 8M on 2026-10-04 with the worst case above.
+    uint256 internal constant FULL_BINARY_VINTAGE_GAS = 9_000_000;
     MockUSDG internal usdg;
     address internal stuffer = makeAddr("stuffer");
     address internal resolver = makeAddr("resolver");
@@ -44,7 +62,9 @@ contract VintageStuffingTest is Test {
     }
 
     /// @notice The reference: 1,100 one-unit entries in one vintage, and neither finalizing nor
-    ///         voiding fits in a block any more (each measured as its own transaction: cold).
+    ///         voiding fits in a block any more (each as its own transaction).
+    /// forge-config: default.isolate = true
+    /// forge-config: ci.isolate = true
     function test_TheReferenceCanBeLockedByStuffingOneVintage() public {
         VestedParimutuel ref = new VestedParimutuel();
         usdg.approve(address(ref), type(uint256).max);
@@ -57,18 +77,17 @@ contract VintageStuffingTest is Test {
         }
         vm.stopPrank();
         vm.roll(block.number + 1);
-        vm.cool(address(ref));
-        vm.cool(address(usdg));
-        (bool ok,) = address(ref).call{gas: BLOCK_GAS_LIMIT}(abi.encodeCall(ref.finalizeVintage, (id)));
+        (bool ok,) = _tx(address(ref), abi.encodeCall(ref.finalizeVintage, (id)));
         assertFalse(ok, "finalizing 1,100 entries does not fit in a block");
         vm.warp(T + 2 days);
-        vm.cool(address(ref));
-        (ok,) = address(ref).call{gas: BLOCK_GAS_LIMIT}(abi.encodeCall(ref.voidMarket, (id)));
+        (ok,) = _tx(address(ref), abi.encodeCall(ref.voidMarket, (id)));
         assertFalse(ok, "and neither does the timeout void: the market is locked");
     }
 
     /// @notice HunchVPM: the 201st entry of a vintage waits for the next block; a full vintage
     ///         finalizes, and settles, comfortably inside a block.
+    /// forge-config: default.isolate = true
+    /// forge-config: ci.isolate = true
     function test_HunchVPMCapsAVintageSoItAlwaysFinalizes() public {
         HunchVPM vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"), address(this), address(0));
         usdg.approve(address(vpm), type(uint256).max);
@@ -88,17 +107,16 @@ contract VintageStuffingTest is Test {
 
         // settle in the same block (D8): the full vintage finalizes inside the resolve
         vm.warp(T);
-        vm.cool(address(vpm));
-        vm.cool(address(usdg));
-        uint256 g = gasleft();
         vm.prank(resolver);
-        vpm.resolve(id, 0);
-        uint256 used = g - gasleft();
+        (bool ok, uint256 used) = _tx(address(vpm), abi.encodeCall(vpm.resolve, (id, 0)));
+        assertTrue(ok, "resolve finalizes the full vintage");
         console.log("resolve finalizing a full 200-entry vintage, gas:", used);
-        assertLt(used, 8_000_000, "a full vintage settles in a quarter of a block");
+        assertLt(used, FULL_BINARY_VINTAGE_GAS, "a full vintage settles in about a quarter of a block");
         assertEq(vpm.pendingCount(id), 0);
     }
 
+    /// forge-config: default.isolate = true
+    /// forge-config: ci.isolate = true
     function test_TheNextBlockOpensAFreshVintage() public {
         HunchVPM vpm = new HunchVPM(makeAddr("guardian"), makeAddr("treasury"), address(this), address(0));
         usdg.approve(address(vpm), type(uint256).max);
@@ -109,15 +127,14 @@ contract VintageStuffingTest is Test {
         for (uint256 i = 0; i < 200; i++) {
             vpm.enter(id, uint8(i % 2), 1);
         }
-        vm.roll(block.number + 1);
-        vm.cool(address(vpm));
-        vm.cool(address(usdg));
-        uint256 g = gasleft();
-        vpm.enter(id, 0, 5e6); // finalizes the full vintage, then opens a fresh one
-        console.log("an entry finalizing a full 200-entry vintage, gas:", g - gasleft());
         vm.stopPrank();
+        vm.roll(block.number + 1);
+        vm.prank(stuffer); // finalizes the full vintage, then opens a fresh one
+        (bool ok, uint256 used) = _tx(address(vpm), abi.encodeCall(vpm.enter, (id, 0, 5e6)));
+        assertTrue(ok, "the entry goes through");
+        console.log("an entry finalizing a full 200-entry vintage, gas:", used);
         assertEq(vpm.pendingCount(id), 1);
-        assertLt(g - gasleft(), 8_000_000);
+        assertLt(used, FULL_BINARY_VINTAGE_GAS);
     }
 
     // ================================================================== M-2: many outcomes
@@ -139,12 +156,14 @@ contract VintageStuffingTest is Test {
     }
 
     /// @notice The worst full vintage of every outcome count a market can be created with inside
-    ///         a 32M-gas transaction finalizes under 25M gas, cold. Three layouts per n: κ
-    ///         unbounded with dust entries, κ at MAX_KAPPA with dust entries, and κ = n + 1 with
-    ///         every book rationed (the costliest: a cap is computed for every entry-outcome
-    ///         pair and every entry is accepted, so every book is written). Measured peak:
-    ///         about 23.1M gas at 64 outcomes, rationed.
-    function test_D9_EveryCreatableMarketsFullestVintageFinalizesUnder25MGas() public {
+    ///         a 32M-gas transaction finalizes in a transaction of under 26M gas. Three layouts
+    ///         per n: κ unbounded with dust entries, κ at MAX_KAPPA with dust entries, and
+    ///         κ = n + 1 with every book rationed (the costliest: a cap is computed for every
+    ///         entry-outcome pair and every entry is accepted, so every book is written).
+    ///         Measured peak: 25,323,986 gas at 64 outcomes, rationed.
+    /// forge-config: default.isolate = true
+    /// forge-config: ci.isolate = true
+    function test_D9_EveryCreatableMarketsFullestVintageFinalizesUnder26MGas() public {
         HunchVPM vpm = _vpm();
         uint256 nMax = _maxCreatableOutcomes(vpm);
         console.log("most outcomes creatable in a 32M-gas transaction:", nMax);
@@ -165,13 +184,15 @@ contract VintageStuffingTest is Test {
             if (m > worst) (worst, worstN) = (m, n);
         }
         console.log("worst finalize, gas:", worst, "at outcomes:", worstN);
-        assertLt(worst, WORST_FINALIZE_GAS, "every full vintage finalizes under 25M gas");
+        assertLt(worst, WORST_FINALIZE_GAS, "every full vintage finalizes under 26M gas");
     }
 
     /// @notice The reviewer's lock (AuditManyOutcomeStuffing): a 110-outcome market, κ 30, with a
     ///         victim's 1,000 USDG. The stuffer's 117th entry of a vintage now reverts
     ///         VintageFull, and every way out of the market fits in a block with a full vintage
     ///         pending: finalizing, a refund, the next entry, resolving, and the timeout void.
+    /// forge-config: default.isolate = true
+    /// forge-config: ci.isolate = true
     function test_D9_TheReviewersManyOutcomeLockIsImpossible() public {
         HunchVPM vpm = _vpm();
         uint256 n = 110;
@@ -187,31 +208,31 @@ contract VintageStuffingTest is Test {
         assertEq(_fill(vpm, id, n, 1), 115, "12,800 / 110 = 116 entries a vintage (the victim's is one)");
         vm.roll(block.number + 1);
 
-        (bool ok, uint256 used) = _cold(vpm, abi.encodeCall(vpm.finalizeVintage, (id)));
+        (bool ok, uint256 used) = _tx(address(vpm), abi.encodeCall(vpm.finalizeVintage, (id)));
         assertTrue(ok, "finalizing the stuffed vintage fits in a block");
         console.log("finalize a full 110-outcome vintage, gas:", used);
         assertLt(used, WORST_FINALIZE_GAS);
 
         assertEq(_fill(vpm, id, n, 1), 116);
         vm.roll(block.number + 1);
-        (ok, used) = _cold(vpm, abi.encodeCall(vpm.withdrawRefundFor, (pid)));
+        (ok,) = _tx(address(vpm), abi.encodeCall(vpm.withdrawRefundFor, (pid)));
         assertTrue(ok, "a refund before settlement (it finalizes first) fits");
         assertEq(usdg.balanceOf(victim), 1_000e6, "kappa 30 < 109 opposing books: no headroom, the stake comes back");
 
         _fill(vpm, id, n, 1);
         vm.roll(block.number + 1);
         vm.prank(stuffer);
-        (ok, used) = _cold(vpm, abi.encodeCall(vpm.enter, (id, 0, 1)));
+        (ok,) = _tx(address(vpm), abi.encodeCall(vpm.enter, (id, 0, 1)));
         assertTrue(ok, "the next entry finalizes the full vintage and fits");
 
         _fill(vpm, id, n, 1);
         _fill(vpm, other, n, 1);
         vm.warp(T);
         vm.prank(resolver);
-        (ok, used) = _cold(vpm, abi.encodeCall(vpm.resolve, (id, 3)));
+        (ok,) = _tx(address(vpm), abi.encodeCall(vpm.resolve, (id, 3)));
         assertTrue(ok, "resolve (D8: finalizes in the same block) fits");
         vm.warp(T + 1 days);
-        (ok, used) = _cold(vpm, abi.encodeCall(vpm.voidMarket, (other)));
+        (ok,) = _tx(address(vpm), abi.encodeCall(vpm.voidMarket, (other)));
         assertTrue(ok, "the timeout void by anyone fits");
     }
 
@@ -301,13 +322,17 @@ contract VintageStuffingTest is Test {
         vm.stopPrank();
     }
 
-    /// @dev One call as its own transaction: every touched contract cooled, at most 32M gas.
-    function _cold(HunchVPM vpm, bytes memory data) internal returns (bool ok, uint256 used) {
-        vm.cool(address(vpm));
-        vm.cool(address(usdg));
-        uint256 g = gasleft();
-        (ok,) = address(vpm).call{gas: BLOCK_GAS_LIMIT}(data);
-        used = g - gasleft();
+    /// @dev One call as its own transaction with a gas limit of one block: the calling test runs
+    ///      in isolate mode, so the call gets fresh warm/cold access and fresh original storage
+    ///      values, as on chain. forge gives the call `gas` for execution and charges the
+    ///      21,000 + calldata on top, so the transaction's limit is BLOCK_GAS_LIMIT in all.
+    ///      `used` is what the transaction needs: 21,000 + calldata + execution, before the
+    ///      refund (lastFrameGas, see test/utils/TxGas.sol). Prank before calling to set the
+    ///      sender.
+    function _tx(address to, bytes memory data) internal returns (bool ok, uint256 used) {
+        uint256 gas = BLOCK_GAS_LIMIT - intrinsicGas(data);
+        (ok,) = to.call{gas: gas}(data);
+        used = VmFrameGas(address(vm)).lastFrameGas().gasTotalUsed;
     }
 
     function _worstFinalize(HunchVPM vpm, uint256 n, uint256 kappa, uint256 seedEach, uint256 stake)
@@ -319,7 +344,7 @@ contract VintageStuffingTest is Test {
         _fill(vpm, id, n, stake);
         vm.roll(block.number + 1);
         bool ok;
-        (ok, used) = _cold(vpm, abi.encodeCall(vpm.finalizeVintage, (id)));
+        (ok, used) = _tx(address(vpm), abi.encodeCall(vpm.finalizeVintage, (id)));
         assertTrue(ok, "a full vintage finalizes inside a block");
     }
 
@@ -334,8 +359,8 @@ contract VintageStuffingTest is Test {
             for (uint256 i = 0; i < mid; i++) {
                 seed[i] = 1;
             }
-            (bool ok,) = _cold(
-                vpm,
+            (bool ok,) = _tx(
+                address(vpm),
                 abi.encodeCall(
                     vpm.create,
                     (IERC20(address(usdg)), seed, vpm.KAPPA_UNBOUNDED(), T, 1 days, resolver, resolver, 0, 0, 0)

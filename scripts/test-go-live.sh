@@ -35,6 +35,16 @@ for _ in $(seq 1 120); do
   sleep 0.5
 done
 eq "fork chain id" "$(cast chain-id --rpc-url "$RPC")" 4663
+# cast and forge 1.8 price EIP-1559 transactions from eth_feeHistory over the last 10 blocks, and
+# anvil 1.8 fetches the pre-fork blocks of that window from the remote RPC, which a non-archive
+# node refuses within a minute of the fork ("historical state ... is not available"). Mine 12
+# empty local blocks, each at the forked base fee (an empty block would lower it), so the window
+# is local and the fees stay the chain's.
+FORK_BASE_FEE=$(cast to-hex "$(cast block latest --field baseFeePerGas --rpc-url "$RPC")")
+for _ in $(seq 1 12); do
+  cast rpc --rpc-url "$RPC" anvil_setNextBlockBaseFeePerGas "$FORK_BASE_FEE" >/dev/null
+  cast rpc --rpc-url "$RPC" evm_mine >/dev/null
+done
 
 # anvil's well-known test keys (mnemonic "test test ... junk"); never valid anywhere else
 keys=(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80

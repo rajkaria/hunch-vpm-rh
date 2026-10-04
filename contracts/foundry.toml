@@ -13,6 +13,15 @@ evm_version = "cancun"
 # the vector replay is one long test: lift the per-test gas and memory ceilings
 gas_limit = "18446744073709551615"
 memory_limit = 268435456
+# Two test-runner defaults that forge 1.8 flipped to true, pinned to what the gas tables were
+# measured with. GAS.md (local table) and GAS-REFERENCE.md (the paper's method) are gasleft()
+# deltas inside ONE test transaction; isolate mode would turn every call into its own
+# transaction (21,000 + calldata in every figure). Tests that need a call measured as its own
+# transaction opt in per test with `/// forge-config: default.isolate = true` (fork gas, D9
+# block fit). Dynamic linking changes the test contracts' bytecode, which moves the gasleft()
+# deltas by a few gas. The forge release itself is pinned in scripts/forge.sh.
+isolate = false
+dynamic_test_linking = false
 fs_permissions = [
   { access = "read", path = "./test/vectors" },
   # GAS.md: HunchGas.t.sol (the product contracts); GAS-REFERENCE.md: the vendored Gas.t.sol.
